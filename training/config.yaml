@@ -1,0 +1,62 @@
+# ===================================================================
+#                       Shared Configuration
+# This section contains parameters common to all models and experiments.
+# ===================================================================
+seed: 42
+outputDir: '/path/to/output_directory'
+datasetPath: '/path/to/dataset'
+device: 'cuda:1'
+
+data:
+  whiteNoiseSD: 0.8
+  constantOffsetSD: 0.2
+  gaussianSmoothWidth: 2.0
+  strideLen: 4
+  kernelLen: 32
+  restricted_days: []
+  maxDay: null # Set to null if not doing held out days testing
+  nDays: 24
+  batchSize: 64
+
+optimizer:
+  AdamW: false
+  lrStart: 0.02
+  lrEnd: 0.02
+  l2_decay: 1.0e-5
+  beta1: 0.9
+  beta2: 0.999
+  learning_scheduler: 'none'
+  milestones: [400]
+  gamma: 0.1
+  n_epochs: 73
+
+# ===================================================================
+#                    Model-Specific Configurations
+# Each sub-section defines the architecture for a different model.
+# ===================================================================
+model:
+  # --- GRU Model Arguments ---
+  gru:
+    name: 'GRU'
+    nInputFeatures: 256
+    nClasses: 40
+    nUnits: 1024
+    nLayers: 5
+    dropout: 0.4
+    input_dropout: 0.0
+    bidirectional: false
+
+  # --- Transformer Model Arguments ---
+  transformer:
+    name: 'Transformer'
+    nInputFeatures: 256 # Often the same as d_model
+    nClasses: 40
+    # --- PASTE YOUR TRANSFORMER ARGS BELOW ---
+    d_model: 512        # Example: Model dimension
+    n_heads: 8          # Example: Number of attention heads
+    n_encoder_layers: 6 # Example: Number of encoder layers
+    dim_feedforward: 2048 # Example: Dimension of feedforward network
+    dropout: 0.1
+
+
+  
