@@ -7,6 +7,8 @@ import numpy as np
 import os
 import pickle
 
+# Adopted from https://github.com/cffan/neural_seq_decoder/notebooks/formatCompetitionData
+
 
 # ----------------------- USER-SPECIFIC INFORMATION -----------------------
 dataDir = "/data/willett_data/competitionData/" # directory where data is stored at 
