@@ -8,7 +8,7 @@ from einops.layers.torch import Rearrange
 from torch.nn import functional as F
 
 '''
-Code adapted from Fracois Porcher: https://github.com/FrancoisPorcher/vit-pytorch
+Code adapted from Francois Porcher: https://github.com/FrancoisPorcher/vit-pytorch
 '''
 
 def pad_to_multiple(tensor, multiple, dim=1, value=0):
@@ -148,8 +148,7 @@ class Transformer(nn.Module):
     
     def __init__(self, *, patch_size, dim, depth, heads, mlp_dim_ratio,
                  dim_head, dropout, input_dropout,
-                 nClasses, nClasses_2, T5_style_pos, max_mask_pct, num_masks, mask_token_zeros,
-                 num_masks_channels, max_mask_channels, dist_dict_path, consistency):
+                 nClasses, max_mask_pct, num_masks):
    
         super().__init__()
 
@@ -158,16 +157,9 @@ class Transformer(nn.Module):
         self.patch_width = patch_width
         self.dim = dim
         self.nClasses = nClasses
-        self.nClasses_2 = nClasses_2
-        self.T5_style_pos = T5_style_pos
         self.max_mask_pct = max_mask_pct
         self.num_masks = num_masks    
         self.patch_dim = patch_height * patch_width
-        self.T5_style_pos = T5_style_pos
-        self.num_masks_channels = num_masks_channels
-        self.max_channels_to_mask = max_mask_channels
-        self.dist_dict_path = dist_dict_path
-        self.consistency = consistency
         
         self.to_patch_embedding = nn.Sequential(
             Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', 
@@ -181,14 +173,7 @@ class Transformer(nn.Module):
         self.to_patch = self.to_patch_embedding[0]
         self.patch_to_emb = nn.Sequential(*self.to_patch_embedding[1:])
 
-        self.gaussianSmoother = GaussianSmoothing(
-            patch_width, 20, self.gaussianSmoothWidth, dim=1
-        )
-        
-        if mask_token_zeros:
-            self.mask_token = nn.Parameter(torch.zeros(self.patch_dim), requires_grad=False)
-        else:
-            self.mask_token = nn.Parameter(torch.randn(self.patch_dim))
+        self.mask_token = nn.Parameter(torch.randn(self.patch_dim))
                 
         self.dropout = nn.Dropout(input_dropout)
   
@@ -197,13 +182,7 @@ class Transformer(nn.Module):
     
         self.projection = nn.Linear(dim, nClasses+1)
         
-        if nClasses_2 is not None:
-            self.projection_2 = nn.Linear(dim, nClasses_2+1)
-        
-        if self.T5_style_pos == False:
-            print("NOT USING T5 STYLE POS")
-            self.register_buffer('pos_embedding', None, persistent=False)
-        
+            
     def forward(self, neuralInput, X_len, day_idx=None):
         """
         Args:
@@ -222,22 +201,8 @@ class Transformer(nn.Module):
         if self.training and self.max_mask_pct > 0:
 
             x = self.to_patch(neuralInput)
-            
-            if self.consistency:
-                
-                x1, mask1 = self.apply_time_mask(x, X_len)
-                x2, mask2 = self.apply_time_mask(x, X_len)
-
-                if torch.equal(mask1, mask2):
-                    print("Warning: mask1 is equal to mask2 — possible issue with randomness in SpecAugment")
-
-                # x is of shape B x P x D, stack x and x2 along batch dimension
-                x = torch.cat([x1, x2], dim=0)
-                
-            else:
-                
-                x, _ = self.apply_time_mask(x, X_len)    
-                
+        
+            x, _ = self.apply_time_mask(x, X_len)    
                 
             x = self.patch_to_emb(x)
 
@@ -248,12 +213,7 @@ class Transformer(nn.Module):
         x = self.dropout(x)
         
         b, seq_len, _ = x.shape
-        
-        # Add sin embeddings if T5 Style is False. 
-        if self.T5_style_pos == False:
-            
-            pos_emb = get_sinusoidal_pos_emb(seq_len, self.dim, device=x.device)
-            x = x + pos_emb.unsqueeze(0)
+
         
         # Create temporal mask
         temporal_mask = create_temporal_mask(seq_len, device=x.device)
@@ -261,11 +221,7 @@ class Transformer(nn.Module):
         x = self.transformer(x, mask=temporal_mask)
         
         out = self.projection(x)
-        
-        if self.nClasses_2 is not None:
-            out_2 = self.projection_2(x)
-            return out, out_2
-        
+    
         return out
     
     def compute_length(self, X_len):

@@ -34,9 +34,6 @@ class GRU(nn.Module):
         Maximum proportion of the sequence to mask during SpecAugment‑style masking.
     num_masks : int
         Number of temporal masks to apply per sample when training.
-    linderman_lab : bool, optional (default = False)
-        If ``True``, append a post‑RNN block consisting of LayerNorm → Dropout → Linear → ReLU, as
-        described in the Linderman entry.
     """
 
     def __init__(
@@ -54,8 +51,7 @@ class GRU(nn.Module):
         gaussianSmoothWidth: float,
         bidirectional: bool,
         max_mask_pct: float,
-        num_masks: int,
-        linderman_lab: bool = False,
+        num_masks: int
     ) -> None:
         
         super().__init__()
@@ -75,7 +71,6 @@ class GRU(nn.Module):
         self.bidirectional = bidirectional
         self.max_mask_pct = max_mask_pct
         self.num_masks = num_masks
-        self.linderman_lab = linderman_lab
 
         # === Input processing layers ===
         self.inputLayerNonlinearity = nn.Softsign()
@@ -111,24 +106,8 @@ class GRU(nn.Module):
 
         # === Optional post‑RNN block ===
         rnn_out_dim = hidden_dim * 2 if self.bidirectional else hidden_dim
-        
-        if self.linderman_lab:
-            
-            self.post_rnn_block = nn.Sequential( #best sequence
-                      nn.LayerNorm(rnn_out_dim),
-                      nn.Dropout(p=self.dropout),
-                      nn.Linear(rnn_out_dim, rnn_out_dim),
-                      nn.SiLU(),
-                      nn.LayerNorm(rnn_out_dim),
-                      nn.Dropout(p=self.dropout),
-                      nn.Linear(rnn_out_dim, rnn_out_dim),
-                      nn.SiLU(),
-                      nn.Dropout(p=self.dropout)            
-            )
-            
-        else:
-            
-            self.post_rnn_block = nn.Identity()
+    
+        self.post_rnn_block = nn.Identity()
 
         # === Final linear projection ===
         self.fc_decoder_out = nn.Linear(rnn_out_dim, n_classes + 1)  # +1 for CTC blank

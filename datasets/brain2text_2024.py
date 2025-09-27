@@ -45,7 +45,7 @@ def loadFeaturesAndNormalize(sessionPath, logBoth):
         bool logBoth: 
         
     returns: 
-
+        data for that session, normalized within each block. 
     '''
     
     dat = scipy.io.loadmat(sessionPath)

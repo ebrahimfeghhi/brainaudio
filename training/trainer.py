@@ -1,17 +1,19 @@
 import os
 import pickle
 import time
-
 from edit_distance import SequenceMatcher
 import numpy as np
 import torch
 from tqdm import tqdm
-
-from .dataset import getDatasetLoaders
 import torch.nn.functional as F
-from .loss import forward_ctc, forward_cr_ctc
-
 import wandb
+
+
+# brainaudio internal package imports
+from utils.loss import forward_ctc 
+from utils.loading_data import getDatasetLoaders
+
+
 
 def trainModel(args, model):
     
@@ -45,8 +47,8 @@ def trainModel(args, model):
 
     if args['AdamW']:
         
-         optimizer = torch.optim.AdamW(model.parameters(), lr=args['lrStart'], weight_decay=args['l2_decay'], 
-                                       betas=(args['beta1'], args['beta2']))
+         optimizer = torch.optim.AdamW(model.parameters(), lr=args['lrStart'], weight_decay=args['l2_decay'], betas=(args['beta1'], args['beta2']))
+         
     if args['Adam']:
         
         optimizer = torch.optim.Adam(
@@ -71,25 +73,9 @@ def trainModel(args, model):
             eta_min=args['lrEnd']    # Final learning rate
         )
             
-    elif args['learning_scheduler'] == 'warmcosine':
-        
-        print("Warm Cosine Scheduler")
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-            optimizer,
-            T_0=args['T_0'],       # first cosine decay cycle
-            T_mult=args['T_mult'],      # next cycle is 1000 long (up to 1500)
-            eta_min=args['lrEnd']
-        )
-        
     elif args['learning_scheduler'] == "None":
-        
-        print("Linear scheduler")
-        scheduler = torch.optim.lr_scheduler.LinearLR(
-            optimizer,
-            start_factor=1.0,
-            end_factor=args["lrStart"] / args["lrStart"],
-            total_iters=args["n_epochs"],
-        )
+    
+        scheduler = None
     
     if len(args['load_pretrained_model']) > 0:
         
@@ -105,7 +91,6 @@ def trainModel(args, model):
     testCER = []
     startTime = time.time()
     train_loss = []
-    train_kl_loss = []
     
     for epoch in range(args["start_epoch"], args['n_epochs']):
         
@@ -135,6 +120,8 @@ def trainModel(args, model):
                     * args["constantOffsetSD"]
                 )
                 
+            # add code for gaussian smoothing here 
+                
             adjustedLens = model.compute_length(X_len)
           
             pred = model.forward(X, X_len, dayIdx)
@@ -154,16 +141,11 @@ def trainModel(args, model):
             model.eval()
             allLoss = []
             total_edit_distance = 0
-            total_seq_length = 0
-            have_second = args.get('nClasses_2') is not None  # <-- added
-            if have_second: 
-                total_edit_distance2 = 0
-                total_seq_length2 = 0
-            
+  
             # <-- unpack batch conditionally
             for batch in testLoader:
                 
-                X, y, X_len, y_len, testDayIdx = batch                # <-- changed
+                X, y, X_len, y_len, testDayIdx = batch               
                 
                 if args['maxDay'] is not None:
                     testDayIdx.fill_(args['maxDay'])
@@ -179,13 +161,12 @@ def trainModel(args, model):
                 
                 adjustedLens = model.compute_length(X_len)
             
-                pred = model.forward(X, X_len, testDayIdx)            # <-- fixed dayIdx -> testDayIdx
+                pred = model.forward(X, X_len, testDayIdx)            
                 loss = forward_ctc(pred, adjustedLens, y, y_len)
-                allLoss.append(loss.item())                                # <-- simpler & safe
+                allLoss.append(loss.item())                               
 
                 for iterIdx in range(pred.shape[0]):
-                    # no need to wrap with torch.tensor(...)
-                    decodedSeq = torch.argmax(pred[iterIdx, 0:adjustedLens[iterIdx], :], dim=-1)  # <-- simplified
+                    decodedSeq = torch.argmax(pred[iterIdx, 0:adjustedLens[iterIdx], :], dim=-1) 
                     decodedSeq = torch.unique_consecutive(decodedSeq, dim=-1)
                     decodedSeq = decodedSeq.cpu().detach().numpy()
                     decodedSeq = np.array([i for i in decodedSeq if i != 0])
@@ -234,7 +215,8 @@ def trainModel(args, model):
         with open(args["outputDir"] + "/trainingStats", "wb") as file:
             pickle.dump(tStats, file)
             
-        scheduler.step()
+        if scheduler is not None:
+            scheduler.step()
                     
     wandb.finish()
     return 

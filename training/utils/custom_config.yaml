@@ -2,39 +2,38 @@
 #                       Shared Configuration
 # This section contains parameters common to all models and experiments.
 # ===================================================================
-seed: 42
-outputDir: '/path/to/output_directory'
-datasetPath: '/path/to/dataset'
+outputDir: '/data3/brain2text/b2t_24/outputs/' # where to save trained model
+datasetPath: '/data3/brain2text/b2t_24/brain2text24_log' # neural dataset
 device: 'cuda:1'
 
-# data processing
-data:
-  whiteNoiseSD: 0.8
-  constantOffsetSD: 0.2
-  gaussianSmoothWidth: 2.0
-  strideLen: 4
-  kernelLen: 32
-  restricted_days: []
-  maxDay: null # Set to null if not doing held out days testing
-  nDays: 24
-  batchSize: 64
-  num_masks: 20 
-  max_mask_pct: 0.075
-  
-# optimization
-optimizer:
-  AdamW: false
-  lrStart: 0.02
-  lrEnd: 0.02
-  l2_decay: 1.0e-5
+general:
+  AdamW: True 
+  learning_rate: 1.0e-3
   beta1: 0.9
   beta2: 0.999
-  learning_scheduler: 'none'
+  learning_scheduler: 'multistep'
   milestones: [150]
-  gamma: 0.1
-  n_epochs: 73
+  gamma: 0.1 # multiply learning rate by this factor at milestones
+  n_epochs: 250
+  batchSize: 64
+  nClasses: 40 
+  seed: 42
+
+regularization: 
+
+  # time masking aug
+  num_masks: 20 
+  max_mask_pct: 0.075
+
+  # original augs
+  whiteNoiseSD: 0.2
+  constantOffsetSD: 0.05
+  gaussianSmoothWidth: 2.0
+
+  # standard regularization techniques
+  l2_decay: 1.0e-5
+  input_dropout: 0.2
   dropout: 0.35
-  input_dropout: 0.0
 
 # ===================================================================
 #                    Model-Specific Configurations
@@ -50,19 +49,17 @@ model:
     nLayers: 5
     bidirectional: false
     strideLen: 4
-    kernelLen: 14
-
+    kernelLen: 32
+    nDays: 24
 
   # --- Transformer Model Arguments ---
   transformer:
     name: 'Transformer'
-    nInputFeatures: 256 # Often the same as d_model
-    nClasses: 40
-    # --- PASTE YOUR TRANSFORMER ARGS BELOW ---
-    d_model: 512        # Example: Model dimension
-    n_heads: 8          # Example: Number of attention heads
-    dim_feedforward: 2048 # Example: Dimension of feedforward network
-    patch_size: (5, 256)
+    patch_size: [5, 256]
+    d_model: 384        
+    n_heads: 6          
+    mlp_dim_ratio: 4 
+    dim_head: 64 
     depth: 5 
 
 

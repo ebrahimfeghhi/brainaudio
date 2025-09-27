@@ -3,7 +3,7 @@ import yaml
 from models.gru import GRU
 from models.transformer import Transformer
 
-with open('config.yaml', 'r') as f:
+with open('default_config.yaml', 'r') as f:
     config = yaml.safe_load(f)
 
 # Select which model configuration to use based on an argument
