@@ -192,13 +192,20 @@ def main():
     brain2text_2025['val'] = []
     brain2text_2025['test'] = []
 
-    og_path = 'data/hdf5_data_final'
-
-
+    session_dir = os.path.join(DATA_DIR, 'hdf5_data_final')
     for session in SESSIONS:
-        files = [f for f in os.listdir(os.path.join(og_path, session)) if f.endswith('.hdf5')]
+        session_path = os.path.join(session_dir, session)
+        
+        # Check if session directory exists
+        if not os.path.exists(session_path):
+            print(f"Warning: Session directory not found: {session_path}")
+            continue
+            
+        files = [f for f in os.listdir(session_path) if f.endswith('.hdf5')]
+        print(f"Session {session}: Found files {files}")
+        
         if f'data_train.hdf5' in files:
-            train_file = os.path.join(DATA_DIR, session, f'data_train.hdf5')
+            train_file = os.path.join(session_path,f'data_train.hdf5')
             train_data = load_h5py_file(train_file)
             sesh = {}
             sesh['sentenceDat'] = train_data['neural_features']
@@ -206,24 +213,23 @@ def main():
             sesh['phonemes'] = train_data['seq_class_ids']
             sesh['timeSeriesLen'] = train_data['n_time_steps']
             sesh['phoneLen'] = train_data['seq_len']
-            sesh['phonePerTime'] = sesh['phoneLen'].astype(np.float32) /  sesh['timeSeriesLen'].astype(np.float32)
+            sesh['phonePerTime'] = [p.astype(np.float32) / n.astype(np.float32) for (p, n) in zip(sesh['phoneLen'],sesh['timeSeriesLen'])]
             brain2text_2025['train'].append(sesh)
 
         if f'data_val.hdf5' in files:
-            val_file = os.path.join(DATA_DIR, session, f'data_val.hdf5')
+            val_file = os.path.join(session_path, f'data_val.hdf5')
             val_data = load_h5py_file(val_file)
             sesh = {}
-            brain2text_2025['val'].append(sesh)
             sesh['sentenceDat'] = val_data['neural_features']
             sesh['transcriptions'] = val_data['sentence_label']
             sesh['phonemes'] = val_data['seq_class_ids']
             sesh['timeSeriesLen'] = val_data['n_time_steps']
             sesh['phoneLen'] = val_data['seq_len']
-            sesh['phonePerTime'] = sesh['phoneLen'].astype(np.float32) /  sesh['timeSeriesLen'].astype(np.float32)
+            sesh['phonePerTime'] = [p.astype(np.float32) / n.astype(np.float32) for (p, n) in zip(sesh['phoneLen'],sesh['timeSeriesLen'])]
             brain2text_2025['val'].append(sesh)
     
         if f'data_test.hdf5' in files:
-            test_file = os.path.join(DATA_DIR, session, f'data_val.hdf5')
+            test_file = os.path.join(session_path, f'data_test.hdf5') 
             test_data = load_h5py_file(test_file)
             sesh = {}
             sesh['sentenceDat'] = test_data['neural_features']
@@ -249,7 +255,6 @@ def main():
     
     # Clean up the entire original data directory
     cleanup_original_data_dir()
-    
 
 
 if __name__ == "__main__":
