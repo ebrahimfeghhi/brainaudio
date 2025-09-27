@@ -7,6 +7,7 @@ outputDir: '/path/to/output_directory'
 datasetPath: '/path/to/dataset'
 device: 'cuda:1'
 
+# data processing
 data:
   whiteNoiseSD: 0.8
   constantOffsetSD: 0.2
@@ -17,7 +18,10 @@ data:
   maxDay: null # Set to null if not doing held out days testing
   nDays: 24
   batchSize: 64
-
+  num_masks: 20 
+  max_mask_pct: 0.075
+  
+# optimization
 optimizer:
   AdamW: false
   lrStart: 0.02
@@ -26,9 +30,11 @@ optimizer:
   beta1: 0.9
   beta2: 0.999
   learning_scheduler: 'none'
-  milestones: [400]
+  milestones: [150]
   gamma: 0.1
   n_epochs: 73
+  dropout: 0.35
+  input_dropout: 0.0
 
 # ===================================================================
 #                    Model-Specific Configurations
@@ -42,9 +48,10 @@ model:
     nClasses: 40
     nUnits: 1024
     nLayers: 5
-    dropout: 0.4
-    input_dropout: 0.0
     bidirectional: false
+    strideLen: 4
+    kernelLen: 14
+
 
   # --- Transformer Model Arguments ---
   transformer:
@@ -54,9 +61,12 @@ model:
     # --- PASTE YOUR TRANSFORMER ARGS BELOW ---
     d_model: 512        # Example: Model dimension
     n_heads: 8          # Example: Number of attention heads
-    n_encoder_layers: 6 # Example: Number of encoder layers
     dim_feedforward: 2048 # Example: Dimension of feedforward network
-    dropout: 0.1
+    patch_size: (5, 256)
+    depth: 5 
+
+
+
 
 
   

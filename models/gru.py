@@ -28,8 +28,6 @@ class GRU(nn.Module):
         Stride for the unfolding operation (temporal down‑sampling).
     kernelLen : int
         Kernel length for the unfolding operation.
-    gaussianSmoothWidth : float
-        Standard deviation of Gaussian kernel applied along the temporal dimension.
     bidirectional : bool
         If ``True``, use a bidirectional GRU.
     max_mask_pct : float
@@ -38,7 +36,7 @@ class GRU(nn.Module):
         Number of temporal masks to apply per sample when training.
     linderman_lab : bool, optional (default = False)
         If ``True``, append a post‑RNN block consisting of LayerNorm → Dropout → Linear → ReLU, as
-        described in Feghhi & Linderman (2024).
+        described in the Linderman entry.
     """
 
     def __init__(
@@ -82,7 +80,6 @@ class GRU(nn.Module):
         # === Input processing layers ===
         self.inputLayerNonlinearity = nn.Softsign()
         self.unfolder = nn.Unfold((self.kernelLen, 1), dilation=1, padding=0, stride=self.strideLen)
-        self.gaussianSmoother = GaussianSmoothing(neural_dim, 20, self.gaussianSmoothWidth, dim=1)
         self.dayWeights = nn.Parameter(torch.randn(nDays, neural_dim, neural_dim))
         self.dayBias = nn.Parameter(torch.zeros(nDays, 1, neural_dim))
 

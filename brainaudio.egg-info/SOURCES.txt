@@ -1,0 +1,16 @@
+README.md
+pyproject.toml
+setup.py
+brainaudio.egg-info/PKG-INFO
+brainaudio.egg-info/SOURCES.txt
+brainaudio.egg-info/dependency_links.txt
+brainaudio.egg-info/top_level.txt
+format_neural_data/__init__.py
+format_neural_data/brain2text_2024.py
+format_neural_data/brain2text_2025.py
+models/__init__.py
+models/gru.py
+models/transformer.py
+training/__init__.py
+training/config.py
+training/trainer.py

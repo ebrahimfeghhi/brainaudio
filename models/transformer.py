@@ -5,12 +5,24 @@ import math
 
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
-from augmentations import GaussianSmoothing
-from dataset import pad_to_multiple
+from torch.nn import functional as F
 
 '''
 Code adapted from Fracois Porcher: https://github.com/FrancoisPorcher/vit-pytorch
 '''
+
+def pad_to_multiple(tensor, multiple, dim=1, value=0):
+    """
+    Pads `tensor` along `dim` so that its size is divisible by `multiple`.
+    """
+    size = tensor.size(dim)
+    padding_needed = (multiple - size % multiple) % multiple
+    if padding_needed == 0:
+        return tensor
+    pad_dims = [0] * (2 * tensor.dim())
+    pad_dims[-2 * dim - 1] = padding_needed  # padding at the end
+    return F.pad(tensor, pad_dims, value=value)
+
 
 class FFN(nn.Module):
     def __init__(self, dim, hidden_dim, dropout = 0.):
@@ -135,7 +147,7 @@ class Transformer(nn.Module):
 class Transformer(nn.Module):
     
     def __init__(self, *, patch_size, dim, depth, heads, mlp_dim_ratio,
-                 dim_head, dropout, input_dropout, gaussianSmoothWidth, 
+                 dim_head, dropout, input_dropout,
                  nClasses, nClasses_2, T5_style_pos, max_mask_pct, num_masks, mask_token_zeros,
                  num_masks_channels, max_mask_channels, dist_dict_path, consistency):
    
@@ -147,7 +159,6 @@ class Transformer(nn.Module):
         self.dim = dim
         self.nClasses = nClasses
         self.nClasses_2 = nClasses_2
-        self.gaussianSmoothWidth = gaussianSmoothWidth
         self.T5_style_pos = T5_style_pos
         self.max_mask_pct = max_mask_pct
         self.num_masks = num_masks    
