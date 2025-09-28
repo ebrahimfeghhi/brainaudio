@@ -5,35 +5,34 @@
 outputDir: '/data3/brain2text/b2t_24/outputs/' # where to save trained model
 datasetPath: '/data3/brain2text/b2t_24/brain2text24_log' # neural dataset
 device: 'cuda:1'
+modelName: "test_run"
 
-general:
-  AdamW: True 
-  learning_rate: 1.0e-3
-  beta1: 0.9
-  beta2: 0.999
-  learning_scheduler: 'multistep'
-  milestones: [150]
-  gamma: 0.1 # multiply learning rate by this factor at milestones
-  n_epochs: 250
-  batchSize: 64
-  nClasses: 40 
-  seed: 42
+optimizer: 'AdamW'
+learning_rate: 1.0e-3
+beta1: 0.9
+beta2: 0.999
+learning_scheduler: 'multistep'
+milestones: [150]
+gamma: 0.1 # multiply learning rate by this factor at milestones
+n_epochs: 250
+batchSize: 64
+nClasses: 40 
+seed: 42
+load_pretrained_model: ''
 
-regularization: 
+# time masking aug
+num_masks: 20 
+max_mask_pct: 0.075
 
-  # time masking aug
-  num_masks: 20 
-  max_mask_pct: 0.075
+# original augs
+whiteNoiseSD: 0.2
+constantOffsetSD: 0.05
+gaussianSmoothWidth: 2.0
 
-  # original augs
-  whiteNoiseSD: 0.2
-  constantOffsetSD: 0.05
-  gaussianSmoothWidth: 2.0
-
-  # standard regularization techniques
-  l2_decay: 1.0e-5
-  input_dropout: 0.2
-  dropout: 0.35
+# standard regularization techniques
+l2_decay: 1.0e-5
+input_dropout: 0.2
+dropout: 0.35
 
 # ===================================================================
 #                    Model-Specific Configurations

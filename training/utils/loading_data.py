@@ -23,7 +23,6 @@ class SpeechDataset(Dataset):
         self.data = data
         self.transform = transform
         self.return_transcript = return_transcript
-        restricted_days = set(restricted_days or [])
 
         self.n_days = len(data)
 

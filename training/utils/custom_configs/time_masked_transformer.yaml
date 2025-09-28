@@ -1,28 +1,28 @@
 outputDir: /data3/brain2text/b2t_24/outputs/
 datasetPath: /data3/brain2text/b2t_24/brain2text24_log
 device: cuda:1
-general:
-  AdamW: true
-  learning_rate: 0.001
-  beta1: 0.9
-  beta2: 0.999
-  learning_scheduler: multistep
-  milestones:
-  - 150
-  gamma: 0.1
-  n_epochs: 250
-  batchSize: 64
-  nClasses: 40
-  seed: 42
-regularization:
-  num_masks: 20
-  max_mask_pct: 0.075
-  whiteNoiseSD: 0.2
-  constantOffsetSD: 0.05
-  gaussianSmoothWidth: 2.0
-  l2_decay: 1.0e-05
-  input_dropout: 0.2
-  dropout: 0.35
+modelName: test_run
+optimizer: AdamW
+learning_rate: 0.001
+beta1: 0.9
+beta2: 0.999
+learning_scheduler: multistep
+milestones:
+- 150
+gamma: 0.1
+n_epochs: 250
+batchSize: 64
+nClasses: 40
+seed: 42
+load_pretrained_model: ''
+num_masks: 20
+max_mask_pct: 0.075
+whiteNoiseSD: 0.2
+constantOffsetSD: 0.05
+gaussianSmoothWidth: 2.0
+l2_decay: 1.0e-05
+input_dropout: 0.2
+dropout: 0.35
 model:
   gru:
     name: GRU

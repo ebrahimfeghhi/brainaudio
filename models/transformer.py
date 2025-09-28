@@ -6,6 +6,7 @@ import math
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
 from torch.nn import functional as F
+from utils.augmentations import GaussianSmoothing
 
 '''
 Code adapted from Francois Porcher: https://github.com/FrancoisPorcher/vit-pytorch
@@ -144,15 +145,16 @@ class Transformer(nn.Module):
             x = ffn(x) + x
         return self.norm(x)
     
-class Transformer(nn.Module):
+class TransformerModel(nn.Module):
     
-    def __init__(self, *, patch_size, dim, depth, heads, mlp_dim_ratio,
+    def __init__(self, patch_size, dim, depth, heads, mlp_dim_ratio,
                  dim_head, dropout, input_dropout,
-                 nClasses, max_mask_pct, num_masks):
+                 nClasses, max_mask_pct, num_masks, gaussianSmoothWidth):
    
         super().__init__()
 
-        patch_height, patch_width = pair(patch_size)
+        patch_height = patch_size[0]
+        patch_width = patch_size[1]
         self.patch_height = patch_height
         self.patch_width = patch_width
         self.dim = dim
@@ -160,7 +162,8 @@ class Transformer(nn.Module):
         self.max_mask_pct = max_mask_pct
         self.num_masks = num_masks    
         self.patch_dim = patch_height * patch_width
-        
+        self.gaussianSmoothWidth = gaussianSmoothWidth
+
         self.to_patch_embedding = nn.Sequential(
             Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', 
                     p1=patch_height, p2=patch_width),
@@ -178,9 +181,13 @@ class Transformer(nn.Module):
         self.dropout = nn.Dropout(input_dropout)
   
         self.transformer = Transformer(dim, depth, heads, dim_head, mlp_dim_ratio, 
-                                    dropout, use_relative_bias=self.T5_style_pos)
+                                    dropout, use_relative_bias=True)
     
         self.projection = nn.Linear(dim, nClasses+1)
+        
+        self.gaussianSmoother = GaussianSmoothing(
+            patch_width, 20, self.gaussianSmoothWidth, dim=1
+        )
         
             
     def forward(self, neuralInput, X_len, day_idx=None):
@@ -194,6 +201,10 @@ class Transformer(nn.Module):
         """
         
         neuralInput = pad_to_multiple(neuralInput, multiple=self.patch_height)
+        
+        neuralInput = torch.permute(neuralInput, (0, 2, 1))
+        neuralInput = self.gaussianSmoother(neuralInput)
+        neuralInput = torch.permute(neuralInput, (0, 2, 1))
         
         neuralInput = neuralInput.unsqueeze(1)
         

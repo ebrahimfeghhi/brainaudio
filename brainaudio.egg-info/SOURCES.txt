@@ -5,12 +5,12 @@ brainaudio.egg-info/PKG-INFO
 brainaudio.egg-info/SOURCES.txt
 brainaudio.egg-info/dependency_links.txt
 brainaudio.egg-info/top_level.txt
-format_neural_data/__init__.py
-format_neural_data/brain2text_2024.py
-format_neural_data/brain2text_2025.py
+datasets/__init__.py
+datasets/brain2text_2024.py
+datasets/brain2text_2025.py
 models/__init__.py
 models/gru.py
 models/transformer.py
 training/__init__.py
-training/config.py
+training/call_trainer.py
 training/trainer.py

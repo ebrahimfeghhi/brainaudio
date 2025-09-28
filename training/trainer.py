@@ -8,24 +8,14 @@ from tqdm import tqdm
 import torch.nn.functional as F
 import wandb
 
-
 # brainaudio internal package imports
 from utils.loss import forward_ctc 
 from utils.loading_data import getDatasetLoaders
 
-
-
 def trainModel(args, model):
-    
-    if len(args['wandb_id']) > 0:
-        
-        wandb.init(project="End to End", entity="ebrahimfeghhi", 
-                   config=dict(args), name=args['modelName'], 
-                   resume="must", id=args["wandb_id"])
-    else:
-        
-        wandb.init(project="End to End", 
-                   entity="ebrahimfeghhi", config=dict(args), name=args['modelName'])
+
+    wandb.init(project="End to End", 
+                entity="ebrahimfeghhi", config=dict(args), name=args['modelName'])
         
     
     os.makedirs(args["outputDir"], exist_ok=True)
@@ -37,23 +27,21 @@ def trainModel(args, model):
 
     trainLoader, testLoader, loadedData = getDatasetLoaders(
         args["datasetPath"],
-        args["batchSize"],
-        args['restricted_days'], 
-        args['ventral_6v_only']
+        args["batchSize"]
     )
     
     # Watch the model
     wandb.watch(model, log="all")  # Logs gradients, parameters, and gradients histograms
 
-    if args['AdamW']:
+    if args['optimizer'] == 'AdamW':
         
-         optimizer = torch.optim.AdamW(model.parameters(), lr=args['lrStart'], weight_decay=args['l2_decay'], betas=(args['beta1'], args['beta2']))
+         optimizer = torch.optim.AdamW(model.parameters(), lr=args['learning_rate'], weight_decay=args['l2_decay'], betas=(args['beta1'], args['beta2']))
          
-    if args['Adam']:
+    if args['optimizer'] == 'Adam':
         
         optimizer = torch.optim.Adam(
             model.parameters(),
-            lr=args["lrStart"],
+            lr=args["learning_rate"],
             betas=(0.9, 0.999),
             eps=0.1,
             weight_decay=args["l2_decay"],
@@ -92,7 +80,8 @@ def trainModel(args, model):
     startTime = time.time()
     train_loss = []
     
-    for epoch in range(args["start_epoch"], args['n_epochs']):
+    
+    for epoch in range(args['n_epochs']):
         
         train_loss = []
         model.train()
@@ -120,8 +109,6 @@ def trainModel(args, model):
                     * args["constantOffsetSD"]
                 )
                 
-            # add code for gaussian smoothing here 
-                
             adjustedLens = model.compute_length(X_len)
           
             pred = model.forward(X, X_len, dayIdx)
@@ -141,15 +128,12 @@ def trainModel(args, model):
             model.eval()
             allLoss = []
             total_edit_distance = 0
+            total_seq_length = 0
   
-            # <-- unpack batch conditionally
             for batch in testLoader:
                 
                 X, y, X_len, y_len, testDayIdx = batch               
-                
-                if args['maxDay'] is not None:
-                    testDayIdx.fill_(args['maxDay'])
-                
+
                 # move to device (and y2 if present)
                 X, y, X_len, y_len, testDayIdx = (
                     X.to(args["device"]),
