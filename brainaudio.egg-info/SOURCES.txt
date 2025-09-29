@@ -14,3 +14,8 @@ models/transformer.py
 training/__init__.py
 training/call_trainer.py
 training/trainer.py
+training/utils/__init__.py
+training/utils/augmentations.py
+training/utils/loading_data.py
+training/utils/loss.py
+training/utils/save_config.py

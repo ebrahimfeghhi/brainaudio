@@ -15,6 +15,5 @@ These scripts are adopted from their original repositories, which are referenced
         - *text:* list, each element is a M dimensional array, which has phoneme integers and then zero padded.
         - *timeSeriesLen:* list, length of neural data trial
         - *textLens:* list, length of phoneme sequence per trial
-        - *phonePerTime:* list, phoneLens/timeSeriesLen per trial
 
 - For days that lack data, there will be a $None$ Type as placeholder

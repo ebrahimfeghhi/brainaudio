@@ -1,28 +1,39 @@
 #!/bin/bash
 
-# Define the name for the virtual environment directory
-VENV_DIR="brainaudio"
+# Define the name for the Conda environment
+ENV_NAME="brainaudio2"
+PYTHON_VERSION="3.12.9" # Specify your desired Python version
 
-# --- 1. Check if the virtual environment directory exists ---
-if [ ! -d "$VENV_DIR" ]; then
-    echo "Creating Python virtual environment at './$VENV_DIR/'..."
-    # Create the virtual environment using Python's built-in venv module
-    python3 -m venv "$VENV_DIR"
-    echo "Virtual environment created."
-else
-    echo "Virtual environment '$VENV_DIR' already exists. Skipping creation."
+# --- 0. Check if Conda is installed ---
+if ! command -v conda &> /dev/null; then
+    echo "Error: Conda is not installed or not in your PATH."
+    echo "Please install Anaconda or Miniconda and try again."
+    exit 1
 fi
 
-# --- 2. Activate the environment and install packages ---
-# We will call the python/pip executable from within the venv directory.
-# This is a robust way to ensure packages are installed in the correct
-# environment without altering the user's current shell session.
-echo "Upgrading pip and installing requirements from requirements.txt..."
-"$VENV_DIR/bin/pip" install --upgrade pip
-"$VENV_DIR/bin/pip" install -r requirements.txt
+# --- 1. Check if the Conda environment exists ---
+# We check the list of conda environments for our environment's name.
+# The `grep` command looks for the name at the beginning of a line.
+if ! conda info --envs | grep -q "^$ENV_NAME\s"; then
+    echo "Creating Conda environment '$ENV_NAME' with Python $PYTHON_VERSION..."
+    # Create the environment; the '-y' flag automatically confirms any prompts.
+    conda create --name "$ENV_NAME" python="$PYTHON_VERSION" -y
+    echo "Conda environment created."
+else
+    echo "Conda environment '$ENV_NAME' already exists. Skipping creation."
+fi
+
+# --- 2. Install packages into the environment ---
+# Use 'conda run' to execute a command within the specified environment.
+# This is a robust way to install packages without altering the user's
+# current shell session, which is ideal for scripting.
+echo "Upgrading pip and installing packages from requirements.txt..."
+conda run -n "$ENV_NAME" python -m pip install --upgrade pip
+conda run -n "$ENV_NAME" python -m pip install -r requirements.txt
 
 # --- 3. Print completion message ---
 echo
-echo "Setup complete. To activate the virtual environment, run the following command:"
-echo "source $VENV_DIR/bin/activate"
+echo "✅ Setup complete."
+echo "To activate the Conda environment, run the following command:"
+echo "conda activate $ENV_NAME"
 echo

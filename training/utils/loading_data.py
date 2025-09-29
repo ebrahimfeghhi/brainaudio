@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader, Dataset
 
 
 class SpeechDataset(Dataset):
-    
+
     def __init__(self, data, transform=None, return_transcript=False):
         """
         Defines a Pytorch dataset object which returns neural data, output text labels, 
