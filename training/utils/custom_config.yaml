@@ -5,7 +5,7 @@
 outputDir: '/data3/brain2text/b2t_24/outputs/' # where to save trained model
 datasetPath: '/data3/brain2text/b2t_24/brain2text24_log' # neural dataset
 device: 'cuda:1'
-modelName: "test_run"
+modelName: "test_run_seed_0"
 
 optimizer: 'AdamW'
 learning_rate: 1.0e-3
@@ -17,7 +17,7 @@ gamma: 0.1 # multiply learning rate by this factor at milestones
 n_epochs: 250
 batchSize: 64
 nClasses: 40 
-seed: 42
+seed: 0
 load_pretrained_model: ''
 
 # time masking aug

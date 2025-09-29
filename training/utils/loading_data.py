@@ -35,8 +35,13 @@ class SpeechDataset(Dataset):
         
  
         for day in range(self.n_days):
+            
+            # check to see if data exists for that day
+            if data[day] == None:
+                continue
 
             n_trials = len(data[day]["sentenceDat"])
+            
             for trial in range(n_trials):
                 feats = data[day]["sentenceDat"][trial]
                 self.neural_feats.append(feats)
