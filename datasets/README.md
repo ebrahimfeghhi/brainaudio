@@ -10,9 +10,11 @@ These scripts are adopted from their original repositories, which are referenced
 - Each top-level key is a list of dictionaries containing day-specific data. 
     - Day-specific dictionaries should be ordered in time (i.e. Day 0 should be first element).
     - Each day-specific dictionary contains the following lower-level keys.
-        - *sentenceDat:* list, where each element is a 2D numpy array of shape T (time points) x N (features).
+        - *sentenceDat:* list, where each element is a 2D numpy array of shape T (time points) $\times$ N (features).
         - *transcriptions:* list, where each element is a string containing the ground truth sentence. For the test set, this is some filler string.
-        - *phonemes:* list, each element is a M dimensional array, which has phoneme integers and then zero padded.
+        - *text:* list, each element is a M dimensional array, which has phoneme integers and then zero padded.
         - *timeSeriesLen:* list, length of neural data trial
-        - *phoneLens:* list, length of phoneme sequence per trial
+        - *textLens:* list, length of phoneme sequence per trial
         - *phonePerTime:* list, phoneLens/timeSeriesLen per trial
+
+- For days that lack data, there will be a $None$ Type as placeholder
