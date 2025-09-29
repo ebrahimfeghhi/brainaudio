@@ -17,8 +17,9 @@ import shutil
 from pathlib import Path
 
 DRYAD_DOI = "10.5061/dryad.dncjsxm85"
-DATA_DIR = "/data3/brain2text/b2t_25/og_data"
-OUT_DIR = "/data3/brain2text/b2t_25/brain2text25_log"
+# DATA_DIR = "/data3/brain2text/b2t_25/og_data"
+DATA_DIR = "/home3/lionehlhu/nejm-brain-to-text/data"
+OUT_DIR = "/data3/brain2text/b2t_25"
 DRYAD_ROOT = "https://datadryad.org"
 SESSIONS = ['t15.2023.08.11', 't15.2023.08.13', 't15.2023.08.18', 't15.2023.08.20', 't15.2023.08.25', 't15.2023.08.27', 
             't15.2023.09.01', 't15.2023.09.03', 't15.2023.09.24', 't15.2023.09.29', 't15.2023.10.01', 't15.2023.10.06',
@@ -184,7 +185,7 @@ def cleanup_original_data_dir():
 ########################################################################################
 
 def main():
-    download_dataset()
+    # download_dataset()
 
     # reformat 
     brain2text_2025 = {}
@@ -210,10 +211,10 @@ def main():
             sesh = {}
             sesh['sentenceDat'] = train_data['neural_features']
             sesh['transcriptions'] = train_data['sentence_label']
-            sesh['phonemes'] = train_data['seq_class_ids']
+            sesh['text'] = train_data['seq_class_ids']
             sesh['timeSeriesLen'] = train_data['n_time_steps']
-            sesh['phoneLen'] = train_data['seq_len']
-            sesh['phonePerTime'] = [p.astype(np.float32) / n.astype(np.float32) for (p, n) in zip(sesh['phoneLen'],sesh['timeSeriesLen'])]
+            sesh['textLens'] = train_data['seq_len']
+            #sesh['phonePerTime'] = [p.astype(np.float32) / n.astype(np.float32) for (p, n) in zip(sesh['textLen'],sesh['timeSeriesLen'])]
             brain2text_2025['train'].append(sesh)
 
         if f'data_val.hdf5' in files:
@@ -222,11 +223,13 @@ def main():
             sesh = {}
             sesh['sentenceDat'] = val_data['neural_features']
             sesh['transcriptions'] = val_data['sentence_label']
-            sesh['phonemes'] = val_data['seq_class_ids']
+            sesh['text'] = val_data['seq_class_ids']
             sesh['timeSeriesLen'] = val_data['n_time_steps']
-            sesh['phoneLen'] = val_data['seq_len']
-            sesh['phonePerTime'] = [p.astype(np.float32) / n.astype(np.float32) for (p, n) in zip(sesh['phoneLen'],sesh['timeSeriesLen'])]
+            sesh['textLens'] = val_data['seq_len']
+            #sesh['phonePerTime'] = [p.astype(np.float32) / n.astype(np.float32) for (p, n) in zip(sesh['textLen'],sesh['timeSeriesLen'])]
             brain2text_2025['val'].append(sesh)
+        else:
+            brain2text_2025['val'].append(None)
     
         if f'data_test.hdf5' in files:
             test_file = os.path.join(session_path, f'data_test.hdf5') 
@@ -234,15 +237,17 @@ def main():
             sesh = {}
             sesh['sentenceDat'] = test_data['neural_features']
             sesh['transcriptions'] = None
-            sesh['phonemes'] = None
+            sesh['text'] = None
             sesh['timeSeriesLen'] = test_data['n_time_steps']
-            sesh['phoneLen'] = None
-            sesh['phonePerTime'] = None
+            sesh['textLens'] = None
+            #sesh['phonePerTime'] = None
             brain2text_2025['test'].append(sesh)
+        else:
+            brain2text_2025['test'].append(None)
 
     # Save the reformatted data to the output directory
     os.makedirs(OUT_DIR, exist_ok=True)
-    output_file = os.path.join(OUT_DIR, 'brain2text_2025.pkl')
+    output_file = os.path.join(OUT_DIR, 'brain2text25_log.pkl')
     
     with open(output_file, 'wb') as handle:
         pickle.dump(brain2text_2025, handle)
@@ -254,7 +259,7 @@ def main():
     print(f"  - Test sessions: {len(brain2text_2025['test'])}")
     
     # Clean up the entire original data directory
-    cleanup_original_data_dir()
+    # cleanup_original_data_dir()
 
 
 if __name__ == "__main__":

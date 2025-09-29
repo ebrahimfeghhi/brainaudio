@@ -3,7 +3,9 @@
 # This section contains parameters common to all models and experiments.
 # ===================================================================
 outputDir: '/data3/brain2text/b2t_24/outputs/' # where to save trained model
+# '/data3/brain2text/b2t_25/outputs/'
 datasetPath: '/data3/brain2text/b2t_24/brain2text24_log' # neural dataset
+# '/data3/brain2text/b2t_25/brain2text25_log/brain2text_2025.pkl'
 device: 'cuda:1'
 modelName: "test_run"
 
