@@ -2,39 +2,46 @@
 #                       Shared Configuration
 # This section contains parameters common to all models and experiments.
 # ===================================================================
-outputDir: '/data3/brain2text/b2t_24/outputs/' # where to save trained model
+outputDir: '/data3/brain2text/b2t_25/outputs/' # where to save trained model
 # '/data3/brain2text/b2t_25/outputs/'
-datasetPath: '/data3/brain2text/b2t_24/brain2text24_log' # neural dataset
+datasetPath: '/data3/brain2text/b2t_25/brain2text25_log.pkl' # neural dataset
 # '/data3/brain2text/b2t_25/brain2text25_log/brain2text_2025.pkl'
+
 device: 'cuda:1'
-modelName: "test_run_seed_0"
+modelName: "tm_gru_b2t_25_run_1"
 
 optimizer: 'AdamW'
-learning_rate: 1.0e-3
+learning_rate: 0.005
 beta1: 0.9
 beta2: 0.999
-learning_scheduler: 'multistep'
-milestones: [150]
+learning_scheduler: 'cosine'
+milestones: [571] # need to convert to batches
 gamma: 0.1 # multiply learning rate by this factor at milestones
-n_epochs: 250
+learning_rate_min: 0.0001
+learning_rate_decay_steps: 119944 # in batches
+learning_rate_warmup_steps: 1000 # in batches
+n_epochs: 951
 batchSize: 64
 nClasses: 40 
-seed: 0
+seed: 10
 load_pretrained_model: ''
+grad_norm_clip_value: 10
 
 # time masking aug
-num_masks: 20 
+num_masks: 10
 max_mask_pct: 0.075
 
 # original augs
-whiteNoiseSD: 0.2
-constantOffsetSD: 0.05
+whiteNoiseSD: 1.0
+constantOffsetSD: 0.20
 gaussianSmoothWidth: 2.0
+smooth_kernel_size: 100
+random_cut: 0
 
 # standard regularization techniques
 l2_decay: 1.0e-5
 input_dropout: 0.2
-dropout: 0.35
+dropout: 0.40
 
 # ===================================================================
 #                    Model-Specific Configurations
@@ -44,19 +51,19 @@ model:
   # --- GRU Model Arguments ---
   gru:
     name: 'GRU'
-    nInputFeatures: 256
+    nInputFeatures: 512
     nClasses: 40
-    nUnits: 1024
+    nUnits: 768
     nLayers: 5
     bidirectional: false
     strideLen: 4
-    kernelLen: 32
-    nDays: 24
+    kernelLen: 14
+    nDays: 45
 
   # --- Transformer Model Arguments ---
   transformer:
     name: 'Transformer'
-    patch_size: [5, 256]
+    patch_size: [4, 512]
     d_model: 384        
     n_heads: 6          
     mlp_dim_ratio: 4 

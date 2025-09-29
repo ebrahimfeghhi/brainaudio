@@ -6,11 +6,11 @@ custom_configs folder under the name provided by the user.
 '''
 import yaml
 
-# specify file name, config setup is saved in custom_configs folder
-config_saved_name = "time_masked_transformer" 
 
 with open('custom_config.yaml', 'r') as f:
     custom_config = yaml.safe_load(f)
+    
+config_saved_name = custom_config['modelName']
 
 full_path = f"custom_configs/{config_saved_name}.yaml"
 

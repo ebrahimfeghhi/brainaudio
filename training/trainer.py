@@ -11,11 +11,12 @@ import wandb
 # brainaudio internal package imports
 from utils.loss import forward_ctc 
 from utils.loading_data import getDatasetLoaders
+from utils.learning_scheduler import create_learning_rate_scheduler
 
 def trainModel(args, model):
 
-    wandb.init(project="End to End", 
-                entity="ebrahimfeghhi", config=dict(args), name=args['modelName'])
+    wandb.init(project="nejm-brain-to-text", 
+                entity="lionelhu926-ucla", config=dict(args), name=args['modelName'])
         
     
     os.makedirs(args["outputDir"], exist_ok=True)
@@ -47,24 +48,9 @@ def trainModel(args, model):
             weight_decay=args["l2_decay"],
         )
         
-    if args['learning_scheduler'] == 'multistep': 
-
-        print("Multistep scheduler")
-        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=args['milestones'], gamma=args['gamma'])
         
-    elif args['learning_scheduler'] == 'cosine':
-        
-        print("Cosine scheduler")
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimizer,
-            T_max=args['n_epochs'],     # Total epochs to decay over
-            eta_min=args['lrEnd']    # Final learning rate
-        )
+    scheduler = create_learning_rate_scheduler(args, optimizer)
             
-    elif args['learning_scheduler'] == "None":
-    
-        scheduler = None
-    
     if len(args['load_pretrained_model']) > 0:
         
         optimizer_path = os.path.join(args['load_pretrained_model'], 'optimizer')
@@ -87,6 +73,8 @@ def trainModel(args, model):
         model.train()
         
         for batch_idx, batch in enumerate(tqdm(trainLoader, desc="Training")):
+            
+            scheduler.step()
            
             # Base case: always unpack the first 5
             X, y, X_len, y_len, dayIdx = batch[:5]
@@ -109,6 +97,12 @@ def trainModel(args, model):
                     * args["constantOffsetSD"]
                 )
                 
+            # added in random cut from B2T '25
+            if args["random_cut"] > 0: 
+                cut = np.random.randint(0, args['random_cut'])
+                X = X[:, cut:, :]
+                X_len -= cut 
+                
             adjustedLens = model.compute_length(X_len)
           
             pred = model.forward(X, X_len, dayIdx)
@@ -119,6 +113,14 @@ def trainModel(args, model):
             
             optimizer.zero_grad()
             loss.backward()
+            
+            if args['grad_norm_clip_value'] > 0: 
+                
+                _ = torch.nn.utils.clip_grad_norm_(model.parameters(), 
+                                               max_norm = args['grad_norm_clip_value'],
+                                               error_if_nonfinite = True,
+                                               foreach = True
+                                               )
             optimizer.step()            
     
         with torch.no_grad():
@@ -199,8 +201,8 @@ def trainModel(args, model):
         with open(args["outputDir"] + "/trainingStats", "wb") as file:
             pickle.dump(tStats, file)
             
-        if scheduler is not None:
-            scheduler.step()
+        
+        # scheduler.step()
                     
     wandb.finish()
     return 

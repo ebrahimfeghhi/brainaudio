@@ -1,7 +1,7 @@
 outputDir: /data3/brain2text/b2t_24/outputs/
 datasetPath: /data3/brain2text/b2t_24/brain2text24_log
 device: cuda:2
-modelName: test_run_seed_0
+modelName: scratch
 optimizer: AdamW
 learning_rate: 0.001
 beta1: 0.9
@@ -23,6 +23,7 @@ gaussianSmoothWidth: 2.0
 l2_decay: 1.0e-05
 input_dropout: 0.2
 dropout: 0.35
+kernel_size: 20
 model:
   gru:
     name: GRU

@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-
+from utils.augmentations import GaussianSmoothing
 
 class GRU(nn.Module):
     
@@ -22,8 +22,6 @@ class GRU(nn.Module):
         Dropout probability within the GRU.
     input_dropout : float
         Dropout probability applied to inputs after the day‑specific transform.
-    device : torch.device or str
-        Device on which to place tensors.
     strideLen : int
         Stride for the unfolding operation (temporal down‑sampling).
     kernelLen : int
@@ -45,10 +43,10 @@ class GRU(nn.Module):
         nDays: int,
         dropout: float,
         input_dropout: float,
-        device: torch.device,
         strideLen: int,
         kernelLen: int,
         gaussianSmoothWidth: float,
+        kernel_size: float, 
         bidirectional: bool,
         max_mask_pct: float,
         num_masks: int
@@ -62,12 +60,12 @@ class GRU(nn.Module):
         self.neural_dim = neural_dim
         self.n_classes = n_classes
         self.nDays = nDays
-        self.device = device
         self.dropout = dropout
         self.input_dropout = input_dropout
         self.strideLen = strideLen
         self.kernelLen = kernelLen
         self.gaussianSmoothWidth = gaussianSmoothWidth
+        self.kernel_size = kernel_size
         self.bidirectional = bidirectional
         self.max_mask_pct = max_mask_pct
         self.num_masks = num_masks
@@ -111,6 +109,11 @@ class GRU(nn.Module):
 
         # === Final linear projection ===
         self.fc_decoder_out = nn.Linear(rnn_out_dim, n_classes + 1)  # +1 for CTC blank
+        
+        self.gaussianSmoother = GaussianSmoothing(
+            neural_dim, self.kernel_size, self.gaussianSmoothWidth, dim=1
+        )
+        
 
     # ---------------------------------------------------------------------
     # Forward pass
@@ -124,14 +127,14 @@ class GRU(nn.Module):
         X_len       : torch.Tensor, shape (batch,) – lengths before padding
         dayIdx      : torch.Tensor, shape (batch,) – index specifying the session/day of each sample
         """
-
+        neuralInput = torch.permute(neuralInput, (0, 2, 1))
+        neuralInput = self.gaussianSmoother(neuralInput)
+        neuralInput = torch.permute(neuralInput, (0, 2, 1))
+        
 
         # --- SpecAugment‑style time masking (training only) ---
         if self.training and self.max_mask_pct > 0:
             neuralInput, _ = self.apply_time_masking(neuralInput, X_len)
-            
-        # moved input dropout before day specific linear layer, as per Linderma Lab submission 
-        neuralInput = self.inputDropoutLayer(neuralInput)
 
         # --- Day‑specific affine transform ---
         dayWeights = torch.index_select(self.dayWeights, 0, dayIdx)  # (B, C, C)
@@ -139,6 +142,8 @@ class GRU(nn.Module):
             self.dayBias, 0, dayIdx
         )
         transformedNeural = self.inputLayerNonlinearity(transformedNeural)
+        
+        neuralInput = self.inputDropoutLayer(neuralInput)
 
         # --- Temporal unfolding (stride / kernel) ---
         stridedInputs = torch.permute(
@@ -148,7 +153,7 @@ class GRU(nn.Module):
         
         # --- GRU encoding ---
         h0_dim = self.layer_dim * 2 if self.bidirectional else self.layer_dim
-        h0 = torch.zeros(h0_dim, transformedNeural.size(0), self.hidden_dim, device=self.device)
+        h0 = torch.zeros(h0_dim, transformedNeural.size(0), self.hidden_dim, device=neuralInput.device)
         hid, _ = self.gru_decoder(stridedInputs, h0.detach())  # (B, T', H[*2])
 
         # --- Optional post‑RNN refinement ---

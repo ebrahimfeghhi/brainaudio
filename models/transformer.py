@@ -149,7 +149,7 @@ class TransformerModel(nn.Module):
     
     def __init__(self, patch_size, dim, depth, heads, mlp_dim_ratio,
                  dim_head, dropout, input_dropout,
-                 nClasses, max_mask_pct, num_masks, gaussianSmoothWidth):
+                 nClasses, max_mask_pct, num_masks, gaussianSmoothWidth, kernel_size):
    
         super().__init__()
 
@@ -163,6 +163,7 @@ class TransformerModel(nn.Module):
         self.num_masks = num_masks    
         self.patch_dim = patch_height * patch_width
         self.gaussianSmoothWidth = gaussianSmoothWidth
+        self.kernel_size = kernel_size
 
         self.to_patch_embedding = nn.Sequential(
             Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', 
@@ -186,7 +187,7 @@ class TransformerModel(nn.Module):
         self.projection = nn.Linear(dim, nClasses+1)
         
         self.gaussianSmoother = GaussianSmoothing(
-            patch_width, 20, self.gaussianSmoothWidth, dim=1
+            patch_width, self.kernel_size, self.gaussianSmoothWidth, dim=1
         )
         
             
