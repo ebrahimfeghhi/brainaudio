@@ -152,6 +152,7 @@ def trainModel(args, model):
                 allLoss.append(loss.item())                               
 
                 for iterIdx in range(pred.shape[0]):
+                    
                     decodedSeq = torch.argmax(pred[iterIdx, 0:adjustedLens[iterIdx], :], dim=-1) 
                     decodedSeq = torch.unique_consecutive(decodedSeq, dim=-1)
                     decodedSeq = decodedSeq.cpu().detach().numpy()

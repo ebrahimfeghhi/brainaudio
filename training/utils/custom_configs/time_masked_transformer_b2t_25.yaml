@@ -2,6 +2,7 @@ outputDir: /data3/brain2text/b2t_25/outputs/
 datasetPath: /data3/brain2text/b2t_25/brain2text25_log.pkl
 device: cuda:0
 modelName: tm_transformer_b2t_25_run_0
+modelType: 'transformer'
 optimizer: AdamW
 learning_rate: 0.001
 beta1: 0.9

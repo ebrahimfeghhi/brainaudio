@@ -9,7 +9,7 @@ datasetPath: '/data3/brain2text/b2t_25/brain2text25_log.pkl' # neural dataset
 
 device: 'cuda:1'
 modelName: "tm_gru_b2t_25_run_1"
-
+modelType: 'gru'
 optimizer: 'AdamW'
 learning_rate: 0.005
 beta1: 0.9

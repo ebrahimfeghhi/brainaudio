@@ -4,14 +4,16 @@ from models.gru import GRU
 from models.transformer import TransformerModel
 from trainer import trainModel
 
-
-config_file = 'time_masked_gm_b2t_25.yaml'
-model_type = 'gru'
+###### user specified parameters ######
+config_file = 'time_masked_gru_b2t_25.yaml'
+#######################################
 
 config_file = f"utils/custom_configs/{config_file}"
 
 with open(config_file, 'r') as f:
     config = yaml.safe_load(f)
+    
+model_type = config['modelType']
 
 model_args = config['model'][model_type]
 
@@ -27,12 +29,13 @@ if model_type == 'transformer':
     
 if model_type == 'gru':
     
-    model = GRU(model_args['nInputFeatures'], model_args['nClasses'], model_args['nUnits'], model_args['nLayers'], 
-                model_args['nDays'], config['dropout'], config['input_dropout'], 
-                model_args['strideLen'], model_args['kernelLen'], config['gaussianSmoothWidth'], config['smooth_kernel_size'], 
-                model_args['bidirectional'], config['max_mask_pct'], config['num_masks'])
+    model = GRU(neural_dim=model_args['nInputFeatures'], n_classes=model_args['nClasses'], hidden_dim=model_args['nUnits'], 
+                layer_dim=model_args['nLayers'], nDays=model_args['nDays'], dropout=config['dropout'], input_dropout=config['input_dropout'],
+                strideLen=model_args['strideLen'], kernelLen=model_args['kernelLen'], gaussianSmoothWidth=config['gaussianSmoothWidth'], 
+                kernel_size=config['smooth_kernel_size'], bidirectional=model_args['bidirectional'], max_mask_pct=config['max_mask_pct'], 
+                num_masks=config['num_masks'])
+        
     
 model.to(config['device'])
     
-breakpoint()
 trainModel(config, model)

@@ -1,11 +1,12 @@
 import torch
 from torch import nn
-from utils.augmentations import GaussianSmoothing
+from models.base_model import BaseTimeMaskedModel
+from training.utils.augmentations import GaussianSmoothing
 
-class GRU(nn.Module):
+class GRU(BaseTimeMaskedModel):
     
     """GRU‑based speech encoder.
-
+    
     Parameters
     ----------
     neural_dim : int
@@ -36,6 +37,7 @@ class GRU(nn.Module):
 
     def __init__(
         self,
+        *,
         neural_dim: int,
         n_classes: int,
         hidden_dim: int,
@@ -52,7 +54,7 @@ class GRU(nn.Module):
         num_masks: int
     ) -> None:
         
-        super().__init__()
+        super().__init__(max_mask_pct=max_mask_pct, num_masks=num_masks)
 
         # Store constructor args
         self.layer_dim = layer_dim
@@ -67,30 +69,28 @@ class GRU(nn.Module):
         self.gaussianSmoothWidth = gaussianSmoothWidth
         self.kernel_size = kernel_size
         self.bidirectional = bidirectional
-        self.max_mask_pct = max_mask_pct
-        self.num_masks = num_masks
 
         # === Input processing layers ===
         self.inputLayerNonlinearity = nn.Softsign()
         self.unfolder = nn.Unfold((self.kernelLen, 1), dilation=1, padding=0, stride=self.strideLen)
-        self.dayWeights = nn.Parameter(torch.randn(nDays, neural_dim, neural_dim))
-        self.dayBias = nn.Parameter(torch.zeros(nDays, 1, neural_dim))
+        self.dayWeights = nn.Parameter(torch.randn(self.nDays, self.neural_dim, self.neural_dim))
+        self.dayBias = nn.Parameter(torch.zeros(self.nDays, 1, self.neural_dim))
 
         for x in range(nDays):
-            self.dayWeights.data[x].copy_(torch.eye(neural_dim))
+            self.dayWeights.data[x].copy_(torch.eye(self.neural_dim))
 
         for x in range(nDays):
-            setattr(self, f"inpLayer{x}", nn.Linear(neural_dim, neural_dim))
+            setattr(self, f"inpLayer{x}", nn.Linear(self.neural_dim, self.neural_dim))
             inp_layer: nn.Linear = getattr(self, f"inpLayer{x}")
-            inp_layer.weight.data.add_(torch.eye(neural_dim))
+            inp_layer.weight.data.add_(torch.eye(self.neural_dim))
 
         self.inputDropoutLayer = nn.Dropout(p=self.input_dropout)
 
         # === GRU ===
         self.gru_decoder = nn.GRU(
-            neural_dim * self.kernelLen,
-            hidden_dim,
-            layer_dim,
+            self.neural_dim * self.kernelLen,
+            self.hidden_dim,
+            self.layer_dim,
             batch_first=True,
             dropout=self.dropout if layer_dim > 1 else 0.0,
             bidirectional=self.bidirectional,
@@ -103,7 +103,7 @@ class GRU(nn.Module):
                 nn.init.xavier_uniform_(param)
 
         # === Optional post‑RNN block ===
-        rnn_out_dim = hidden_dim * 2 if self.bidirectional else hidden_dim
+        rnn_out_dim = self.hidden_dim * 2 if self.bidirectional else self.hidden_dim
     
         self.post_rnn_block = nn.Identity()
 
@@ -111,13 +111,9 @@ class GRU(nn.Module):
         self.fc_decoder_out = nn.Linear(rnn_out_dim, n_classes + 1)  # +1 for CTC blank
         
         self.gaussianSmoother = GaussianSmoothing(
-            neural_dim, self.kernel_size, self.gaussianSmoothWidth, dim=1
+            self.neural_dim, self.kernel_size, self.gaussianSmoothWidth, dim=1
         )
         
-
-    # ---------------------------------------------------------------------
-    # Forward pass
-    # ---------------------------------------------------------------------
     def forward(self, neuralInput: torch.Tensor, X_len: torch.Tensor, dayIdx: torch.Tensor) -> torch.Tensor:
         
         
@@ -127,14 +123,14 @@ class GRU(nn.Module):
         X_len       : torch.Tensor, shape (batch,) – lengths before padding
         dayIdx      : torch.Tensor, shape (batch,) – index specifying the session/day of each sample
         """
+        
         neuralInput = torch.permute(neuralInput, (0, 2, 1))
         neuralInput = self.gaussianSmoother(neuralInput)
         neuralInput = torch.permute(neuralInput, (0, 2, 1))
         
-
         # --- SpecAugment‑style time masking (training only) ---
         if self.training and self.max_mask_pct > 0:
-            neuralInput, _ = self.apply_time_masking(neuralInput, X_len)
+            neuralInput, _ = self.apply_time_masking(neuralInput, X_len, mask_value=0)
 
         # --- Day‑specific affine transform ---
         dayWeights = torch.index_select(self.dayWeights, 0, dayIdx)  # (B, C, C)
@@ -167,63 +163,4 @@ class GRU(nn.Module):
         
         return  ((X_len - self.kernelLen) / self.strideLen).to(torch.int32)
     
-    def apply_time_masking(self, X, X_len):
-        
-        """
-        Fully vectorized time masking (no loops at all).
-        
-        Args:
-            X: (B, P, D) input tensor
-            X_len: (B,) valid lengths in timepoints
-
-        Returns:
-            X_masked: (B, P, D) with masked patches
-            mask: (B, P) boolean mask of where values were masked
-            masked_indices: list of 1D LongTensors, each with indices of masked patches per batch
-            unmasked_indices: list of 1D LongTensors, each with indices of unmasked patches per batch
-        """
-        B, P, D = X.shape
-        device = X.device
-
-        valid_lens = X_len
-            
-        max_mask_lens = (self.max_mask_pct * valid_lens).long()  # (B,)
-
-        # Repeat B num_masks times to simulate multiple masks per sample
-        B_rep = B * self.num_masks
-
-        # Expand inputs for vectorized masking
-        # repeat_interleave works like tile, so values corresponding to the same batch are next to each other
-        valid_lens_rep = valid_lens.repeat_interleave(self.num_masks)            # (B * num_masks,)
-        max_mask_lens_rep = max_mask_lens.repeat_interleave(self.num_masks)      # (B * num_masks,)
-       
-        t = (torch.rand(B_rep, device=device) * (max_mask_lens_rep + 1).float()).floor().long()  # (B * num_masks,)
-            
-        max_start = (valid_lens_rep - t + 1).clamp(min=1)
-        
-        t0 = (torch.rand(B_rep, device=device) * max_start.float()).floor().long()               # (B * num_masks,)
-
-        # Build the global mask (B, P)
-        arange = torch.arange(P, device=device).unsqueeze(0)       # (1, P)
-        t0_exp = t0.unsqueeze(1)                                   # (B_rep, 1)
-        t1_exp = (t0 + t).unsqueeze(1)                             # (B_rep, 1)
-        mask_chunks = (arange >= t0_exp) & (arange < t1_exp)       # (B_rep, P)
-        
-        # Get index of sample in batch for each mask chunk
-        batch_idx = torch.arange(B, device=device).repeat_interleave(self.num_masks)  # (B * num_masks,)
-
-        # Now scatter all the masks into the full mask (B, P)
-        patch_idx = mask_chunks.nonzero(as_tuple=False)  # (N_masked, 2)
-        b_indices = batch_idx[patch_idx[:, 0]]           # (N_masked,)
-        p_indices = patch_idx[:, 1]                      # (N_masked,)
-
-        mask = torch.zeros(B, P, dtype=torch.bool, device=device)
-        mask[b_indices, p_indices] = True
-        
-        # mask: (B, P) boolean, True for masked
-        #B, P = mask.shape
-        # Apply the mask
-        X_masked = X.clone()
-        X_masked[mask] = 0
-
-        return X_masked, mask
+   
