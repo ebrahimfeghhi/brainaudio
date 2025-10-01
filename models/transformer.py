@@ -5,7 +5,7 @@ import math
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
 from torch.nn import functional as F
-from base_model import BaseTimeMaskedModel
+from models.base_model import BaseTimeMaskedModel
 from training.utils.augmentations import GaussianSmoothing
 
 '''
@@ -157,6 +157,7 @@ class TransformerModel(BaseTimeMaskedModel):
         self.patch_width = patch_size[1]
         self.dim = dim
         self.depth = depth
+        self.heads = heads
         self.mlp_dim_ratio = mlp_dim_ratio
         self.dim_head = dim_head
         self.dropout = dropout
@@ -180,7 +181,7 @@ class TransformerModel(BaseTimeMaskedModel):
 
         self.mask_token = nn.Parameter(torch.randn(self.patch_dim))
                 
-        self.dropout = nn.Dropout(self.input_dropout)
+        self.dropout_layer = nn.Dropout(self.input_dropout)
   
         self.transformer = Transformer(self.dim, self.depth, self.heads, self.dim_head, self.mlp_dim_ratio, 
                                     self.dropout, use_relative_bias=True)
@@ -215,7 +216,7 @@ class TransformerModel(BaseTimeMaskedModel):
 
             x = self.to_patch(neuralInput)
         
-            x, _ = self.apply_time_mask(x, X_len, mask_value=self.mask_token)    
+            x, _ = self.apply_time_masking(x, X_len, mask_value=self.mask_token)    
                 
             x = self.patch_to_emb(x)
 
@@ -223,11 +224,10 @@ class TransformerModel(BaseTimeMaskedModel):
             x = self.to_patch_embedding(neuralInput)
 
         # apply input level dropout. 
-        x = self.dropout(x)
+        x = self.dropout_layer(x)
         
         b, seq_len, _ = x.shape
 
-        
         # Create temporal mask
         temporal_mask = create_temporal_mask(seq_len, device=x.device)
 

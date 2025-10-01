@@ -7,6 +7,7 @@ import torch
 from tqdm import tqdm
 import torch.nn.functional as F
 import wandb
+from utils.augmentations import gauss_smooth
 
 # brainaudio internal package imports
 from utils.loss import forward_ctc 
@@ -36,7 +37,7 @@ def trainModel(args, model):
 
     if args['optimizer'] == 'AdamW':
         
-         optimizer = torch.optim.AdamW(model.parameters(), lr=args['learning_rate'], weight_decay=args['l2_decay'], betas=(args['beta1'], args['beta2']))
+         optimizer = torch.optim.AdamW(model.parameters(), lr=args['learning_rate'], weight_decay=args['l2_decay'], betas=(args['beta1'], args['beta2']), fused=True)
          
     if args['optimizer'] == 'Adam':
         
@@ -66,16 +67,18 @@ def trainModel(args, model):
     startTime = time.time()
     train_loss = []
     
+    ctc_loss = torch.nn.CTCLoss(blank = 0, reduction = 'none', zero_infinity = False)
     
     for epoch in range(args['n_epochs']):
         
         train_loss = []
+        grad_norm_store = []
         model.train()
         
         for batch_idx, batch in enumerate(tqdm(trainLoader, desc="Training")):
-            
-            scheduler.step()
-           
+                        
+            optimizer.zero_grad()    
+                                   
             # Base case: always unpack the first 5
             X, y, X_len, y_len, dayIdx = batch[:5]
 
@@ -85,43 +88,57 @@ def trainModel(args, model):
             X_len  = X_len.to(args["device"])
             y_len  = y_len.to(args["device"])
             dayIdx = dayIdx.to(args["device"])
+            
+            with torch.autocast(device_type = args["device"], enabled = args['use_amp'], dtype = torch.bfloat16):
 
+                if args["whiteNoiseSD"] > 0:
+                    X += torch.randn(X.shape, device=args["device"]) * args["whiteNoiseSD"]
 
-            # Noise augmentation is faster on GPU
-            if args["whiteNoiseSD"] > 0:
-                X += torch.randn(X.shape, device=args["device"]) * args["whiteNoiseSD"]
-
-            if args["constantOffsetSD"] > 0:
-                X += (
-                    torch.randn([X.shape[0], 1, X.shape[2]], device=args["device"])
-                    * args["constantOffsetSD"]
+                if args["constantOffsetSD"] > 0:
+                    X += (
+                        torch.randn([X.shape[0], 1, X.shape[2]], device=args["device"])
+                        * args["constantOffsetSD"]
+                    )
+                    
+                # added in random cut from B2T '25
+                if args["random_cut"] > 0: 
+                    cut = np.random.randint(0, args['random_cut'])
+                    X = X[:, cut:, :]
+                    X_len -= cut 
+                    
+                X = gauss_smooth(inputs=X, device=args['device'], smooth_kernel_size=args['smooth_kernel_size'], smooth_kernel_std=args['gaussianSmoothWidth'])
+                
+                adjustedLens = model.compute_length(X_len)
+            
+                pred = model.forward(X, X_len, dayIdx)
+                
+                loss = ctc_loss(
+                    log_probs = torch.permute(pred.log_softmax(2), [1, 0, 2]),
+                    targets = y,
+                    input_lengths = adjustedLens,
+                    target_lengths = y_len
                 )
+                    
+                #loss = forward_ctc(pred, adjustedLens, y, y_len)
                 
-            # added in random cut from B2T '25
-            if args["random_cut"] > 0: 
-                cut = np.random.randint(0, args['random_cut'])
-                X = X[:, cut:, :]
-                X_len -= cut 
+                loss = torch.mean(loss)
+                    
+                train_loss.append(loss.cpu().detach().numpy())    
                 
-            adjustedLens = model.compute_length(X_len)
-          
-            pred = model.forward(X, X_len, dayIdx)
-            
-            loss = forward_ctc(pred, adjustedLens, y, y_len)
-                
-            train_loss.append(loss.cpu().detach().numpy())
-            
-            optimizer.zero_grad()
             loss.backward()
             
             if args['grad_norm_clip_value'] > 0: 
-                
+                total_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=float('inf'))
+                print("Gradient norm: ", total_norm.item())
+                grad_norm_store.append(total_norm.item())
                 _ = torch.nn.utils.clip_grad_norm_(model.parameters(), 
                                                max_norm = args['grad_norm_clip_value'],
                                                error_if_nonfinite = True,
                                                foreach = True
                                                )
             optimizer.step()            
+            scheduler.step()
+            
     
         with torch.no_grad():
     
@@ -145,10 +162,14 @@ def trainModel(args, model):
                     testDayIdx.to(args["device"]),
                 )
                 
+                X = gauss_smooth(inputs=X, device=args['device'], smooth_kernel_size=args['smooth_kernel_size'], smooth_kernel_std=args['gaussianSmoothWidth'])
+                
+                
                 adjustedLens = model.compute_length(X_len)
             
                 pred = model.forward(X, X_len, testDayIdx)            
                 loss = forward_ctc(pred, adjustedLens, y, y_len)
+                loss = torch.mean(loss)
                 allLoss.append(loss.item())                               
 
                 for iterIdx in range(pred.shape[0]):
@@ -172,13 +193,18 @@ def trainModel(args, model):
                 f"Epoch {epoch}, ctc loss: {avgDayLoss:>7f}, cer: {cer:>7f}"
                 + f", time/batch: {(endTime - startTime)/100:>7.3f}"
             )
+            
+            
+            current_lr = optimizer.param_groups[0]['lr']
                 
             # Log the metrics to wandb
             log_dict = {
                 "train_ctc_Loss": avgTrainLoss,
                 "ctc_loss": avgDayLoss,
                 "cer": cer,
-                "time_per_epoch": (endTime - startTime) / 100,
+                "learning_rate": current_lr, 
+                "grad_norm": np.mean(grad_norm_store), 
+                "time_per_epoch": (endTime - startTime) / 100
             }
             
             wandb.log(log_dict)

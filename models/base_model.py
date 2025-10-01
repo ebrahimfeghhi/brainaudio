@@ -77,6 +77,6 @@ class BaseTimeMaskedModel(nn.Module):
         #B, P = mask.shape
         # Apply the mask
         X_masked = X.clone()
-        X_masked[mask] = mask_value
+        X_masked[mask] = mask_value.to(X_masked.dtype)
 
         return X_masked, mask

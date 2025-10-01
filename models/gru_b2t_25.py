@@ -3,7 +3,7 @@ from torch import nn
 from models.base_model import BaseTimeMaskedModel
 from training.utils.augmentations import GaussianSmoothing
 
-class GRU(BaseTimeMaskedModel):
+class GRU_25(BaseTimeMaskedModel):
     '''
     Defines the GRU decoder
 
@@ -27,9 +27,6 @@ class GRU(BaseTimeMaskedModel):
                  num_masks = 0
                  ):
         
-  
-        
-            
         """GRU‑based speech encoder.
         
         Parameters
@@ -114,14 +111,15 @@ class GRU(BaseTimeMaskedModel):
 
         # Prediciton head. Weight init to xavier
         self.out = nn.Linear(self.hidden_dim, self.n_classes+1)
+        
         nn.init.xavier_uniform_(self.out.weight)
 
         # Learnable initial hidden states
         self.h0 = nn.Parameter(nn.init.xavier_uniform_(torch.zeros(1, 1, self.hidden_dim)))
         
-        self.gaussianSmoother = GaussianSmoothing(
-            neural_dim, self.kernel_size, self.gaussianSmoothWidth, dim=1
-        )
+        #self.gaussianSmoother = GaussianSmoothing(
+        #    neural_dim, self.kernel_size, self.gaussianSmoothWidth, dim=1
+        #)
         
         
     def forward(self, x, x_len, day_idx):
@@ -131,9 +129,9 @@ class GRU(BaseTimeMaskedModel):
         day_idx  (tensor)  - tensor which is a list of day indexs corresponding to the day of each example in the batch x. 
         '''
         
-        x = torch.permute(x, (0, 2, 1))
-        x = self.gaussianSmoother(x)
-        x = torch.permute(x, (0, 2, 1))
+        #x = torch.permute(x, (0, 2, 1))
+        #x = self.gaussianSmoother(x)
+        # = torch.permute(x, (0, 2, 1))
         
         # --- SpecAugment‑style time masking (training only) ---
         if self.training and self.max_mask_pct > 0:

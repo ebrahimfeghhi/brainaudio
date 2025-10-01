@@ -3,7 +3,7 @@ from torch import nn
 from models.base_model import BaseTimeMaskedModel
 from training.utils.augmentations import GaussianSmoothing
 
-class GRU(BaseTimeMaskedModel):
+class GRU_24(BaseTimeMaskedModel):
     
     """GRU‑based speech encoder.
     

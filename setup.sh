@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Define the name for the Conda environment
-ENV_NAME="brainaudio2"
+ENV_NAME="brainaudio"
 PYTHON_VERSION="3.12.9" # Specify your desired Python version
 
 # --- 0. Check if Conda is installed ---

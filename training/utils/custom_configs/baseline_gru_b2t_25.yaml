@@ -20,8 +20,8 @@ nClasses: 40
 seed: 10
 load_pretrained_model: ''
 grad_norm_clip_value: 10
-num_masks: 10
-max_mask_pct: 0.075
+num_masks: 0
+max_mask_pct: 0
 whiteNoiseSD: 1.0
 constantOffsetSD: 0.2
 gaussianSmoothWidth: 2.0
@@ -30,7 +30,7 @@ random_cut: 0
 l2_decay: 0.001
 input_dropout: 0.2
 dropout: 0.4
-use_amp: True 
+
 model:
   gru:
     name: GRU

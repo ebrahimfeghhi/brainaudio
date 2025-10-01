@@ -1,10 +1,10 @@
 outputDir: /data3/brain2text/b2t_25/outputs/
 datasetPath: /data3/brain2text/b2t_25/brain2text25_log.pkl
-device: cuda:0
-modelName: tm_transformer_b2t_25_run_0
+device: cuda:1
+modelName: tm_transformer_b2t_25_run_1
 modelType: 'transformer'
 optimizer: AdamW
-learning_rate: 0.001
+learning_rate: 0.05
 beta1: 0.9
 beta2: 0.999
 learning_scheduler: cosine
@@ -30,6 +30,7 @@ random_cut: 0
 l2_decay: 1.0e-05
 input_dropout: 0.2
 dropout: 0.4
+use_amp: True
 model:
   gru:
     name: GRU
