@@ -1,12 +1,13 @@
 import pickle 
 import torch
+import numpy as np
 from torch.nn.utils.rnn import pad_sequence
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, ConcatDataset
 
 
 class SpeechDataset(Dataset):
 
-    def __init__(self, data, transform=None, return_transcript=False):
+    def __init__(self, data, transform=None, return_transcript=False, pid=None):
         """
         Defines a Pytorch dataset object which returns neural data, output text labels, 
         neural data length, output text labels length, day idx, and optionally the ground
@@ -32,6 +33,7 @@ class SpeechDataset(Dataset):
         self.text_seq_lens = []
         self.days = []
         self.transcriptions = []
+        self.participant_id = []
         
  
         for day in range(self.n_days):
@@ -51,6 +53,8 @@ class SpeechDataset(Dataset):
                 self.text_seq_lens.append(data[day]["textLens"][trial])
                 self.transcriptions.append(data[day]['transcriptions'][trial])
                 self.days.append(day)
+                self.participant_id.append(pid)
+
 
         self.n_trials = len(self.days)
 
@@ -76,21 +80,18 @@ class SpeechDataset(Dataset):
         return tuple(items)
 
 def getDatasetLoaders(
-    datasetName,
-    batchSize
+    data_paths:list[str],
+    batch_size:int,
 ):
     
     '''
     Args:
-        datasetName (str): path to dataset
+        datasetName ([str]): list of paths to dataset
         batchSize (int): batch size used for training
     
     Returns train and val datasets as Pytorch data loaders, 
-    as well as full dataset.
+    as well as full dataset as a list of all datasets.
     '''
-    
-    with open(datasetName, "rb") as handle:
-        loadedData = pickle.load(handle)
 
     def _padding(batch):
     
@@ -104,27 +105,37 @@ def getDatasetLoaders(
             torch.stack(y_lens),
             torch.stack(days),
         )
-      
-    train_ds = SpeechDataset(loadedData["train"], transform=None)
+    
+    train_data_loaders = []
+    val_data_loaders = []
+    loadedData = []
+    for i in range(len(data_paths)):
+        datasetName = data_paths[i]
+        with open(datasetName, "rb") as handle:
+            ds = pickle.load(handle)
+        loadedData.append(ds)
+        train_ds = SpeechDataset(ds['train'], transform=None, pid=i)
+        val_ds = SpeechDataset(ds['val'], pid=i)
 
-    val_ds = SpeechDataset(loadedData["val"])
+        train_loader = DataLoader(
+            train_ds,
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=0,
+            pin_memory=True,
+            collate_fn=_padding,
+        )
 
-    train_loader = DataLoader(
-        train_ds,
-        batch_size=batchSize,
-        shuffle=True,
-        num_workers=0,
-        pin_memory=True,
-        collate_fn=_padding,
-    )
-        
-    val_loader = DataLoader(
-        val_ds,
-        batch_size=1,
-        shuffle=False,
-        num_workers=0,
-        pin_memory=True,
-        collate_fn=_padding,
-    )
+        val_loader = DataLoader(
+            val_ds,
+            batch_size=1,
+            shuffle=False,
+            num_workers=0,
+            pin_memory=True,
+            collate_fn=_padding,
+        )
 
-    return train_loader, val_loader, loadedData
+        train_data_loaders.append(train_loader)
+        val_data_loaders.append(val_loader)
+
+    return train_data_loaders, val_data_loaders, loadedData

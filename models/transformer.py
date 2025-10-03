@@ -145,6 +145,7 @@ class Transformer(nn.Module):
             x = ffn(x) + x
         return self.norm(x)
     
+
 class TransformerModel(BaseTimeMaskedModel):
     
     def __init__(self, *, patch_size, dim, depth, heads, mlp_dim_ratio,
