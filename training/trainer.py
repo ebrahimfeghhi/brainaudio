@@ -34,10 +34,12 @@ def trainModel(args, model):
     
     # Watch the model
     wandb.watch(model, log="all")  # Logs gradients, parameters, and gradients histograms
+    
 
     if args['optimizer'] == 'AdamW':
         
-         optimizer = torch.optim.AdamW(model.parameters(), lr=args['learning_rate'], weight_decay=args['l2_decay'], betas=(args['beta1'], args['beta2']), fused=True)
+         optimizer = torch.optim.AdamW(model.parameters(), lr=args['learning_rate'], weight_decay=args['l2_decay'], eps=args['eps'], 
+                                       betas=(args['beta1'], args['beta2']), fused=True)
          
     if args['optimizer'] == 'Adam':
         
@@ -48,7 +50,6 @@ def trainModel(args, model):
             eps=0.1,
             weight_decay=args["l2_decay"],
         )
-        
         
     scheduler = create_learning_rate_scheduler(args, optimizer)
             
@@ -106,31 +107,31 @@ def trainModel(args, model):
                     X = X[:, cut:, :]
                     X_len -= cut 
                     
-                X = gauss_smooth(inputs=X, device=args['device'], smooth_kernel_size=args['smooth_kernel_size'], smooth_kernel_std=args['gaussianSmoothWidth'])
+                # X = gauss_smooth(inputs=X, device=args['device'], smooth_kernel_size=args['smooth_kernel_size'], smooth_kernel_std=args['gaussianSmoothWidth'])
                 
                 adjustedLens = model.compute_length(X_len)
             
                 pred = model.forward(X, X_len, dayIdx)
                 
-                loss = ctc_loss(
-                    log_probs = torch.permute(pred.log_softmax(2), [1, 0, 2]),
-                    targets = y,
-                    input_lengths = adjustedLens,
-                    target_lengths = y_len
-                )
+                #loss = ctc_loss(
+                #    log_probs = torch.permute(pred.log_softmax(2), [1, 0, 2]),
+                #    targets = y,
+                #    input_lengths = adjustedLens,
+                #    target_lengths = y_len
+                #)
                     
-                #loss = forward_ctc(pred, adjustedLens, y, y_len)
+                loss = forward_ctc(pred, adjustedLens, y, y_len)
                 
-                loss = torch.mean(loss)
+                #loss = torch.mean(loss)
                     
                 train_loss.append(loss.cpu().detach().numpy())    
                 
             loss.backward()
             
+            total_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=float('inf'))
+            grad_norm_store.append(total_norm.item())
+            
             if args['grad_norm_clip_value'] > 0: 
-                total_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=float('inf'))
-                print("Gradient norm: ", total_norm.item())
-                grad_norm_store.append(total_norm.item())
                 _ = torch.nn.utils.clip_grad_norm_(model.parameters(), 
                                                max_norm = args['grad_norm_clip_value'],
                                                error_if_nonfinite = True,
@@ -138,11 +139,11 @@ def trainModel(args, model):
                                                )
             optimizer.step()            
             scheduler.step()
-            
-    
+        
+        avgTrainLoss = np.mean(train_loss)
+        
         with torch.no_grad():
     
-            avgTrainLoss = np.mean(train_loss)
             
             model.eval()
             allLoss = []
@@ -162,14 +163,14 @@ def trainModel(args, model):
                     testDayIdx.to(args["device"]),
                 )
                 
-                X = gauss_smooth(inputs=X, device=args['device'], smooth_kernel_size=args['smooth_kernel_size'], smooth_kernel_std=args['gaussianSmoothWidth'])
+                # X = gauss_smooth(inputs=X, device=args['device'], smooth_kernel_size=args['smooth_kernel_size'], smooth_kernel_std=args['gaussianSmoothWidth'])
                 
                 
                 adjustedLens = model.compute_length(X_len)
             
                 pred = model.forward(X, X_len, testDayIdx)            
                 loss = forward_ctc(pred, adjustedLens, y, y_len)
-                loss = torch.mean(loss)
+                # loss = torch.mean(loss)
                 allLoss.append(loss.item())                               
 
                 for iterIdx in range(pred.shape[0]):
@@ -188,26 +189,27 @@ def trainModel(args, model):
             avgDayLoss = np.mean(allLoss) if allLoss else 0.0
             cer = total_edit_distance / total_seq_length if total_seq_length > 0 else float('nan')
 
-            endTime = time.time()
-            print(
-                f"Epoch {epoch}, ctc loss: {avgDayLoss:>7f}, cer: {cer:>7f}"
-                + f", time/batch: {(endTime - startTime)/100:>7.3f}"
-            )
-            
-            
-            current_lr = optimizer.param_groups[0]['lr']
-                
+        endTime = time.time()
+        
+        print(
+            f"Epoch {epoch}, ctc loss: {avgDayLoss:>7f}, cer: {cer:>7f}"
+            + f", time/batch: {(endTime - startTime)/100:>7.3f}"
+        )
+        
+        current_lr = optimizer.param_groups[0]['lr']
+        
             # Log the metrics to wandb
-            log_dict = {
-                "train_ctc_Loss": avgTrainLoss,
-                "ctc_loss": avgDayLoss,
-                "cer": cer,
-                "learning_rate": current_lr, 
-                "grad_norm": np.mean(grad_norm_store), 
-                "time_per_epoch": (endTime - startTime) / 100
-            }
-            
-            wandb.log(log_dict)
+        log_dict = {
+            "train_ctc_Loss": avgTrainLoss,
+            "ctc_loss": avgDayLoss,
+            "cer": cer,
+            "learning_rate": current_lr, 
+            "grad_norm": np.mean(grad_norm_store), 
+            "time_per_epoch": (endTime - startTime) / 100
+        }
+        
+    
+        wandb.log(log_dict)
 
         if len(testCER) > 0 and cer < np.min(testCER):
             torch.save(model.state_dict(), args["outputDir"] + "/modelWeights")
@@ -227,9 +229,6 @@ def trainModel(args, model):
 
         with open(args["outputDir"] + "/trainingStats", "wb") as file:
             pickle.dump(tStats, file)
-            
-        
-        # scheduler.step()
-                    
+                                
     wandb.finish()
     return 

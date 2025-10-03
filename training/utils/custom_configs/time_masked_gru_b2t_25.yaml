@@ -7,6 +7,7 @@ optimizer: AdamW
 learning_rate: 0.005
 beta1: 0.9
 beta2: 0.999
+eps: 0.1
 learning_scheduler: cosine
 milestones:
 - 571
@@ -20,13 +21,13 @@ nClasses: 40
 seed: 10
 load_pretrained_model: ''
 grad_norm_clip_value: 10
-num_masks: 10
-max_mask_pct: 0.075
+num_masks: 0
+max_mask_pct: 0
 whiteNoiseSD: 1.0
 constantOffsetSD: 0.2
 gaussianSmoothWidth: 2.0
 smooth_kernel_size: 100
-random_cut: 0
+random_cut: 3
 l2_decay: 0.001
 input_dropout: 0.2
 dropout: 0.4
@@ -41,7 +42,6 @@ model:
     strideLen: 4
     kernelLen: 14
     nDays: 45
-    
   transformer:
     name: Transformer
     patch_size:

@@ -1,6 +1,5 @@
 annotated-types==0.7.0
--e git+https://github.com/ebrahimfeghhi/brainaudio.git@883a0aa5dc50c21b5b453bbd32e05bb89b2bb997#egg=brainaudio
-certifi==2025.8.3
+-e .
 charset-normalizer==3.4.3
 click==8.3.0
 Distance==0.1.3

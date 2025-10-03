@@ -1,12 +1,13 @@
 outputDir: /data3/brain2text/b2t_25/outputs/
 datasetPath: /data3/brain2text/b2t_25/brain2text25_log.pkl
 device: cuda:2
-modelName: tm_gru_b2t_25_run_0
+modelName: baseline_gru_b2t_25_run_0
 modelType: 'gru'
 optimizer: AdamW
 learning_rate: 0.005
 beta1: 0.9
 beta2: 0.999
+eps: 0.1
 learning_scheduler: cosine
 milestones:
 - 571
@@ -26,11 +27,11 @@ whiteNoiseSD: 1.0
 constantOffsetSD: 0.2
 gaussianSmoothWidth: 2.0
 smooth_kernel_size: 100
-random_cut: 0
+random_cut: 3
 l2_decay: 0.001
 input_dropout: 0.2
 dropout: 0.4
-
+use_amp: True 
 model:
   gru:
     name: GRU
@@ -41,7 +42,6 @@ model:
     strideLen: 4
     kernelLen: 14
     nDays: 45
-    
   transformer:
     name: Transformer
     patch_size:
