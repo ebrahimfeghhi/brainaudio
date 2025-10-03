@@ -8,9 +8,10 @@ from tqdm import tqdm
 import torch.nn.functional as F
 import wandb
 from utils.augmentations import gauss_smooth
+from itertools import zip_longest
 
 # brainaudio internal package imports
-from utils.loss import forward_ctc 
+from utils.loss import forward_ctc, evaluate
 from utils.loading_data import getDatasetLoaders
 from utils.learning_scheduler import create_learning_rate_scheduler
 
@@ -27,7 +28,7 @@ def trainModel(args, model):
     with open(args["outputDir"] + "/args", "wb") as file:
         pickle.dump(args, file)
 
-    trainLoader, testLoader, loadedData = getDatasetLoaders(
+    trainLoaders, valLoaders, loadedData = getDatasetLoaders(
         args["datasetPath"],
         args["batchSize"]
     )
@@ -67,8 +68,22 @@ def trainModel(args, model):
     testCER = []
     startTime = time.time()
     train_loss = []
+        
+    max_dataset_train_length = max(len(loader) for loader in trainLoaders)
     
-    ctc_loss = torch.nn.CTCLoss(blank = 0, reduction = 'none', zero_infinity = False)
+    train_loop = tqdm.tqdm(
+        zip_longest(*trainLoaders), 
+        total=max_dataset_train_length, 
+        desc="Training Epoch"
+    )
+    
+    max_dataset_val_length = max(len(loader) for loader in valLoaders)
+
+    val_loop = tqdm.tqdm(
+        zip_longest(*valLoaders), 
+        total=max_dataset_val_length, 
+        desc="Training Val"
+    )
     
     for epoch in range(args['n_epochs']):
         
@@ -76,152 +91,122 @@ def trainModel(args, model):
         grad_norm_store = []
         model.train()
         
-        for batch_idx, batch in enumerate(tqdm(trainLoader, desc="Training")):
+        # batches is a list containing batched data for each participant
+        for batch_idx, batches in enumerate(train_loop):
+            
+            for participant_id, batch in enumerate(batches):
+                
+                '''
+                not all participants have the same number of batches
+                zip_longest will return None once data runs out for a participant
+                '''
+                if batch is None:
+                    continue
                         
-            optimizer.zero_grad()    
-                                   
-            # Base case: always unpack the first 5
-            X, y, X_len, y_len, dayIdx = batch[:5]
+                optimizer.zero_grad()    
+                                    
+                # Base case: always unpack the first 5
+                X, y, X_len, y_len, dayIdx = batch[:5]
 
-            # Send to device
-            X      = X.to(args["device"])
-            y      = y.to(args["device"])
-            X_len  = X_len.to(args["device"])
-            y_len  = y_len.to(args["device"])
-            dayIdx = dayIdx.to(args["device"])
-            
-            with torch.autocast(device_type = args["device"], enabled = args['use_amp'], dtype = torch.bfloat16):
+                # Send to device
+                X      = X.to(args["device"])
+                y      = y.to(args["device"])
+                X_len  = X_len.to(args["device"])
+                y_len  = y_len.to(args["device"])
+                dayIdx = dayIdx.to(args["device"])
+                
+                with torch.autocast(device_type = args["device"], enabled = args['use_amp'], dtype = torch.bfloat16):
 
-                if args["whiteNoiseSD"] > 0:
-                    X += torch.randn(X.shape, device=args["device"]) * args["whiteNoiseSD"]
+                    if args["whiteNoiseSD"] > 0:
+                        X += torch.randn(X.shape, device=args["device"]) * args["whiteNoiseSD"]
 
-                if args["constantOffsetSD"] > 0:
-                    X += (
-                        torch.randn([X.shape[0], 1, X.shape[2]], device=args["device"])
-                        * args["constantOffsetSD"]
-                    )
+                    if args["constantOffsetSD"] > 0:
+                        X += (
+                            torch.randn([X.shape[0], 1, X.shape[2]], device=args["device"])
+                            * args["constantOffsetSD"]
+                        )
+                        
+                    # added in random cut from B2T '25
+                    if args["random_cut"] > 0: 
+                        cut = np.random.randint(0, args['random_cut'])
+                        X = X[:, cut:, :]
+                        X_len -= cut 
+                        
+                    X = gauss_smooth(inputs=X, device=args['device'], smooth_kernel_size=args['smooth_kernel_size'], smooth_kernel_std=args['gaussianSmoothWidth'])
                     
-                # added in random cut from B2T '25
-                if args["random_cut"] > 0: 
-                    cut = np.random.randint(0, args['random_cut'])
-                    X = X[:, cut:, :]
-                    X_len -= cut 
+                    adjustedLens = model.compute_length(X_len)
+                
+                    pred = model.forward(X, X_len, dayIdx)
                     
-                # X = gauss_smooth(inputs=X, device=args['device'], smooth_kernel_size=args['smooth_kernel_size'], smooth_kernel_std=args['gaussianSmoothWidth'])
-                
-                adjustedLens = model.compute_length(X_len)
-            
-                pred = model.forward(X, X_len, dayIdx)
-                
-                #loss = ctc_loss(
-                #    log_probs = torch.permute(pred.log_softmax(2), [1, 0, 2]),
-                #    targets = y,
-                #    input_lengths = adjustedLens,
-                #    target_lengths = y_len
-                #)
+                    loss = forward_ctc(pred, adjustedLens, y, y_len)
+                                        
+                    train_loss.append(loss.cpu().detach().numpy())    
                     
-                loss = forward_ctc(pred, adjustedLens, y, y_len)
+                loss.backward()
                 
-                #loss = torch.mean(loss)
-                    
-                train_loss.append(loss.cpu().detach().numpy())    
+                total_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=float('inf'))
+                grad_norm_store.append(total_norm.item())
                 
-            loss.backward()
-            
-            total_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=float('inf'))
-            grad_norm_store.append(total_norm.item())
-            
-            if args['grad_norm_clip_value'] > 0: 
-                _ = torch.nn.utils.clip_grad_norm_(model.parameters(), 
-                                               max_norm = args['grad_norm_clip_value'],
-                                               error_if_nonfinite = True,
-                                               foreach = True
-                                               )
-            optimizer.step()            
-            scheduler.step()
+                if args['grad_norm_clip_value'] > 0: 
+                    _ = torch.nn.utils.clip_grad_norm_(model.parameters(), 
+                                                max_norm = args['grad_norm_clip_value'],
+                                                error_if_nonfinite = True,
+                                                foreach = True
+                                                )
+                optimizer.step()            
+                scheduler.step()
         
         avgTrainLoss = np.mean(train_loss)
         
-        with torch.no_grad():
-    
-            
-            model.eval()
-            allLoss = []
-            total_edit_distance = 0
-            total_seq_length = 0
-  
-            for batch in testLoader:
-                
-                X, y, X_len, y_len, testDayIdx = batch               
+        avgDayLoss_array = []
+        cer_array = []
 
-                # move to device (and y2 if present)
-                X, y, X_len, y_len, testDayIdx = (
-                    X.to(args["device"]),
-                    y.to(args["device"]),
-                    X_len.to(args["device"]),
-                    y_len.to(args["device"]),
-                    testDayIdx.to(args["device"]),
-                )
-                
-                # X = gauss_smooth(inputs=X, device=args['device'], smooth_kernel_size=args['smooth_kernel_size'], smooth_kernel_std=args['gaussianSmoothWidth'])
-                
-                
-                adjustedLens = model.compute_length(X_len)
-            
-                pred = model.forward(X, X_len, testDayIdx)            
-                loss = forward_ctc(pred, adjustedLens, y, y_len)
-                # loss = torch.mean(loss)
-                allLoss.append(loss.item())                               
-
-                for iterIdx in range(pred.shape[0]):
-                    
-                    decodedSeq = torch.argmax(pred[iterIdx, 0:adjustedLens[iterIdx], :], dim=-1) 
-                    decodedSeq = torch.unique_consecutive(decodedSeq, dim=-1)
-                    decodedSeq = decodedSeq.cpu().detach().numpy()
-                    decodedSeq = np.array([i for i in decodedSeq if i != 0])
-
-                    trueSeq = np.array(y[iterIdx][0:y_len[iterIdx]].cpu().detach())
-
-                    matcher = SequenceMatcher(a=trueSeq.tolist(), b=decodedSeq.tolist())
-                    total_edit_distance += matcher.distance()
-                    total_seq_length += len(trueSeq)
-
-            avgDayLoss = np.mean(allLoss) if allLoss else 0.0
-            cer = total_edit_distance / total_seq_length if total_seq_length > 0 else float('nan')
-
-        endTime = time.time()
-        
-        print(
-            f"Epoch {epoch}, ctc loss: {avgDayLoss:>7f}, cer: {cer:>7f}"
-            + f", time/batch: {(endTime - startTime)/100:>7.3f}"
-        )
-        
         current_lr = optimizer.param_groups[0]['lr']
         
-            # Log the metrics to wandb
+        for valLoader in valLoaders:
+            
+            avgDayLoss, cer = evaluate(valLoader, model, forward_ctc, args)
+            avgDayLoss_array.append(avgDayLoss)
+            cer_array.append(cer)
+        
+        endTime = time.time()
+        
+        
+        print(
+            f"Epoch {epoch}, ctc loss: {avgDayLoss_array:>7f}, cer: {cer_array:>7f}"
+            + f", time/batch: {(endTime - startTime)/100:>7.3f}"
+        )
+    
+        # Log the metrics to wandb
         log_dict = {
             "train_ctc_Loss": avgTrainLoss,
-            "ctc_loss": avgDayLoss,
-            "cer": cer,
+            "ctc_loss": avgDayLoss_array[0],
+            "cer": cer_array[0],
             "learning_rate": current_lr, 
             "grad_norm": np.mean(grad_norm_store), 
             "time_per_epoch": (endTime - startTime) / 100
         }
         
+        if len(avgDayLoss_array) > 0:
+            
+            for pid, (avgDayLoss, cer) in enumerate(zip(avgDayLoss_array[1:], cer[1:])):
+                
+                log_dict[f"ctc_loss_{pid}"] = avgDayLoss
+                log_dict[f"cer_{pid}"] = cer
     
         wandb.log(log_dict)
-
+        
         if len(testCER) > 0 and cer < np.min(testCER):
             torch.save(model.state_dict(), args["outputDir"] + "/modelWeights")
             torch.save(optimizer.state_dict(), args["outputDir"] + "/optimizer")
             torch.save(scheduler.state_dict(), args['outputDir'] + '/scheduler')
             
-        if len(testLoss) > 0 and avgDayLoss < np.min(testLoss):
+        if len(testLoss) > 0 and np.mean(avgDayLoss_array) < np.min(testLoss):
             torch.save(model.state_dict(), args["outputDir"] + "/modelWeights_ctc")
             
                 
-        testLoss.append(avgDayLoss)
-        testCER.append(cer)
+        testLoss.append(np.mean(avgDayLoss_array))
+        testCER.append(np.mean(cer_array))
 
         tStats = {}
         tStats["testLoss"] = np.array(testLoss)
@@ -229,6 +214,7 @@ def trainModel(args, model):
 
         with open(args["outputDir"] + "/trainingStats", "wb") as file:
             pickle.dump(tStats, file)
+            
                                 
     wandb.finish()
     return 

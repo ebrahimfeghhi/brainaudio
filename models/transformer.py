@@ -148,14 +148,14 @@ class Transformer(nn.Module):
 
 class TransformerModel(BaseTimeMaskedModel):
     
-    def __init__(self, *, patch_size, dim, depth, heads, mlp_dim_ratio,
+    def __init__(self, *, samples_per_patch, features_list, dim, depth, heads, mlp_dim_ratio,
                  dim_head, dropout, input_dropout,
                  nClasses, max_mask_pct, num_masks, gaussianSmoothWidth, kernel_size):
    
         super().__init__(max_mask_pct=max_mask_pct, num_masks=num_masks)
 
-        self.patch_height = patch_size[0]
-        self.patch_width = patch_size[1]
+        self.samples_per_patch = samples_per_patch
+        self.features_list = features_list
         self.dim = dim
         self.depth = depth
         self.heads = heads
@@ -164,22 +164,9 @@ class TransformerModel(BaseTimeMaskedModel):
         self.dropout = dropout
         self.input_dropout = input_dropout
         self.nClasses = nClasses
-        self.patch_dim = self.patch_height * self.patch_width
         self.gaussianSmoothWidth = gaussianSmoothWidth
         self.kernel_size = kernel_size
-
-        self.to_patch_embedding = nn.Sequential(
-            Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', 
-                    p1=self.patch_height, p2=self.patch_width),
-            nn.LayerNorm(self.patch_dim),
-            nn.Linear(self.patch_dim, self.dim),
-            nn.LayerNorm(self.dim)
-        )
         
-        # Patch embedding split from encoder
-        self.to_patch = self.to_patch_embedding[0]
-        self.patch_to_emb = nn.Sequential(*self.to_patch_embedding[1:])
-
         self.mask_token = nn.Parameter(torch.randn(self.patch_dim))
                 
         self.dropout_layer = nn.Dropout(self.input_dropout)
@@ -189,37 +176,49 @@ class TransformerModel(BaseTimeMaskedModel):
     
         self.projection = nn.Linear(self.dim, nClasses+1)
         
-        self.gaussianSmoother = GaussianSmoothing(
-            self.patch_width, self.kernel_size, self.gaussianSmoothWidth, dim=1
-        )
+
+    def patch_embedding_layer(self, patch_size):
         
+        self.patch_embedders = nn.ModuleList([])
+        
+        for pid in range(self.num_participants):
+        
+            feature_size = self.features_list[pid]
+                    
+            patch_dim = self.samples_per_patch*feature_size
             
-    def forward(self, neuralInput, X_len, day_idx=None):
+            self.patch_embedders.append(
+            nn.Sequential(
+                Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', 
+                        p1=self.samples_per_patch, p2=feature_size),
+                nn.LayerNorm(patch_dim),
+                nn.Linear(patch_dim, self.dim),
+                nn.LayerNorm(self.dim)
+            ))
+                
+    def forward(self, neuralInput, X_len, participant_idx=None, day_idx=None):
         """
         Args:
             neuralInput: Tensor of shape (B, T, F)
-            X_len:Tensor of shape 
-            dayIdx: tensor of shape (B)
+            X_len: Tensor of shape 
+            participant_idx: integer ID, all data for a given batch must come from the same participant 
+            dayIdx: Not used for Transformer 
         Returns:
             Tensor: (B, num_patches, dim)
         """
         
-        neuralInput = pad_to_multiple(neuralInput, multiple=self.patch_height)
-        
-        neuralInput = torch.permute(neuralInput, (0, 2, 1))
-        neuralInput = self.gaussianSmoother(neuralInput)
-        neuralInput = torch.permute(neuralInput, (0, 2, 1))
+        neuralInput = pad_to_multiple(neuralInput, multiple=self.samples_per_patch)
         
         neuralInput = neuralInput.unsqueeze(1)
         
         # add time masking
         if self.training and self.max_mask_pct > 0:
 
-            x = self.to_patch(neuralInput)
+            x = self.patch_embedders[participant_idx][0](neuralInput)
         
             x, _ = self.apply_time_masking(x, X_len, mask_value=self.mask_token)    
                 
-            x = self.patch_to_emb(x)
+            x = self.patch_embedders[participant_idx][1:](x)
 
         else:
             x = self.to_patch_embedding(neuralInput)
@@ -243,4 +242,3 @@ class TransformerModel(BaseTimeMaskedModel):
         # computing ceiling because I pad X to be divisible by path_height
         return torch.ceil(X_len / self.patch_height).to(dtype=torch.int32)
     
-        
