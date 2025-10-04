@@ -1,0 +1,47 @@
+outputDir: /data3/brain2text/b2t_24/outputs/
+datasetPath: /data3/brain2text/b2t_24/brain2text24_log
+device: cuda:2
+modelName: scratch
+optimizer: AdamW
+learning_rate: 0.001
+beta1: 0.9
+beta2: 0.999
+learning_scheduler: multistep
+milestones:
+- 150
+gamma: 0.1
+n_epochs: 250
+batchSize: 64
+nClasses: 40
+seed: 0
+load_pretrained_model: ''
+num_masks: 20
+max_mask_pct: 0.075
+whiteNoiseSD: 0.2
+constantOffsetSD: 0.05
+gaussianSmoothWidth: 2.0
+l2_decay: 1.0e-05
+input_dropout: 0.2
+dropout: 0.35
+kernel_size: 20
+model:
+  gru:
+    name: GRU
+    nInputFeatures: 256
+    nClasses: 40
+    nUnits: 1024
+    nLayers: 5
+    bidirectional: false
+    strideLen: 4
+    kernelLen: 32
+    nDays: 24
+  transformer:
+    name: Transformer
+    patch_size:
+    - 5
+    - 256
+    d_model: 384
+    n_heads: 6
+    mlp_dim_ratio: 4
+    dim_head: 64
+    depth: 5

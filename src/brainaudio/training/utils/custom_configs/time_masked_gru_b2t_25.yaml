@@ -1,0 +1,54 @@
+outputDir: /data3/brain2text/b2t_25/outputs/
+datasetPath: /data3/brain2text/b2t_25/brain2text25_log.pkl
+device: cuda:2
+modelName: tm_gru_b2t_25_run_0
+modelType: 'gru'
+optimizer: AdamW
+learning_rate: 0.005
+beta1: 0.9
+beta2: 0.999
+eps: 0.1
+learning_scheduler: cosine
+milestones:
+- 571
+gamma: 0.1
+learning_rate_min: 0.0001
+learning_rate_decay_steps: 119944
+learning_rate_warmup_steps: 1000
+n_epochs: 951
+batchSize: 64
+nClasses: 40
+seed: 10
+load_pretrained_model: ''
+grad_norm_clip_value: 10
+num_masks: 0
+max_mask_pct: 0
+whiteNoiseSD: 1.0
+constantOffsetSD: 0.2
+gaussianSmoothWidth: 2.0
+smooth_kernel_size: 100
+random_cut: 3
+l2_decay: 0.001
+input_dropout: 0.2
+dropout: 0.4
+use_amp: True 
+model:
+  gru:
+    name: GRU
+    nInputFeatures: 512
+    nUnits: 768
+    nLayers: 5
+    bidirectional: false
+    strideLen: 4
+    kernelLen: 14
+    nDays: 45
+  transformer:
+    name: Transformer
+    patch_size:
+    - 4
+    - 512
+    d_model: 384
+    n_heads: 6
+    mlp_dim_ratio: 4
+    dim_head: 64
+    depth: 5
