@@ -1,6 +1,6 @@
 import torch
 import tqdm 
-from augmentations import gauss_smooth
+from utils.augmentations import gauss_smooth
 from edit_distance import SequenceMatcher
 import numpy as np
 
@@ -35,13 +35,14 @@ def forward_ctc(
     
     
   
-def evaluate(val_loader, model, forward_ctc, args):
+def evaluate(val_loader, model, participant_id, forward_ctc, args):
     """
     Runs the validation loop for the model.
 
     Args:
         val_loader (DataLoader): The validation data loader.
         model (nn.Module): The model to evaluate.
+        participant_id (int): The id of the participant.
         forward_ctc (function): The CTC loss function.
         args (Namespace or dict): A configuration object with necessary parameters 
                                   like smooth_kernel_size and gaussianSmoothWidth.
@@ -64,7 +65,7 @@ def evaluate(val_loader, model, forward_ctc, args):
       
         # Wrap loader in tqdm for a progress bar
         
-        for batch in tqdm(val_loader, desc="Validating"):
+        for batch in tqdm.tqdm(val_loader, desc="Validating"):
           
             X, y, X_len, y_len, testDayIdx = batch
 
@@ -78,7 +79,7 @@ def evaluate(val_loader, model, forward_ctc, args):
             X = gauss_smooth(X, device=device, smooth_kernel_size=args['smooth_kernel_size'], smooth_kernel_std=args['gaussianSmoothWidth'])
             adjusted_lens = model.compute_length(X_len)
 
-            pred = model.forward(X, X_len, testDayIdx)
+            pred = model.forward(X, X_len, participant_id, testDayIdx)
             loss = forward_ctc(pred, adjusted_lens, y, y_len)
             
             # Use .item() to get the scalar value of the loss

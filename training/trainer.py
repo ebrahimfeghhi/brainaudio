@@ -71,25 +71,17 @@ def trainModel(args, model):
         
     max_dataset_train_length = max(len(loader) for loader in trainLoaders)
     
-    train_loop = tqdm.tqdm(
-        zip_longest(*trainLoaders), 
-        total=max_dataset_train_length, 
-        desc="Training Epoch"
-    )
-    
-    max_dataset_val_length = max(len(loader) for loader in valLoaders)
-
-    val_loop = tqdm.tqdm(
-        zip_longest(*valLoaders), 
-        total=max_dataset_val_length, 
-        desc="Training Val"
-    )
-    
     for epoch in range(args['n_epochs']):
         
         train_loss = []
         grad_norm_store = []
         model.train()
+
+        train_loop = tqdm(
+            zip_longest(*trainLoaders), 
+            total=max_dataset_train_length, 
+            desc="Training Epoch"
+        )
         
         # batches is a list containing batched data for each participant
         for batch_idx, batches in enumerate(train_loop):
@@ -136,7 +128,7 @@ def trainModel(args, model):
                     
                     adjustedLens = model.compute_length(X_len)
                 
-                    pred = model.forward(X, X_len, dayIdx)
+                    pred = model.forward(X, X_len, participant_id, dayIdx)
                     
                     loss = forward_ctc(pred, adjustedLens, y, y_len)
                                         
@@ -163,20 +155,19 @@ def trainModel(args, model):
 
         current_lr = optimizer.param_groups[0]['lr']
         
-        for valLoader in valLoaders:
-            
-            avgDayLoss, cer = evaluate(valLoader, model, forward_ctc, args)
+        for participant_id, valLoader in enumerate(valLoaders):
+            avgDayLoss, cer = evaluate(valLoader, model, participant_id, forward_ctc, args)
             avgDayLoss_array.append(avgDayLoss)
             cer_array.append(cer)
         
         endTime = time.time()
-        
-        
+        avgDayLoss_log=str(avgDayLoss_array)
+        cer_log=str(cer_array)
         print(
-            f"Epoch {epoch}, ctc loss: {avgDayLoss_array:>7f}, cer: {cer_array:>7f}"
-            + f", time/batch: {(endTime - startTime)/100:>7.3f}"
+           f"Epoch {epoch}, ctc loss: {avgDayLoss_log:>7f}, cer: {cer_log:>7f}"
+           + f", time/batch: {(endTime - startTime)/100:>7.3f}"
         )
-    
+
         # Log the metrics to wandb
         log_dict = {
             "train_ctc_Loss": avgTrainLoss,
@@ -189,14 +180,14 @@ def trainModel(args, model):
         
         if len(avgDayLoss_array) > 0:
             
-            for pid, (avgDayLoss, cer) in enumerate(zip(avgDayLoss_array[1:], cer[1:])):
+            for pid, (avgDayLoss, cer) in enumerate(zip(avgDayLoss_array[1:], cer_array[1:])):
                 
                 log_dict[f"ctc_loss_{pid}"] = avgDayLoss
                 log_dict[f"cer_{pid}"] = cer
-    
+
         wandb.log(log_dict)
         
-        if len(testCER) > 0 and cer < np.min(testCER):
+        if len(testCER) > 0 and np.mean(cer_array) < np.min(testCER):
             torch.save(model.state_dict(), args["outputDir"] + "/modelWeights")
             torch.save(optimizer.state_dict(), args["outputDir"] + "/optimizer")
             torch.save(scheduler.state_dict(), args['outputDir'] + '/scheduler')
@@ -214,7 +205,7 @@ def trainModel(args, model):
 
         with open(args["outputDir"] + "/trainingStats", "wb") as file:
             pickle.dump(tStats, file)
-            
+        
                                 
     wandb.finish()
     return 
