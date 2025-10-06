@@ -22,7 +22,7 @@ def trainModel(args, model):
         
     outputDir = f"{args["outputDir"]}{args["modelName"]}"
     
-    os.makedirs(outputDir, exist_ok=True)
+    os.makedirs(outputDir, exist_ok=False)
     torch.manual_seed(args["seed"])
     np.random.seed(args["seed"])
 

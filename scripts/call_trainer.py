@@ -6,10 +6,10 @@ from brainaudio.models.transformer import TransformerModel
 from brainaudio.training.trainer import trainModel
 
 ###### user specified parameters ######
-config_file = 'tm_transformer_b2t_24+25_large.yaml'
+config_file = 'tm_transformer_b2t_24+25_lioneltest.yaml'
 #######################################
 
-config_file = f"/home3/ebrahim2/brainaudio/src/brainaudio/training/utils/custom_configs/{config_file}"
+config_file = f"../src/brainaudio/training/utils/custom_configs/{config_file}"
 
 with open(config_file, 'r') as f:
     config = yaml.safe_load(f)
