@@ -7,7 +7,7 @@ outputDir: '/data3/brain2text/b2t_combined/outputs' # where to save trained mode
 datasetPath: ['/data3/brain2text/b2t_25/brain2text25.pkl', '/data3/brain2text/b2t_24/brain2text24'] # neural dataset
 
 device: 'cuda:0'
-modelName: "tm_transformer_b2t_24+25_lioneltest"
+modelName: "tm_transformer_b2t_24+25_sWideEmb"
 modelType: 'transformer'
 optimizer: 'AdamW'
 learning_rate: 0.001
@@ -64,11 +64,12 @@ model:
   # --- Transformer Model Arguments ---
   transformer:
     name: 'Transformer'
-    features_list: [512, 256]
+    features_list: [512, 256] # For multiple dataset, order the feature list aligning with corresponding dataset
     samples_per_patch: 4
     d_model: 384        
     n_heads: 6          
     mlp_dim_ratio: 4 
+    embed_mlp_ratio: 1.5
     dim_head: 64 
     depth: 5 
 

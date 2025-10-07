@@ -6,7 +6,7 @@ from brainaudio.models.transformer import TransformerModel
 from brainaudio.training.trainer import trainModel
 
 ###### user specified parameters ######
-config_file = 'tm_transformer_b2t_24+25_lioneltest.yaml'
+config_file = 'tm_transformer_b2t_24+25_sWideEmb.yaml'
 #######################################
 
 config_file = f"../src/brainaudio/training/utils/custom_configs/{config_file}"
@@ -23,7 +23,7 @@ model_args = config['model'][model_type]
 if model_type == 'transformer':
     
     model = TransformerModel(features_list=model_args['features_list'], samples_per_patch=model_args['samples_per_patch'], dim=model_args['d_model'], depth=model_args['depth'], 
-                     heads=model_args['n_heads'], mlp_dim_ratio=model_args['mlp_dim_ratio'], dim_head=model_args['dim_head'], 
+                     heads=model_args['n_heads'], mlp_dim_ratio=model_args['mlp_dim_ratio'],embed_mlp_ratio=model_args['embed_mlp_ratio'],  dim_head=model_args['dim_head'], 
                      dropout=config['dropout'], input_dropout=config['input_dropout'], nClasses=config['nClasses'], 
                      max_mask_pct=config['max_mask_pct'], num_masks=config['num_masks'], gaussianSmoothWidth=config['gaussianSmoothWidth'], 
                      kernel_size=config['smooth_kernel_size'], num_participants=len(model_args['features_list']))

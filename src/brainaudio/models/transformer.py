@@ -147,7 +147,7 @@ class Transformer(nn.Module):
 
 class TransformerModel(BaseTimeMaskedModel):
     
-    def __init__(self, *, samples_per_patch, features_list, dim, depth, heads, mlp_dim_ratio,
+    def __init__(self, *, samples_per_patch, features_list, dim, depth, heads, mlp_dim_ratio, embed_mlp_ratio,
                  dim_head, dropout, input_dropout,
                  nClasses, max_mask_pct, num_masks, gaussianSmoothWidth, kernel_size, num_participants):
    
@@ -159,6 +159,7 @@ class TransformerModel(BaseTimeMaskedModel):
         self.depth = depth
         self.heads = heads
         self.mlp_dim_ratio = mlp_dim_ratio
+        self.embed_mlp_ratio = embed_mlp_ratio #! new
         self.dim_head = dim_head
         self.dropout = dropout
         self.input_dropout = input_dropout
@@ -175,15 +176,43 @@ class TransformerModel(BaseTimeMaskedModel):
             feature_size = self.features_list[pid]
                     
             patch_dim = self.samples_per_patch*feature_size
+            embed_intermediate_dim = int(patch_dim * self.embed_mlp_ratio) #! new
             
             self.patch_embedders.append(
             nn.Sequential(
                 Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', 
                         p1=self.samples_per_patch, p2=feature_size),
                 nn.LayerNorm(patch_dim),
-                nn.Linear(patch_dim, self.dim),
+                # nn.Linear(patch_dim, self.dim),
+                #! new
+                nn.Linear(patch_dim, embed_intermediate_dim),
+                nn.GELU(), # A non-linear activation function
+                nn.Linear(embed_intermediate_dim, self.dim),
+                #!
                 nn.LayerNorm(self.dim)
             ))
+
+            # nn.Sequential(
+            #         # --- NEW CONVOLUTIONAL STEM ---
+            #         # Input is (B, 1, T, F)
+            #         nn.Conv2d(in_channels=1, out_channels=16, kernel_size=(3, 3), stride=1, padding='same'),
+            #         nn.GELU(),
+            #         nn.LayerNorm([16, neural_T, feature_size]), # You'll need to pass T or use adaptive norm
+                    
+            #         nn.Conv2d(in_channels=16, out_channels=conv_out_channels, kernel_size=(3, 3), stride=1, padding='same'),
+            #         nn.GELU(),
+            #         # The output shape is now (B, conv_out_channels, T, F)
+                    
+            #         # --- Patchify the CONVOLVED output ---
+            #         # Note: 'c' is now conv_out_channels, not 1. And p2 is the number of features.
+            #         Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', 
+            #                   p1=self.samples_per_patch, p2=feature_size),
+                    
+            #         # --- Standard Projection ---
+            #         nn.LayerNorm(patch_dim),
+            #         nn.Linear(patch_dim, self.dim),
+            #         nn.LayerNorm(self.dim)
+            #     )
                 
 
         self.dropout_layer = nn.Dropout(self.input_dropout)
@@ -210,12 +239,12 @@ class TransformerModel(BaseTimeMaskedModel):
         
         # add time masking
         if self.training and self.max_mask_pct > 0:
+            patchify = self.patch_embedders[participant_idx][0]
+            post_patchify = self.patch_embedders[participant_idx][1:]
 
-            x = self.patch_embedders[participant_idx][0](neuralInput)
-        
+            x = patchify(neuralInput)
             x, _ = self.apply_time_masking(x, X_len, mask_value=0)    
-                
-            x = self.patch_embedders[participant_idx][1:](x)
+            x = post_patchify(x)
 
         else:
             x = self.patch_embedders[participant_idx](neuralInput)
