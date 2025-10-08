@@ -1,7 +1,7 @@
-outputDir: /data3/brain2text/b2t_combined/outputs
+outputDir: /data2/brain2text/b2t_combined/outputs
 datasetPath:
-- /data3/brain2text/b2t_25/brain2text25.pkl
-- /data3/brain2text/b2t_24/brain2text24
+- /data2/brain2text/b2t_25/brain2text25.pkl
+- /data2/brain2text/b2t_24/brain2text24
 device: cuda:1
 modelName: tm_transformer_b2t_24+25_sWideEmb
 modelType: transformer

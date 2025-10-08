@@ -2,9 +2,9 @@
 #                       Shared Configuration
 # This section contains parameters common to all models and experiments.
 # ===================================================================
-outputDir: '/data3/brain2text/b2t_combined/outputs' # where to save trained model
+outputDir: '/data2/brain2text/b2t_combined/outputs' # where to save trained model
 # '/data3/brain2text/b2t_25/outputs/'
-datasetPath: ['/data3/brain2text/b2t_25/brain2text25.pkl', '/data3/brain2text/b2t_24/brain2text24'] # neural dataset
+datasetPath: ['/data2/brain2text/b2t_25/brain2text25.pkl', '/data2/brain2text/b2t_24/brain2text24'] # neural dataset
 
 device: 'cuda:0'
 modelName: "tm_transformer_b2t_24+25_sWideEmb"
