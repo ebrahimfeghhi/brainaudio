@@ -96,8 +96,9 @@ def getDatasetLoaders(
     def _padding(batch):
     
         X, y, X_lens, y_lens, days = zip(*batch)
-        X_padded = pad_sequence(X, batch_first=True, padding_value=0)
-        y_padded = pad_sequence(y, batch_first=True, padding_value=0)
+        padding_value = 0
+        X_padded = pad_sequence(X, batch_first=True, padding_value=padding_value)
+        y_padded = pad_sequence(y, batch_first=True, padding_value=padding_value)
         return (
             X_padded,
             y_padded,

@@ -12,7 +12,7 @@ from itertools import zip_longest
 # brainaudio internal package imports
 from .utils.augmentations import gauss_smooth
 from .utils.loss import forward_ctc, evaluate
-from .utils.loading_data import getDatasetLoaders
+from ..datasets.loading_data import getDatasetLoaders
 from .utils.learning_scheduler import create_learning_rate_scheduler
 
 def trainModel(args, model):
