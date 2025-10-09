@@ -9,6 +9,7 @@ import re
 from tqdm import tqdm
 from itertools import zip_longest
 from torchaudio.functional import forced_align
+#from ctc_forced_aligner.alignment_utils import forced_align
 from torch.nn.functional import log_softmax
 
 from brainaudio.models.transformer import TransformerModel
@@ -115,17 +116,22 @@ def generate_log_probs(model, args, partition, device, run_forced_alignment=Fals
                     
                     log_probs = log_softmax(logits)
                     
-                    # B x T
-                    breakpoint()
-                    fa_labels, fa_probs = forced_align(log_probs=log_probs, targets=y, input_lengths=adjusted_lens, target_lengths=y_len, blank=0)
-                    breakpoint()
+                    # B x T         
+                    for i in range(args['batchSize']):        
+                           
+                        fa_labels, fa_probs = forced_align(
+                            log_probs=log_probs[i:i+1, :adjusted_lens[i]], 
+                            targets=y[i:i+1, :y_len[i]], 
+                            blank=0
+                        )
                     
+            breakpoint()    
                     
 load_model_folder = "/data2/brain2text/b2t_combined/outputs_tm_transformer_b2t_24+25_large_wide/"  
 device = "cuda:0"    
 
 model, args = load_model(load_model_folder, device)
-generate_log_probs(model, args, partition="train", device=device, run_forced_alignment=True)
+generate_log_probs(model, args, partition="train", device=device, run_forced_alignment=False)
                 
 
         
