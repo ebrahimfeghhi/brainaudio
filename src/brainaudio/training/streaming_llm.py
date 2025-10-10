@@ -129,85 +129,8 @@ def trainModel(args, model):
                     
                     adjustedLens = model.compute_length(X_len)
                 
-                    pred = model.forward(X, X_len, participant_id, dayIdx)
+                    logits, final_layer = model.forward(X, X_len, participant_id, dayIdx)
                     
-                    loss = forward_ctc(pred, adjustedLens, y, y_len)
-                                        
-                    train_loss.append(loss.cpu().detach().numpy())    
+                    # final_layer is of shape B x T x D, where D is the model hidden dim
                     
-                loss.backward()
-                
-                total_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=float('inf'))
-                grad_norm_store.append(total_norm.item())
-                
-                if args['grad_norm_clip_value'] > 0: 
-                    _ = torch.nn.utils.clip_grad_norm_(model.parameters(), 
-                                                max_norm = args['grad_norm_clip_value'],
-                                                error_if_nonfinite = True,
-                                                foreach = True
-                                                )
-                optimizer.step()            
-                scheduler.step()
-        
-        avgTrainLoss = np.mean(train_loss)
-        
-        avgDayLoss_array = []
-        cer_array = []
-
-        current_lr = optimizer.param_groups[0]['lr']
-        
-        for participant_id, valLoader in enumerate(valLoaders):
-            avgDayLoss, cer = evaluate(valLoader, model, participant_id, forward_ctc, args)
-            avgDayLoss_array.append(avgDayLoss)
-            cer_array.append(cer)
-        
-        endTime = time.time()
-        avgDayLoss_log=str(avgDayLoss_array)
-        cer_log=str(cer_array)
-        
-        #print(
-        #   f"Epoch {epoch}, ctc loss: {avgDayLoss_log:>7f}, cer: {cer_log:>7f}"
-        #   + f", time/batch: {(endTime - startTime)/100:>7.3f}"
-        #)
-
-        # Log the metrics to wandb
-        log_dict = {
-            "train_ctc_Loss": avgTrainLoss,
-            "ctc_loss": avgDayLoss_array[0],
-            "cer": cer_array[0],
-            "learning_rate": current_lr, 
-            "grad_norm": np.mean(grad_norm_store), 
-            "time_per_epoch": (endTime - startTime) / 100
-        }
-        
-        if len(avgDayLoss_array) > 0:
             
-            for pid, (avgDayLoss, cer) in enumerate(zip(avgDayLoss_array[1:], cer_array[1:])):
-                
-                log_dict[f"ctc_loss_{pid}"] = avgDayLoss
-                log_dict[f"cer_{pid}"] = cer
-
-        wandb.log(log_dict)
-        
-        if len(testCER) > 0 and np.mean(cer_array) < np.min(testCER):
-            torch.save(model.state_dict(), outputDir + "/modelWeights")
-            torch.save(optimizer.state_dict(), outputDir + "/optimizer")
-            torch.save(scheduler.state_dict(), outputDir + '/scheduler')
-            
-        if len(testLoss) > 0 and np.mean(avgDayLoss_array) < np.min(testLoss):
-            torch.save(model.state_dict(), outputDir + "/modelWeights_ctc")
-            
-                
-        testLoss.append(np.mean(avgDayLoss_array))
-        testCER.append(np.mean(cer_array))
-
-        tStats = {}
-        tStats["testLoss"] = np.array(testLoss)
-        tStats["testCER"] = np.array(testCER)
-
-        with open(outputDir + "/trainingStats", "wb") as file:
-            pickle.dump(tStats, file)
-        
-                                
-    wandb.finish()
-    return 
