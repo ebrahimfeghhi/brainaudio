@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader, Dataset, ConcatDataset
 class SpeechDataset(Dataset):
 
     def __init__(self, data, transform=None, return_transcript=False, pid=None):
+        
         """
         Defines a Pytorch dataset object which returns neural data, output text labels, 
         neural data length, output text labels length, day idx, and optionally the ground
@@ -45,6 +46,7 @@ class SpeechDataset(Dataset):
             n_trials = len(data[day]["sentenceDat"])
             
             for trial in range(n_trials):
+                
                 feats = data[day]["sentenceDat"][trial]
                 self.neural_feats.append(feats)
 
@@ -82,23 +84,45 @@ class SpeechDataset(Dataset):
 def getDatasetLoaders(
     data_paths:list[str],
     batch_size:int,
+    return_transcript=False, 
+    shuffle_train=True
 ):
     
     '''
     Args:
         datasetName ([str]): list of paths to dataset
         batchSize (int): batch size used for training
-    
+        return_transcript (bool): if True, return the ground truth transcript
+        shuffle_train (bool): if True, shuffle examples in the training dataset
+        
+            
     Returns train and val datasets as Pytorch data loaders, 
     as well as full dataset as a list of all datasets.
     '''
 
     def _padding(batch):
-    
-        X, y, X_lens, y_lens, days = zip(*batch)
+        
+        if return_transcript:
+            X, y, X_lens, y_lens, days, transcripts = zip(*batch)
+        else:
+            X, y, X_lens, y_lens, days = zip(*batch)
+            
         padding_value = 0
         X_padded = pad_sequence(X, batch_first=True, padding_value=padding_value)
         y_padded = pad_sequence(y, batch_first=True, padding_value=padding_value)
+        
+        
+        if return_transcript:
+            
+            return (
+                X_padded,
+                y_padded,
+                torch.stack(X_lens),
+                torch.stack(y_lens),
+                torch.stack(days),
+                transcripts
+            )
+    
         return (
             X_padded,
             y_padded,
@@ -116,13 +140,14 @@ def getDatasetLoaders(
         with open(datasetName, "rb") as handle:
             ds = pickle.load(handle)
         loadedData.append(ds)
-        train_ds = SpeechDataset(ds['train'], transform=None, pid=i)
-        val_ds = SpeechDataset(ds['val'], pid=i)
+        
+        train_ds = SpeechDataset(ds['train'], transform=None, pid=i, return_transcript=return_transcript)
+        val_ds = SpeechDataset(ds['val'], pid=i, return_transcript=return_transcript)
 
         train_loader = DataLoader(
             train_ds,
             batch_size=batch_size,
-            shuffle=True,
+            shuffle=shuffle_train,
             num_workers=0,
             pin_memory=True,
             collate_fn=_padding,
