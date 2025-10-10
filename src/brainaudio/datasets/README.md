@@ -15,5 +15,8 @@ These scripts are adopted from their original repositories, which are referenced
         - *text:* list, each element is a M dimensional array, which has phoneme integers and then zero padded.
         - *timeSeriesLen:* list, length of neural data trial
         - *textLens:* list, length of phoneme sequence per trial
+        - *forced_alignments* list, where each element is dictionary with word end frame as the key and the corresponding word as the value.
+        
 
 - For days that lack data, there will be a $None$ Type as placeholder
+- Datasets with forced alignments have the postfix "with_fa" 

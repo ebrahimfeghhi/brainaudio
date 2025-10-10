@@ -41,11 +41,14 @@ def load_model(folder: str, device: torch.device = torch.device("cuda" if torch.
     
     if modelType == 'transformer':
         
+        if 'return_final_layer' not in config:
+            config['return_final_layer'] = False
+        
         model = TransformerModel(features_list=model_args['features_list'], samples_per_patch=model_args['samples_per_patch'], dim=model_args['d_model'], depth=model_args['depth'], 
                         heads=model_args['n_heads'], mlp_dim_ratio=model_args['mlp_dim_ratio'],  dim_head=model_args['dim_head'], 
                         dropout=config['dropout'], input_dropout=config['input_dropout'], nClasses=config['nClasses'], 
                         max_mask_pct=config['max_mask_pct'], num_masks=config['num_masks'], gaussianSmoothWidth=config['gaussianSmoothWidth'], 
-                        kernel_size=config['smooth_kernel_size'], num_participants=len(model_args['features_list']))
+                        kernel_size=config['smooth_kernel_size'], num_participants=len(model_args['features_list']), return_final_layer=config['return_final_layer'])
 
 
     elif modelType == 'gru':
@@ -173,10 +176,7 @@ def generate_log_probs(model, args, partition, device):
         
         # loop through data for each participant 
         for participant_id, dataLoader in zip(participant_ids, dataLoaders):
-            
-            if participant_id == 0:
-                continue
-            
+                        
             word_spans_dict = {}
         
             for batch in tqdm(dataLoader):
@@ -226,9 +226,11 @@ def generate_log_probs(model, args, partition, device):
                         word_spans_dict[dayIdx] = []
                         word_spans_dict[dayIdx].append(word_spans)
                         
-                        
-            savePath = f"{savePaths[participant_id]}word_alignments.pkl"
-            
+            if partition == "val":
+                savePath = f"{savePaths[participant_id]}word_alignments_val.pkl"
+            else:
+                savePath = f"{savePaths[participant_id]}word_alignmentsl.pkl"
+                
             with open(savePath, 'wb') as handle:
                 pickle.dump(word_spans_dict, handle)
                         

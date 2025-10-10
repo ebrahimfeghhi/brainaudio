@@ -99,7 +99,7 @@ def trainModel(args, model):
                 optimizer.zero_grad()    
                                     
                 # Base case: always unpack the first 5
-                X, y, X_len, y_len, dayIdx = batch[:5]
+                X, y, X_len, y_len, dayIdx, forced_alignments = batch[:5]
 
                 # Send to device
                 X      = X.to(args["device"])
