@@ -45,3 +45,6 @@ model:
     mlp_dim_ratio: 4
     dim_head: 64
     depth: 5
+wandb:
+  project: "nejm-brain-to-text" 
+  entity: "lionelhu926-ucla"

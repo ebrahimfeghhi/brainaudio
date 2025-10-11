@@ -1,0 +1,245 @@
+import torch 
+import torch.nn as nn
+from transformers import AutoTokenizer, AutoModelForCausalLM, AutoConfig, AutoModel, AutoModelForSeq2SeqLM, T5ForConditionalGeneration
+import numpy as np
+import os
+import yaml
+
+
+from brainaudio.models.gru_b2t_24 import GRU_24
+from brainaudio.models.gru_b2t_25 import GRU_25
+from brainaudio.models.transformer import TransformerModel
+# ------------------------------------- Encoder Projector Setup Functions ------------------------------------- #
+class EncoderProjectorConcat(nn.Module):
+    def __init__(self, config:dict, output_dim:int):
+        super().__init__()
+        self.k = config['encoder_projector_ds_rate']
+        self.input_dim = config['encoder_dim']
+        self.output_dim = output_dim
+        self.linear1 = nn.Linear(self.input_dim * self.k, 2048)
+        self.relu = nn.ReLU()
+        self.linear2 = nn.Linear(2048, self.output_dim)
+
+    def forward(self, x):
+        batch_size, seq_len, dim = x.size()
+        num_frames_to_discard = seq_len % self.k
+        if num_frames_to_discard > 0:
+            x = x[:, :-num_frames_to_discard, :]
+        seq_len = x.size(1)
+        
+        x = x.contiguous()
+        x = x.view(batch_size, seq_len // self.k, dim * self.k)
+        x = self.linear1(x)
+        x = self.relu(x)
+        x = self.linear2(x)
+        return x
+
+class EncoderProjectorCov1d(nn.Module):
+    def __init__(self, config:dict, input_dim:int, output_dim:int):
+        super().__init__()
+        self.k = config['encoder_projector_ds_rate']
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        self.conv1d = nn.Conv1d(in_channels=self.input_dim, out_channels=self.input_dim, kernel_size=self.k, stride=self.k, padding=0)
+        self.linear1 = nn.Linear(self.input_dim, 2048)
+        self.relu1 = nn.ReLU()
+        self.linear2 = nn.Linear(2048, self.output_dim)
+        self.relu2 = nn.ReLU()
+    
+    def forward(self, x):
+        x = x.transpose(1, 2)
+        x = self.conv1d(x)
+        x = x.transpose(1, 2)
+        x = self.relu1(x)
+        x = self.linear1(x)
+        x = self.relu2(x)
+        x = self.linear2(x)
+        return x
+
+class EncoderProjectorQFormer(nn.Module):
+    def __init__(self, config:dict, input_dim:int, output_dim:int):
+        super().__init__()
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        from transformers import Blip2QFormerConfig, Blip2QFormerModel
+        configuration = Blip2QFormerConfig()
+        configuration.encoder_hidden_size = self.input_dim
+        configuration.num_hidden_layers = config['qformer_layers']
+
+        self.query_len = int(config.get("query_len", 64))
+        self.query = nn.Parameter(torch.zeros(1, self.query_len, configuration.hidden_size))
+        self.query.data.normal_(mean=0.0, std=1.0)
+        self.qformer = Blip2QFormerModel(configuration)
+
+        self.linear = nn.Linear(configuration.hidden_size, self.output_dim)
+        self.norm = nn.LayerNorm(self.output_dim, eps=1e-5)
+
+    def forward(self, x, atts):
+        query = self.query.expand(x.shape[0], -1, -1)
+        
+        query_output = self.qformer(
+            query_embeds=query,
+            encoder_hidden_states=x,
+            encoder_attention_mask=atts,
+            return_dict=True,
+        )
+        
+        query_proj = self.norm(self.linear(query_output.last_hidden_state))
+        
+        return query_proj
+
+def setup_encoder_projector(model_config, input_dim, output_dim):
+    """
+    Sets up an encoder projector model to project encoder last layer to LLM token space.
+
+    Args:
+        model_config (dict): A dictionary containing the key "encoder_model_path".
+        input_dim (int): The dimension of ctc encoder last hidden layer
+        output_dim (int): The dimension of LLM token space that the network outputs to
+        
+    Returns:
+        model (nn.Module) : The loaded model that outputs neural embedding.
+    """
+    if model_config["projector_type"] == "linear":  #! assume we have this field in the model config
+        encoder_projector = EncoderProjectorConcat(model_config, input_dim, output_dim)
+    elif model_config["projector_type"] == "cov1d-linear":
+        encoder_projector = EncoderProjectorCov1d(model_config, input_dim, output_dim)
+    elif model_config["projector_type"] == "q-former":
+        encoder_projector = EncoderProjectorQFormer(model_config, input_dim, output_dim)
+    else:
+        return None
+    return encoder_projector 
+
+
+
+
+# ------------------------------------- LLM Setup Functions ------------------------------------- #
+
+
+
+# ------------------------------------- Encoder Setup Functions ------------------------------------- #
+def set_up_neural_encoder(model_config):
+    """
+    Sets up and loads a pretrained neural encoder model.
+
+    Args:
+        model_config (dict): A dictionary of the E2E model".
+
+    Returns:
+        tuple: A tuple containing the loaded neural encoder model and its arguments.
+    """
+    model_path = model_config["encoder_model_path"] # assume there is a field called encoder_model_path
+    
+    # Load model config
+    config_path = os.path.join(model_path, 'args.yaml')
+    with open(config_path, 'r') as f:
+        encoder_config = yaml.safe_load(f)
+
+    model_type = encoder_config["modelType"]
+    model_args = encoder_config['model'][model_type]
+    
+
+    if model_type == 'transformer':
+        model = TransformerModel(features_list=model_args['features_list'], samples_per_patch=model_args['samples_per_patch'], dim=model_args['d_model'], depth=model_args['depth'], 
+                        heads=model_args['n_heads'], mlp_dim_ratio=model_args['mlp_dim_ratio'],embed_mlp_ratio=model_args['embed_mlp_ratio'],  dim_head=model_args['dim_head'], 
+                        dropout=encoder_config['dropout'], input_dropout=encoder_config['input_dropout'], nClasses=encoder_config['nClasses'], 
+                        max_mask_pct=encoder_config['max_mask_pct'], num_masks=encoder_config['num_masks'], gaussianSmoothWidth=encoder_config['gaussianSmoothWidth'], 
+                        kernel_size=encoder_config['smooth_kernel_size'], num_participants=len(model_args['features_list']))
+        encoder_dim = model_args['nUnits']
+    elif model_type == 'gru':
+        model = GRU_25(neural_dim=model_args['nInputFeatures'], n_classes=encoder_config['nClasses'], hidden_dim=model_args['nUnits'], 
+                    layer_dim=model_args['nLayers'], nDays=model_args['nDays'], dropout=encoder_config['dropout'], input_dropout=encoder_config['input_dropout'],
+                    strideLen=model_args['strideLen'], kernelLen=model_args['kernelLen'], gaussianSmoothWidth=encoder_config['gaussianSmoothWidth'], 
+                    kernel_size=encoder_config['smooth_kernel_size'], bidirectional=model_args['bidirectional'], max_mask_pct=encoder_config['max_mask_pct'], 
+                    num_masks=encoder_config['num_masks']) 
+        encoder_dim = model_args['d_model']
+
+    weights_path = os.path.join(model_path, 'modelWeights_ctc')
+
+    checkpoint = torch.load(weights_path, map_location=model_config['device'])
+
+    state_dict = {}
+    for key, value in checkpoint['model_state_dict'].items():
+        # This handles models saved with DataParallel (module.) or torch.compile (_orig_mod.)
+        clean_key = key.replace("module.", "").replace("_orig_mod.", "")
+        state_dict[clean_key] = value
+    
+    # 4. Load the weights, ignoring layers that don't match (like the final CTC head)
+    model.load_state_dict(state_dict, strict=False)
+    model.to(model_config['device'])
+    model.eval()
+    
+    return model, model_args, encoder_dim
+
+
+# ------------------------------------- E2E model class definition ------------------------------------- #
+class E2EModel(nn.Module):
+    def __init__(
+        self,
+        encoder: nn.Module,
+        llm: nn.Module,
+        encoder_projector: nn.Module,
+        tokenizer,
+        model_config,
+    ):  
+        self.tokenizer = tokenizer
+        llm_dim = self.tokenizer("")
+        
+        # llm
+        self.llm = llm
+        self.embedding_layer = self.llm.get_input_embeddings()
+        llm_dim = self.embedding_layer.embedding_dim
+
+        # neural ctc encoder 
+        self.encoder , _ , encoder_dim= set_up_neural_encoder(model_config)
+        # projector
+        self.encoder_projector = setup_encoder_projector(model_config, input_dim=encoder_dim, output_dim=llm_dim)
+        
+
+
+    def forward(self, neuralInput, X_len, attention_mask, labels, participant_idx=None, day_idx=None):
+        """
+        Args:
+            neuralInput: Tensor of shape (B, T, F)
+            X_len: Tensor of shape ()
+            attention_mask: 
+            labels: (B , )
+            participant_idx: integer ID, all data for a given batch must come from the same participant 
+            dayIdx: Not used for Transformer 
+        Returns:
+            Tensor: (B, num_patches, dim)
+        """
+
+        logits, encoder_outs = self.encoder(neuralInput, X_len, participant_idx, day_idx)
+        projected_outs = self.encoder_projector(encoder_outs)
+
+
+        BOS_TOKEN = self.tokenizer.bos_token
+        EOS_TOKEN = self.tokenizer.eos_token
+        
+        llm_inputs = [] 
+        # labels [{13: 'Nuclear', 35: 'is', 50: 'the', 106: 'future'}]
+
+        for i in range(len(projected_outs)):
+            llm_inputs.append(projected_outs[i]) # 
+            if i in labels.keys():
+                if i == labels.keys()[0]:
+                    word = f'{BOS_TOKEN}{labels[i]}'
+                elif i == labels.keys()[-1]:
+                    word = f'{labels[i]}{EOS_TOKEN}'
+                else:
+                    word = f'{labels[i]} '
+                # tokenize word + get embedding vectors
+                token_id  = self.tokenizer(word)
+                embeddings = self.embedding_layer(token_id)
+                llm_inputs.append(embeddings)
+
+        model_outputs = self.llm(llm_inputs, attention_mask=attention_mask, labels=labels)
+        return model_outputs
+
+
+    # if training, return 
+
+
+
+

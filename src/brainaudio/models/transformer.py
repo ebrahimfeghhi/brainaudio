@@ -201,7 +201,7 @@ class TransformerModel(BaseTimeMaskedModel):
         """
         Args:
             neuralInput: Tensor of shape (B, T, F)
-            X_len: Tensor of shape 
+            X_len: Tensor of shape (B, )
             participant_idx: integer ID, all data for a given batch must come from the same participant 
             dayIdx: Not used for Transformer 
         Returns:
@@ -243,6 +243,6 @@ class TransformerModel(BaseTimeMaskedModel):
     
     def compute_length(self, X_len):
         
-        # computing ceiling because I pad X to be divisible by path_height
+        # computing ceiling because X is padded to be divisible by path_height
         return torch.ceil(X_len / self.samples_per_patch).to(dtype=torch.int32)
     

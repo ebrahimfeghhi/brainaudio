@@ -4,6 +4,7 @@ import time
 from edit_distance import SequenceMatcher
 import numpy as np
 import torch
+import torch.nn as nn
 from tqdm import tqdm
 import torch.nn.functional as F
 import wandb
@@ -15,10 +16,14 @@ from .utils.loss import forward_ctc, evaluate
 from ..datasets.loading_data import getDatasetLoaders
 from .utils.learning_scheduler import create_learning_rate_scheduler
 
-def trainModel(args, model):
 
-    wandb.init(project="nejm-brain-to-text", 
-                entity="lionelhu926-ucla", config=dict(args), name=args['modelName'])
+
+
+
+def trainE2EModel(args, model):
+
+    wandb.init(project=args["wandb"]["project"], 
+                entity=args["wandb"]["entity"], config=dict(args), name=args['modelName'])
         
     outputDir = f'{args["outputDir"]}{args["modelName"]}'
     
@@ -134,3 +139,4 @@ def trainModel(args, model):
                     # final_layer is of shape B x T x D, where D is the model hidden dim
                     
             
+    

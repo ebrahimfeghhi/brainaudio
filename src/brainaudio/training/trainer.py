@@ -17,8 +17,8 @@ from .utils.learning_scheduler import create_learning_rate_scheduler
 
 def trainModel(args, model):
 
-    wandb.init(project="nejm-brain-to-text", 
-                entity="lionelhu926-ucla", config=dict(args), name=args['modelName'])
+    wandb.init(project=args["wandb"]["project"], 
+                entity=args["wandb"]["entity"], config=dict(args), name=args['modelName'])
         
     outputDir = f'{args["outputDir"]}{args["modelName"]}'
     

@@ -1,15 +1,25 @@
 # Pseudocode for loading the config
 import yaml
+import argparse
 from brainaudio.models.gru_b2t_24 import GRU_24
 from brainaudio.models.gru_b2t_25 import GRU_25
 from brainaudio.models.transformer import TransformerModel
 from brainaudio.training.trainer import trainModel
+from brainaudio.training.utils.e2e_trainer import trainE2EModel
+
+argparser = argparse.ArgumentParser()
+argparser.add_argument('--mode', type=str, choices=['train_e2e', 'train_ctc'], default='train_ctc')
+argparser.add_argument('--config_path', type=str)
+args = argparser.parse_args()
+
+mode = args['mode']
+config_path = args['config_path']
 
 ###### user specified parameters ######
-config_file = 'tm_transformer_b2t_24+25_sWideEmb.yaml'
+config_path = 'tm_transformer_b2t_24+25_sWideEmb.yaml'
 #######################################
 
-config_file = f"../src/brainaudio/training/utils/custom_configs/{config_file}"
+config_file = f"../src/brainaudio/training/utils/custom_configs/{config_path}"
 
 with open(config_file, 'r') as f:
     config = yaml.safe_load(f)
@@ -35,7 +45,6 @@ if model_type == 'gru':
                 strideLen=model_args['strideLen'], kernelLen=model_args['kernelLen'], gaussianSmoothWidth=config['gaussianSmoothWidth'], 
                 kernel_size=config['smooth_kernel_size'], bidirectional=model_args['bidirectional'], max_mask_pct=config['max_mask_pct'], 
                 num_masks=config['num_masks'])
-        
         
     
 model.to(config['device'])

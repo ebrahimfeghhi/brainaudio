@@ -1,0 +1,69 @@
+# ===================================================================
+#                       Shared Configuration
+# This section contains parameters common to all E2E models and experiments.
+# ===================================================================
+
+outputDir: '/data2/brain2text/b2t_combined/outputs' # where to save trained E2E model
+datasetPath: ['/data2/brain2text/b2t_25/brain2text25.pkl', '/data2/brain2text/b2t_24/brain2text24']
+faPath: ['data2/brain2text/b2t_25/brain2text25_with_fa', 'data2/brain2text/b2t_24/brain2text24_with_fa']
+
+
+device: 'cuda:0'
+modelName: ""
+
+# ===================================================================
+#                       Model Modules
+# ===================================================================
+llm_name: 'google/gemma-3-270m-it '
+encoder_name: 
+encoder_path:
+
+projector_type: 'linear'
+encoder_projector_ds_rate: 1.0
+qformer_layers: 2
+
+load_pretrained_model: '' # path for trained E2E pipelines
+# ===================================================================
+#                       Training Parameters
+# ===================================================================
+ptimizer: 'AdamW'
+learning_rate: 0.001
+beta1: 0.9
+beta2: 0.999
+eps: 1.0e-8
+learning_scheduler: 'multistep'
+milestones: [571] # need to convert to batches
+gamma: 0.1 # multiply learning rate by this factor at milestones
+learning_rate_min: 0.0001
+learning_rate_decay_steps: 120000 # in batches
+learning_rate_warmup_steps: 1000 # in batches
+n_epochs: 951
+
+# standard regularization techniques
+l2_decay: 1.0e-5
+input_dropout: 0.2
+dropout: 0.35
+
+# ===================================================================
+#                       LLM Finetuning
+# ===================================================================
+peft:
+  peft_method: lora # None , llama_adapter, prefix
+  r: 8 # 16
+  lora_alpha:  32 # 16
+  target_modules: ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]  # List of target modules for LoRA
+  bias: none
+  task_type: CAUSAL_LM
+  lora_dropout:  0.05 # 0
+  inference_mode: False
+  use_gradient_checkpointing: unsloth # True or "unsloth" for very long context
+  random_state: 3407
+  loftq_config: none
+
+
+# ===================================================================
+#                       Wandb Logging
+# ===================================================================
+wandb:
+  project: "nejm-brain-to-text" 
+  entity: "lionelhu926-ucla"
