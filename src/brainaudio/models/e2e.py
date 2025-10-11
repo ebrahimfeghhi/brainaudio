@@ -111,131 +111,92 @@ def setup_encoder_projector(model_config, input_dim, output_dim):
     return encoder_projector 
 
 
-
-
-# ------------------------------------- LLM Setup Functions ------------------------------------- #
-
-
-
-# ------------------------------------- Encoder Setup Functions ------------------------------------- #
-def set_up_neural_encoder(model_config):
-    """
-    Sets up and loads a pretrained neural encoder model.
-
-    Args:
-        model_config (dict): A dictionary of the E2E model".
-
-    Returns:
-        tuple: A tuple containing the loaded neural encoder model and its arguments.
-    """
-    model_path = model_config["encoder_model_path"] # assume there is a field called encoder_model_path
-    
-    # Load model config
-    config_path = os.path.join(model_path, 'args.yaml')
-    with open(config_path, 'r') as f:
-        encoder_config = yaml.safe_load(f)
-
-    model_type = encoder_config["modelType"]
-    model_args = encoder_config['model'][model_type]
-    
-
-    if model_type == 'transformer':
-        model = TransformerModel(features_list=model_args['features_list'], samples_per_patch=model_args['samples_per_patch'], dim=model_args['d_model'], depth=model_args['depth'], 
-                        heads=model_args['n_heads'], mlp_dim_ratio=model_args['mlp_dim_ratio'],embed_mlp_ratio=model_args['embed_mlp_ratio'],  dim_head=model_args['dim_head'], 
-                        dropout=encoder_config['dropout'], input_dropout=encoder_config['input_dropout'], nClasses=encoder_config['nClasses'], 
-                        max_mask_pct=encoder_config['max_mask_pct'], num_masks=encoder_config['num_masks'], gaussianSmoothWidth=encoder_config['gaussianSmoothWidth'], 
-                        kernel_size=encoder_config['smooth_kernel_size'], num_participants=len(model_args['features_list']))
-        encoder_dim = model_args['nUnits']
-    elif model_type == 'gru':
-        model = GRU_25(neural_dim=model_args['nInputFeatures'], n_classes=encoder_config['nClasses'], hidden_dim=model_args['nUnits'], 
-                    layer_dim=model_args['nLayers'], nDays=model_args['nDays'], dropout=encoder_config['dropout'], input_dropout=encoder_config['input_dropout'],
-                    strideLen=model_args['strideLen'], kernelLen=model_args['kernelLen'], gaussianSmoothWidth=encoder_config['gaussianSmoothWidth'], 
-                    kernel_size=encoder_config['smooth_kernel_size'], bidirectional=model_args['bidirectional'], max_mask_pct=encoder_config['max_mask_pct'], 
-                    num_masks=encoder_config['num_masks']) 
-        encoder_dim = model_args['d_model']
-
-    weights_path = os.path.join(model_path, 'modelWeights_ctc')
-
-    checkpoint = torch.load(weights_path, map_location=model_config['device'])
-
-    state_dict = {}
-    for key, value in checkpoint['model_state_dict'].items():
-        # This handles models saved with DataParallel (module.) or torch.compile (_orig_mod.)
-        clean_key = key.replace("module.", "").replace("_orig_mod.", "")
-        state_dict[clean_key] = value
-    
-    # 4. Load the weights, ignoring layers that don't match (like the final CTC head)
-    model.load_state_dict(state_dict, strict=False)
-    model.to(model_config['device'])
-    model.eval()
-    
-    return model, model_args, encoder_dim
-
-
 # ------------------------------------- E2E model class definition ------------------------------------- #
 class E2EModel(nn.Module):
     def __init__(
         self,
         encoder: nn.Module,
+        encoder_dim: int, 
         llm: nn.Module,
-        encoder_projector: nn.Module,
         tokenizer,
-        model_config,
+        device
     ):  
+        super().__init__()
+        
+        self.device = device
+        
+        
         self.tokenizer = tokenizer
-        llm_dim = self.tokenizer("")
         
         # llm
         self.llm = llm
-        self.embedding_layer = self.llm.get_input_embeddings()
+    
+        self.embedding_layer = llm.get_input_embeddings()
         llm_dim = self.embedding_layer.embedding_dim
 
         # neural ctc encoder 
-        self.encoder , _ , encoder_dim= set_up_neural_encoder(model_config)
+        self.encoder = encoder 
+        
+        self.encoder_projecter = nn.Linear(encoder_dim, llm_dim)
         # projector
-        self.encoder_projector = setup_encoder_projector(model_config, input_dim=encoder_dim, output_dim=llm_dim)
+        #self.encoder_projector = setup_encoder_projector(model_config, input_dim=encoder_dim, output_dim=llm_dim)
+        
+        
+        self.BOS_TOKEN = self.tokenizer.bos_token
+        self.EOS_TOKEN = self.tokenizer.eos_token
+        self.PAD_TOKEN = self.tokenizer.pad_token
+        self.pad_token_id = self.tokenizer(self.PAD_TOKEN, return_tensors="pt").input_ids.to(device)
         
 
 
-    def forward(self, neuralInput, X_len, attention_mask, labels, participant_idx=None, day_idx=None):
+    def forward(self, neuralInput, X_len, attention_mask, forced_alignments, adjusted_lens, participant_idx=None, day_idx=None):
         """
         Args:
             neuralInput: Tensor of shape (B, T, F)
             X_len: Tensor of shape ()
             attention_mask: 
-            labels: (B , )
+            forced_alignments: (B , ) of shape [{}]
+            adjusted_lens: (B , ) 
             participant_idx: integer ID, all data for a given batch must come from the same participant 
             dayIdx: Not used for Transformer 
         Returns:
             Tensor: (B, num_patches, dim)
         """
-
+        B = neuralInput.shape[0]
         logits, encoder_outs = self.encoder(neuralInput, X_len, participant_idx, day_idx)
-        projected_outs = self.encoder_projector(encoder_outs)
-
-
-        BOS_TOKEN = self.tokenizer.bos_token
-        EOS_TOKEN = self.tokenizer.eos_token
+        projected_outs = self.encoder_projecter(encoder_outs) # B x T x llm_dim
         
-        llm_inputs = [] 
         # labels [{13: 'Nuclear', 35: 'is', 50: 'the', 106: 'future'}]
-
-        for i in range(len(projected_outs)):
-            llm_inputs.append(projected_outs[i]) # 
-            if i in labels.keys():
-                if i == labels.keys()[0]:
-                    word = f'{BOS_TOKEN}{labels[i]}'
-                elif i == labels.keys()[-1]:
-                    word = f'{labels[i]}{EOS_TOKEN}'
-                else:
-                    word = f'{labels[i]} '
-                # tokenize word + get embedding vectors
-                token_id  = self.tokenizer(word)
-                embeddings = self.embedding_layer(token_id)
-                llm_inputs.append(embeddings)
-
-        model_outputs = self.llm(llm_inputs, attention_mask=attention_mask, labels=labels)
-        return model_outputs
+        batched_llm_inputs = []
+        for idx in range(B):
+            fa = forced_alignments[idx]
+            llm_inputs = []
+            for i in range(adjusted_lens[idx]):
+            
+                llm_inputs.append(projected_outs[idx][i]) # 
+                
+                if i in fa.keys():
+                    boundary_timesteps = list(fa.keys())
+                    if i == boundary_timesteps[0]:
+                        word = f'{self.BOS_TOKEN}{fa[i]}'
+                    elif i == boundary_timesteps[-1]:
+                        word = f'{fa[i]}{self.EOS_TOKEN}'
+                    else:
+                        word = f'{fa[i]} '
+                    # tokenize word + get embedding vectors
+                    token_id  = self.tokenizer(word, return_tensors="pt").input_ids.to(self.device)
+                    embeddings = self.embedding_layer(token_id) # add tokens one by one 
+                    llm_inputs.append(embeddings)
+                        
+            breakpoint()
+                        
+            batched_llm_inputs.append(torch.stack(llm_inputs))
+            
+        batched_llm_inputs = torch.stack(batched_llm_inputs)
+        breakpoint()
+        
+        #model_outputs = self.llm(llm_inputs, attention_mask=None, )
+        #return model_outputs, logits
 
 
     # if training, return 

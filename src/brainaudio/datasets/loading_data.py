@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader, Dataset, ConcatDataset
 
 class SpeechDataset(Dataset):
 
-    def __init__(self, data, transform=None, return_transcript=False, pid=None):
+    def __init__(self, data, transform=None, return_transcript=False, pid=None, return_alignments=False):
         
         """
         Defines a Pytorch dataset object which returns neural data, output text labels, 
@@ -19,12 +19,15 @@ class SpeechDataset(Dataset):
             data (dict): dictionary containing neural data as well as associated text and meta data
             transform (function): if a function is passed, applies it to neural data.
             Set to None to ignore.
-            return_transcript: returns the ground-truth transcript if True.
+            return_transcript (bool): returns the ground-truth transcript if True.
+            pid (int): participant id 
+            return_alignments (bool): returns forced alignments if True.  
             
         """
         self.data = data
         self.transform = transform
         self.return_transcript = return_transcript
+        self.return_alignments = return_alignments
 
         self.n_days = len(data)
 
@@ -35,6 +38,7 @@ class SpeechDataset(Dataset):
         self.days = []
         self.transcriptions = []
         self.participant_id = []
+        self.alignments = []
         
  
         for day in range(self.n_days):
@@ -56,6 +60,10 @@ class SpeechDataset(Dataset):
                 self.transcriptions.append(data[day]['transcriptions'][trial])
                 self.days.append(day)
                 self.participant_id.append(pid)
+                
+                if self.return_alignments:
+                    self.alignments.append(data[day]['forced_alignments'][trial])
+                
 
 
         self.n_trials = len(self.days)
@@ -78,13 +86,17 @@ class SpeechDataset(Dataset):
 
         if self.return_transcript:
             items.append(self.transcriptions[idx])
+            
+        if self.return_alignments:
+            items.append(self.alignments[idx])
 
         return tuple(items)
 
 def getDatasetLoaders(
     data_paths:list[str],
     batch_size:int,
-    return_transcript=False, 
+    return_transcript=False,
+    return_alignments=False, 
     shuffle_train=True
 ):
     
@@ -93,6 +105,7 @@ def getDatasetLoaders(
         datasetName ([str]): list of paths to dataset
         batchSize (int): batch size used for training
         return_transcript (bool): if True, return the ground truth transcript
+        return_alignments (bool): returns forced alignments if True.  
         shuffle_train (bool): if True, shuffle examples in the training dataset
         
             
@@ -102,7 +115,11 @@ def getDatasetLoaders(
 
     def _padding(batch):
         
-        if return_transcript:
+        if return_transcript and return_alignments:
+            X, y, X_lens, y_lens, days, transcripts, alignments = zip(*batch)
+        elif return_alignments:
+            X, y, X_lens, y_lens, days, alignments = zip(*batch)
+        elif return_transcript:
             X, y, X_lens, y_lens, days, transcripts = zip(*batch)
         else:
             X, y, X_lens, y_lens, days = zip(*batch)
@@ -111,25 +128,18 @@ def getDatasetLoaders(
         X_padded = pad_sequence(X, batch_first=True, padding_value=padding_value)
         y_padded = pad_sequence(y, batch_first=True, padding_value=padding_value)
         
-        
-        if return_transcript:
-            
-            return (
-                X_padded,
-                y_padded,
-                torch.stack(X_lens),
-                torch.stack(y_lens),
-                torch.stack(days),
-                transcripts
-            )
-    
-        return (
-            X_padded,
+        items = [X_padded,
             y_padded,
             torch.stack(X_lens),
             torch.stack(y_lens),
-            torch.stack(days),
-        )
+            torch.stack(days)]
+        
+        if return_transcript:
+            items.append(transcripts)
+        if return_alignments:
+            items.append(alignments)
+        
+        return tuple(items)
     
     train_data_loaders = []
     val_data_loaders = []
@@ -141,8 +151,8 @@ def getDatasetLoaders(
             ds = pickle.load(handle)
         loadedData.append(ds)
         
-        train_ds = SpeechDataset(ds['train'], transform=None, pid=i, return_transcript=return_transcript)
-        val_ds = SpeechDataset(ds['val'], pid=i, return_transcript=return_transcript)
+        train_ds = SpeechDataset(ds['train'], transform=None, pid=i, return_transcript=return_transcript, return_alignments=return_alignments)
+        val_ds = SpeechDataset(ds['val'], pid=i, return_transcript=return_transcript, return_alignments=return_alignments)
 
         train_loader = DataLoader(
             train_ds,

@@ -16,7 +16,7 @@ modelName: ""
 # ===================================================================
 llm_name: 'google/gemma-3-270m-it '
 encoder_name: 
-encoder_path:
+encoder_path: '/home3/ebrahim2/brainaudio/src/brainaudio/training/utils/custom_configs/tm_transformer_b2t_24+25_large_wide.yaml'
 
 projector_type: 'linear'
 encoder_projector_ds_rate: 1.0
