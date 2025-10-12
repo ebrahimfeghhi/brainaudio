@@ -8,6 +8,8 @@ wheels/
 
 # Virtual environments
 .venv
+.wfst
 
 # Other
 scripts/wandb/
+third_party/
