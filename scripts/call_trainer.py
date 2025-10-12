@@ -1,4 +1,3 @@
-# Pseudocode for loading the config
 import yaml
 import argparse
 from transformers import AutoTokenizer, AutoModelForCausalLM

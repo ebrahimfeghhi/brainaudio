@@ -134,121 +134,139 @@ def obtain_word_level_timespans(alignments, scores, ground_truth_sequence, trans
     
     for word_span, word in zip(word_spans, transcript):
         
-        try:
-            word_span_information.append([word_span[0].start, word_span[-1].end, word])
-        except:
-            breakpoint()
+        word_span_information.append([word_span[0].start, word_span[-1].end, word])
                 
     return word_span_information
 
 
-def generate_log_probs(model, args, partition, device):
+def generate_and_save_logits(model, args, partition, device, 
+                             dataset_paths, save_paths, participant_ids):
     
-    datasetPaths = ['/data2/brain2text/b2t_25/brain2text25.pkl', 
-                    '/data2/brain2text/b2t_24/brain2text24']
+    """
+    Runs the model forward pass and saves the output logits to a file.
+    All dependencies are passed as arguments.
+
+    Args:
+        model (torch.nn.Module): The neural network model.
+        args (dict): Dictionary of arguments.
+        partition (str): The data partition to process ('train' or 'val').
+        device (torch.device): The device to run the model on.
+        dataset_paths (list): List of paths to the dataset files.
+        save_paths (list): List of paths to save the output files.
+        participant_ids (list): List of participant IDs.
+    """
     
-    #datasetPaths = ['/data2/brain2text/b2t_24/brain2text24']
-    #savePaths = ['/data2/brain2text/b2t_24/']
-    
-    participant_ids = [0, 1]
-    
-    savePaths =  ['/data2/brain2text/b2t_25/', 
-                  '/data2/brain2text/b2t_24/']
-    
-    trainLoaders, valLoaders, loadedData = getDatasetLoaders(
-        datasetPaths,
+    print(f"--- Starting: Generating logits for '{partition}' partition ---")
+
+    trainLoaders, valLoaders, _ = getDatasetLoaders(
+        dataset_paths,
         args["batchSize"], 
         return_transcript=True, 
         shuffle_train=False
     )
     
-    if partition == 'train':
-        
-        dataLoaders = trainLoaders
-    
-    elif partition == "val":
-        
-        dataLoaders = valLoaders
+    dataLoaders = trainLoaders if partition == 'train' else valLoaders
         
     model.eval()
-    
     with torch.no_grad():
-        
-        # loop through data for each participant 
         for participant_id, dataLoader in zip(participant_ids, dataLoaders):
-                        
-            word_spans_dict = {}
+            print(f"Processing participant {participant_id}...")
+            
+            logits_data_by_day = {}
         
-            for batch in tqdm(dataLoader):
-                
+            for batch in tqdm(dataLoader, desc=f"P{participant_id} Logits"):
                 X, y, X_len, y_len, dayIdxs, transcripts = batch
 
-                # Move data to the specified device
-                X = X.to(device)
-                y = y.to(device)
-                X_len = X_len.to(device)
-                y_len = y_len.to(device)
-                dayIdxs = dayIdxs.to(device)
+                X, y, X_len, y_len, dayIdxs = (
+                    X.to(device), y.to(device), X_len.to(device), 
+                    y_len.to(device), dayIdxs.to(device)
+                )
                 
-                # replace padding value with -1 so it doesn't get interpreted as blank token                        
                 X = gauss_smooth(X, device=device, smooth_kernel_size=args['smooth_kernel_size'], smooth_kernel_std=args['gaussianSmoothWidth'])
                 adjusted_lens = model.compute_length(X_len)
-                
-                # B x T x C 
                 logits = model.forward(X, X_len, participant_id, dayIdxs)
+                log_probs = log_softmax(logits, dim=-1)
                 
-                current_batch_size = logits.shape[0]
-                
-                log_probs = log_softmax(logits)
-                
-                # B x T         
-                for i in range(current_batch_size):        
+                for i in range(log_probs.shape[0]):
+                    dayIdx = int(dayIdxs[i].item())
                     
-                    fa_labels, fa_probs = forced_align(
-                        log_probs=log_probs[i:i+1, :adjusted_lens[i]], 
-                        targets=y[i:i+1, :y_len[i]], 
-                        blank=0
-                    )
+                    sample_data = {
+                        'log_probs': log_probs[i, :adjusted_lens[i]].cpu(),
+                        'targets': y[i, :y_len[i]].cpu(),
+                        'transcript': transcripts[i]
+                    }
                     
-                    dayIdx = int(dayIdxs[i])
-                    
-                    transcript = transcripts[i]
-                    
-                    words = transcript.split(' ')
-                    transcript_list = [item for word in words for item in (word, 'SIL')]
-
-                    word_spans = obtain_word_level_timespans(fa_labels[0], fa_probs[0], y[i:i+1, :y_len[i]].cpu().numpy().squeeze(), 
-                                                             transcript=transcript_list, silence_token_id=40)
-                    
-                    if dayIdx in word_spans_dict.keys():
-                        word_spans_dict[dayIdx].append(word_spans)
-                    else:
-                        word_spans_dict[dayIdx] = []
-                        word_spans_dict[dayIdx].append(word_spans)
+                    if dayIdx not in logits_data_by_day:
+                        logits_data_by_day[dayIdx] = []
                         
-            if partition == "val":
-                savePath = f"{savePaths[participant_id]}word_alignments_val.pkl"
-            else:
-                savePath = f"{savePaths[participant_id]}word_alignmentsl.pkl"
-                
-            with open(savePath, 'wb') as handle:
-                pickle.dump(word_spans_dict, handle)
-                        
-                    
-load_model_folder = "/data2/brain2text/b2t_combined/outputs_tm_transformer_b2t_24+25_large_wide/"  
-device = "cuda:0"    
+                    logits_data_by_day[dayIdx].append(sample_data)
 
-model, args = load_model(load_model_folder, device)
-generate_log_probs(model, args, partition="train", device=device)
-                
+            save_path = f"{save_paths[participant_id]}logits_{partition}.pkl"
+            print(f"Saving logits for participant {participant_id} to {save_path}")
+            with open(save_path, 'wb') as handle:
+                pickle.dump(logits_data_by_day, handle)
+    
+    print("--- Finished: Logit generation complete. ---")
 
+# ==============================================================================
+# FUNCTION 2: Compute Forced Alignments (Self-Contained)
+# ==============================================================================
+def compute_forced_alignments(partition, save_paths, participant_ids, 
+                              silence_token_id=40, blank_id=0):
+    """
+    Loads pre-computed logits and computes forced alignments.
+    All dependencies are passed as arguments.
+
+    Args:
+        partition (str): The data partition to process.
+        save_paths (list): List of paths where logits are and alignments will be saved.
+        participant_ids (list): List of participant IDs.
+        silence_token_id (int): The ID for the silence token.
+        blank_id (int): The ID for the CTC blank token.
+    """
+    print(f"--- Starting: Computing forced alignments for '{partition}' partition ---")
+
+    for participant_id in participant_ids:
+        print(f"Processing participant {participant_id}...")
         
-                    
+        logits_path = f"{save_paths[participant_id]}logits_{partition}.pkl"
+        alignments_save_path = f"{save_paths[participant_id]}word_alignments_{partition}.pkl"
+        
+        print(f"Loading pre-computed logits from {logits_path}")
+        with open(logits_path, 'rb') as handle:
+            logits_data_by_day = pickle.load(handle)
+            
+        word_spans_dict = {}
+
+        for dayIdx, daily_data in tqdm(logits_data_by_day.items(), desc=f"P{participant_id} Alignments"):
+            word_spans_dict[dayIdx] = []
+            
+            for sample_data in daily_data:
+                log_probs = sample_data['log_probs'].unsqueeze(0)
+                targets = sample_data['targets'].unsqueeze(0)
+                transcript = sample_data['transcript']
                 
+                fa_labels, fa_probs = forced_align(
+                    log_probs=log_probs, 
+                    targets=targets, 
+                    blank=blank_id
+                )
+                
+                words = transcript.split(' ')
+                transcript_list = [item for word in words for item in (word, 'SIL')]
+                
+                word_spans = obtain_word_level_timespans(
+                    fa_labels[0], 
+                    fa_probs[0], 
+                    targets.numpy().squeeze(),
+                    transcript=transcript_list, 
+                    silence_token_id=silence_token_id
+                )
+                
+                word_spans_dict[dayIdx].append(word_spans)
+
+        print(f"Saving word alignments for participant {participant_id} to {alignments_save_path}")
+        with open(alignments_save_path, 'wb') as handle:
+            pickle.dump(word_spans_dict, handle)
             
-            
-    
-        
-    
-    
-    
+    print("--- Finished: Forced alignment complete. ---")
