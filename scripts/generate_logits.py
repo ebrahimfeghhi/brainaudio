@@ -6,8 +6,8 @@ import os
 
 # --- Configuration ---
 LOAD_MODEL_FOLDER = "/data2/brain2text/b2t_combined/outputs_tm_transformer_b2t_24+25_large_wide/"  
-DEVICE = "cuda:0"   
-DATASET_PATHS = ['/data2/brain2text/b2t_25/brain2text25.pkl', '/data2/brain2text/b2t_24/brain2text24']
+DEVICE = "cuda:3"   
+DATASET_PATHS = ['/data2/brain2text/b2t_25/brain2text25.pkl', '/data2/brain2text/b2t_24/brain2text24.pkl']
 SAVE_PATHS = ['/data2/brain2text/b2t_25/', '/data2/brain2text/b2t_24/']
 PARTICIPANT_IDS = [0, 1]
 PARTITION = 'val'

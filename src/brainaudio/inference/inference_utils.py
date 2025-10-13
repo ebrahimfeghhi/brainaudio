@@ -201,7 +201,7 @@ def generate_and_save_logits(model, args, partition, device,
                         
                     logits_data_by_day[dayIdx].append(sample_data)
 
-            save_path = f"{save_paths[participant_id]}logits_{partition}.pkl"
+            save_path = f"{save_paths[participant_id]}/logits_{partition}.pkl"
             print(f"Saving logits for participant {participant_id} to {save_path}")
             with open(save_path, 'wb') as handle:
                 pickle.dump(logits_data_by_day, handle)

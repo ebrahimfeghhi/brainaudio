@@ -17,7 +17,7 @@ import shutil
 from pathlib import Path
 
 DRYAD_DOI = "10.5061/dryad.dncjsxm85"
-DATA_DIR = "/home3/lionehlhu/nejm-brain-to-text/data"
+DATA_DIR = "/home3/ebrahim/nejm-brain-to-text/data"
 OUT_DIR = "/data2/brain2text/b2t_25"
 DRYAD_ROOT = "https://datadryad.org"
 SESSIONS = ['t15.2023.08.11', 't15.2023.08.13', 't15.2023.08.18', 't15.2023.08.20', 't15.2023.08.25', 't15.2023.08.27', 
@@ -246,7 +246,7 @@ def main():
 
     # Save the reformatted data to the output directory
     os.makedirs(OUT_DIR, exist_ok=True)
-    output_file = os.path.join(OUT_DIR, 'brain2text25_log.pkl')
+    output_file = os.path.join(OUT_DIR, 'brain2text25.pkl')
     
     with open(output_file, 'wb') as handle:
         pickle.dump(brain2text_2025, handle)
