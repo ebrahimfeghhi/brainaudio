@@ -106,14 +106,16 @@ class GRU_24(BaseTimeMaskedModel):
         self.fc_decoder_out = nn.Linear(rnn_out_dim, n_classes + 1)  # +1 for CTC blank
 
         
-    def forward(self, neuralInput: torch.Tensor, X_len: torch.Tensor, dayIdx: torch.Tensor) -> torch.Tensor:
+    def forward(self, neuralInput: torch.Tensor, X_len: torch.Tensor, participant_id: torch.Tensor, 
+                dayIdx: torch.Tensor) -> torch.Tensor:
         
         
         """Parameters
         ----------
         neuralInput : torch.Tensor, shape (batch, time, neural_dim)
-        X_len       : torch.Tensor, shape (batch,) – lengths before padding
-        dayIdx      : torch.Tensor, shape (batch,) – index specifying the session/day of each sample
+        X_len       : torch.Tensor, shape (batch,), lengths before padding
+        participant_id : torch.Tensor, shape (batch, ), index specifying the participant
+        dayIdx      : torch.Tensor, shape (batch,), index specifying the session/day of each sample
         """
         
 

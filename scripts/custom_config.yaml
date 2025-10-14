@@ -52,7 +52,7 @@ model:
   # --- GRU Model Arguments ---
   gru:
     name: 'GRU'
-    year: '2025'
+    year: '2024'
     nInputFeatures: 256
     nClasses: 40
     nUnits: 768

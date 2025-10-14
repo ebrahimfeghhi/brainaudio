@@ -64,31 +64,33 @@ def load_model(
         model = TransformerModel(features_list=model_args['features_list'], samples_per_patch=model_args['samples_per_patch'], dim=model_args['d_model'], depth=model_args['depth'], 
                         heads=model_args['n_heads'], mlp_dim_ratio=model_args['mlp_dim_ratio'],  dim_head=model_args['dim_head'], 
                         dropout=config['dropout'], input_dropout=config['input_dropout'], nClasses=config['nClasses'], 
-                        max_mask_pct=config['max_mask_pct'], num_masks=config['num_masks'], gaussianSmoothWidth=config['gaussianSmoothWidth'], 
-                        kernel_size=config['smooth_kernel_size'], num_participants=len(model_args['features_list']), return_final_layer=config['return_final_layer'])
+                        max_mask_pct=config['max_mask_pct'], num_masks=config['num_masks'], num_participants=len(model_args['features_list']), return_final_layer=config['return_final_layer'])
 
 
     elif modelType == 'gru' and model_args['year'] == '2024':
         
         model = GRU_24(neural_dim=model_args['nInputFeatures'], n_classes=config['nClasses'], hidden_dim=model_args['nUnits'], 
             layer_dim=model_args['nLayers'], nDays=model_args['nDays'], dropout=config['dropout'], input_dropout=config['input_dropout'],
-            strideLen=model_args['strideLen'], kernelLen=model_args['kernelLen'], gaussianSmoothWidth=config['gaussianSmoothWidth'], 
-            kernel_size=config['smooth_kernel_size'], bidirectional=model_args['bidirectional'], max_mask_pct=config['max_mask_pct'], 
-            num_masks=config['num_masks'])
+            strideLen=model_args['strideLen'], kernelLen=model_args['kernelLen'], bidirectional=model_args['bidirectional'], max_mask_pct=config['max_mask_pct'], num_masks=config['num_masks'])
 
         
     else:
         
         model = GRU_25(neural_dim=model_args['nInputFeatures'], n_classes=config['nClasses'], hidden_dim=model_args['nUnits'], 
             layer_dim=model_args['nLayers'], nDays=model_args['nDays'], dropout=config['dropout'], input_dropout=config['input_dropout'],
-            strideLen=model_args['strideLen'], kernelLen=model_args['kernelLen'], gaussianSmoothWidth=config['gaussianSmoothWidth'], 
-            kernel_size=config['smooth_kernel_size'], bidirectional=model_args['bidirectional'], max_mask_pct=config['max_mask_pct'], 
-            num_masks=config['num_masks'])
+            strideLen=model_args['strideLen'], kernelLen=model_args['kernelLen'], bidirectional=model_args['bidirectional'], max_mask_pct=config['max_mask_pct'], num_masks=config['num_masks'])
 
     # Load weights
     ckpt_path = os.path.join(folder, "modelWeights")
     state_dict = torch.load(ckpt_path, map_location=device)
-    model.load_state_dict(state_dict, strict=True)
+    
+    # older versions of the model performed gaussian smoothing within forward pass
+    # need to remove to load weights
+    filtered_state_dict = {
+        key: value for key, value in state_dict.items()
+        if "gaussianSmoother" not in key
+    }
+    model.load_state_dict(filtered_state_dict, strict=True)
 
     model = model.to(device)
     model.eval()

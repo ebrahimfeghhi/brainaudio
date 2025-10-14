@@ -19,8 +19,6 @@ class GRU_25(BaseTimeMaskedModel):
                  input_dropout = 0.0,
                  strideLen = 0,
                  kernelLen = 0,
-                 gaussianSmoothWidth = 2.0, 
-                 kernel_size = 100,
                  bidirectional = False, 
                  max_mask_pct = 0, 
                  num_masks = 0
@@ -97,10 +95,7 @@ class GRU_25(BaseTimeMaskedModel):
             batch_first = True, # The first dim of our input is the batch dim
             bidirectional = bidirectional,
         )
-        
-        self.kernel_size = kernel_size
-        self.gaussianSmoothWidth = gaussianSmoothWidth
-        
+                
         # Set recurrent units to have orthogonal param init and input layers to have xavier init
         for name, param in self.gru.named_parameters():
             if "weight_hh" in name:
