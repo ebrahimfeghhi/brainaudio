@@ -3,9 +3,10 @@
 # Environment: brainaudio_env (or any env with the necessary alignment tools)
 
 from brainaudio.inference.inference_utils import compute_forced_alignments
+from brainaudio.utils.config import B2T_SAVE_PATHS
 
 # --- Configuration ---
-SAVE_PATHS = ['/data2/brain2text/b2t_25/', '/data2/brain2text/b2t_24/']
+SAVE_PATHS = B2T_SAVE_PATHS
 PARTICIPANT_IDS = [0, 1]
 PARTITION = 'val'
 

@@ -15,11 +15,12 @@ import h5py
 import pickle
 import shutil
 from pathlib import Path
+from brainaudio.utils.config import B2T25_DRYAD_DOI, B2T25_DRYAD_ROOT, B2T25_DATA_DIR, B2T25_OUT_DIR
 
-DRYAD_DOI = "10.5061/dryad.dncjsxm85"
-DATA_DIR = "/home3/ebrahim/nejm-brain-to-text/data"
-OUT_DIR = "/data2/brain2text/b2t_25"
-DRYAD_ROOT = "https://datadryad.org"
+DRYAD_DOI = B2T25_DRYAD_DOI
+DATA_DIR = B2T25_DATA_DIR
+OUT_DIR = B2T25_OUT_DIR
+DRYAD_ROOT = B2T25_DRYAD_ROOT
 SESSIONS = ['t15.2023.08.11', 't15.2023.08.13', 't15.2023.08.18', 't15.2023.08.20', 't15.2023.08.25', 't15.2023.08.27', 
             't15.2023.09.01', 't15.2023.09.03', 't15.2023.09.24', 't15.2023.09.29', 't15.2023.10.01', 't15.2023.10.06',
             't15.2023.10.08', 't15.2023.10.13', 't15.2023.10.15', 't15.2023.10.20', 't15.2023.10.22', 't15.2023.11.03',

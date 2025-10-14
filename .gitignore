@@ -13,3 +13,6 @@ wheels/
 # Other
 scripts/wandb/
 third_party/
+
+# Local environment variables
+.env

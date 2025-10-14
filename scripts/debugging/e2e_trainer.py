@@ -6,6 +6,7 @@ import torch
 import numpy as np
 import torch.nn as nn
 from brainaudio.models.e2e import set_up_neural_encoder
+from brainaudio.utils.config import B2T25_WITH_FA
 
 def trainE2EModel(args, model):
 
@@ -91,7 +92,7 @@ def trainE2EModel(args, model):
 args = {'device': 'cuda:2', 'smooth_kernel_size': 100, 'gaussianSmoothWidth': 2, 
         'random_cut': 0, 'constantOffsetSD': 0.05, 'whiteNoiseSD': 0.2, 'n_epochs': 1, 'beta1': 0.9, 
         'beta2': 0.999, 'l2_decay': 1e-5, 'learning_rate': 0.005, 'eps': 1e-8, 'modelName': 'None', 
-        'outputDir': None, 'batchSize': 64, 'datasetPath': ["/data2/brain2text/b2t_25/brain2text25_with_fa"]}
+        'outputDir': None, 'batchSize': 64, 'datasetPath': [B2T25_WITH_FA]}
 
 test_model , _, _ = set_up_neural_encoder()
 trainE2EModel(args=args, model=test_model)

@@ -6,13 +6,14 @@ from g2p_en import G2p
 import numpy as np
 import os
 import pickle
+from brainaudio.utils.config import B2T24_RAW_DIR, B2T24_SAVE_PATH
 
 # Adopted from https://github.com/cffan/neural_seq_decoder/notebooks/formatCompetitionData
 
 
 # ----------------------- USER-SPECIFIC INFORMATION -----------------------
-dataDir = "/home3/skaasyap/willett/competitionData/" # directory where data is stored at 
-dataSave = "/data2/brain2text/b2t_24/brain2text24.pkl" # directory where processed data is saved
+dataDir = B2T24_RAW_DIR # directory where data is stored at 
+dataSave = B2T24_SAVE_PATH # directory where processed data is saved
 logBoth = False # if True, log both spike band power and tx crossings before normalization
 # -------------------------------------------------------------------------
 

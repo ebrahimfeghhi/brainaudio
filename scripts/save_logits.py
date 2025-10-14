@@ -3,6 +3,7 @@
 # Environment: .wfst
 from brainaudio.inference.inference_utils import load_model, generate_and_save_logits
 import os
+from brainaudio.utils.config import B2T_LOAD_MODEL_FOLDER, B2T_DATASET_PATHS, B2T_SAVE_PATHS
 
 # --- Configuration ---
 MODEL_NAME = "neurips_gru_nonoverlapping_4_4_768_seed_0"
