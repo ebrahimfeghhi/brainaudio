@@ -34,6 +34,8 @@ used in Willett et al., 2023 and Card et al., 2024 requires a different environm
 
 ### Environment Variables Configuration
 
-1. Run `pip install -e .` in the terminal or `python -m pip install -e . --no-deps` if there are dependency issues from `pyproject.toml`
+1. Create `.env` file with the correct file paths (see `.env.example`)
 
-2. Import constants (hard-coded addresses) from `brainaudio.utils.config` into individual scripts + notebooks
+2. Run `pip install -e .` in the terminal or `python -m pip install -e . --no-deps` if there are dependency issues from `pyproject.toml`
+
+3. Import constants (hard-coded addresses) from `brainaudio.utils.config` into individual scripts + notebooks
