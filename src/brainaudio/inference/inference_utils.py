@@ -165,7 +165,14 @@ def obtain_word_level_timespans(alignments, scores, ground_truth_sequence, trans
 
 
 def save_transcripts(dataset_paths, partition, save_paths):
-    
+    '''
+    Saves the transcripts for each participant in the dataset.
+
+    Args:
+        dataset_paths (list): List of paths to the dataset files.
+        partition (str): The data partition to process ('train' or 'val').
+        save_paths (list): List of paths to save the transcripts.
+    '''
     trainLoaders, valLoaders, _ = getDatasetLoaders(
         dataset_paths,
         1, 
