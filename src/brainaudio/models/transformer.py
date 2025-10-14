@@ -151,7 +151,7 @@ class TransformerModel(BaseTimeMaskedModel):
     
     def __init__(self, *, samples_per_patch, features_list, dim, depth, heads, mlp_dim_ratio,
                  dim_head, dropout, input_dropout,
-                 nClasses, max_mask_pct, num_masks, gaussianSmoothWidth, kernel_size, num_participants, 
+                 nClasses, max_mask_pct, num_masks, num_participants, 
                  return_final_layer):
    
         super().__init__(max_mask_pct=max_mask_pct, num_masks=num_masks)
@@ -166,8 +166,6 @@ class TransformerModel(BaseTimeMaskedModel):
         self.dropout = dropout
         self.input_dropout = input_dropout
         self.nClasses = nClasses
-        self.gaussianSmoothWidth = gaussianSmoothWidth
-        self.kernel_size = kernel_size
         self.num_participants = num_participants
         self.return_final_layer = return_final_layer
         

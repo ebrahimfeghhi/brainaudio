@@ -17,7 +17,6 @@ CUSTOM_ARGS_PATH = "../src/brainaudio/training/utils/custom_configs/neurips_gru_
 def main():
     
     model, args = load_model(LOAD_MODEL_FOLDER, CUSTOM_ARGS_PATH, DEVICE)
-    breakpoint()
     
     for idx, _ in enumerate(SAVE_PATHS):
         SAVE_PATHS[idx] = f'{SAVE_PATHS[idx]}{MODEL_NAME}'
