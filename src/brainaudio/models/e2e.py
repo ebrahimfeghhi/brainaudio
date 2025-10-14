@@ -1,9 +1,11 @@
 import torch 
 import torch.nn as nn
+from torch.nn.utils.rnn import pad_sequence
 from transformers import AutoTokenizer, AutoModelForCausalLM, AutoConfig, AutoModel, AutoModelForSeq2SeqLM, T5ForConditionalGeneration
 import numpy as np
 import os
 import yaml
+
 
 
 from brainaudio.models.gru_b2t_24 import GRU_24
@@ -159,14 +161,82 @@ class E2EModel(nn.Module):
             adjusted_lens: (B , ) 
             participant_idx: integer ID, all data for a given batch must come from the same participant 
             dayIdx: Not used for Transformer 
+
         Returns:
             Tensor: (B, num_patches, dim)
         """
         B = neuralInput.shape[0]
         logits, encoder_outs = self.encoder(neuralInput, X_len, participant_idx, day_idx)
         projected_outs = self.encoder_projecter(encoder_outs) # B x T x llm_dim
+
+        # forced_alignments [{13: 'Nuclear', 35: 'is', 50: 'the', 106: 'future'}]
+
+        # Final sequences for the batch
+        batch_input_embeds = []
+        batch_labels = []
+
+        for idx in range(B):
+            fa = forced_alignments[idx]
+            boundary_timesteps = list(fa.keys())
+            
+            # Build one sequence at a time
+            single_sequence_embeds = []
+            single_sequence_labels = []
+
+            for i in range(adjusted_lens[idx]):
+                # Append the projected neural vector
+                # Shape: (1, llm_dim)
+                single_sequence_embeds.append(projected_outs[idx, i].unsqueeze(0))
+                
+                # For neural parts, we ignore the label during loss calculation
+                single_sequence_labels.append(torch.tensor([-100], device=self.device))
+
+                if i in boundary_timesteps:
+                    word_text = fa[i]
+                    
+                    # Add a leading space for all words except the first to ensure proper tokenization
+                    if i != boundary_timesteps[0]:
+                        word_text = ' ' + word_text
+
+                    # Tokenize the word and get its IDs and embeddings
+                    token_ids = self.tokenizer(word_text, add_special_tokens=False, return_tensors="pt").input_ids.to(self.device)
+                    word_embeds = self.embedding_layer(token_ids) # Shape: (1, num_tokens, llm_dim)
+                    
+                    # Squeeze the batch dim and append the embeddings
+                    single_sequence_embeds.append(word_embeds.squeeze(0))
+                    
+                    # Append the corresponding token IDs as labels
+                    single_sequence_labels.append(token_ids.squeeze(0))
+            
+            # Concatenate all parts for this single example
+            final_embeds = torch.cat(single_sequence_embeds, dim=0)
+            final_labels = torch.cat(single_sequence_labels, dim=0)
+            
+            batch_input_embeds.append(final_embeds)
+            batch_labels.append(final_labels)
+
+        # Pad the sequences to the same length
+        # Use batch_first=True so the output shape is (B, T_max, D)
+        padded_embeds = pad_sequence(batch_input_embeds, batch_first=True, padding_value=0.0)
         
-        # labels [{13: 'Nuclear', 35: 'is', 50: 'the', 106: 'future'}]
+        # Pad labels with -100 so they are ignored by the loss function
+        padded_labels = pad_sequence(batch_labels, batch_first=True, padding_value=-100)
+
+        # Create the attention mask for the padded batch
+        # 1 for real tokens/embeddings, 0 for padding
+        padded_attention_mask = (padded_embeds.sum(dim=-1) != 0).long()
+
+        # Pass everything to the LLM
+        # Use `inputs_embeds` when providing embeddings directly
+        model_outputs = self.llm(
+            inputs_embeds=padded_embeds,
+            attention_mask=padded_attention_mask,
+            labels=padded_labels
+        )
+        
+        return model_outputs, logits
+
+        
         batched_llm_inputs = []
         for idx in range(B):
             fa = forced_alignments[idx]
@@ -193,14 +263,15 @@ class E2EModel(nn.Module):
             batched_llm_inputs.append(torch.stack(llm_inputs))
             
         batched_llm_inputs = torch.stack(batched_llm_inputs)
+
         breakpoint()
         
-        #model_outputs = self.llm(llm_inputs, attention_mask=None, )
-        #return model_outputs, logits
-
-
+        model_outputs = self.llm(llm_inputs, attention_mask=None, labels=llm_inputs)
+        return model_outputs, logits
     # if training, return 
 
 
 
 
+
+    

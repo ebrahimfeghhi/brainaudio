@@ -1,5 +1,5 @@
-outputDir: /data3/brain2text/b2t_25/outputs/
-datasetPath: /data3/brain2text/b2t_25/brain2text25_log.pkl
+outputDir: /data2/brain2text/b2t_25/outputs/
+datasetPath: /data2/brain2text/b2t_25/brain2text25_log.pkl
 device: cuda:2
 modelName: tm_gru_b2t_25_run_0
 modelType: 'gru'
