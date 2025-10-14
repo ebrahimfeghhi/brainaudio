@@ -46,8 +46,6 @@ class GRU_24(BaseTimeMaskedModel):
         input_dropout: float,
         strideLen: int,
         kernelLen: int,
-        gaussianSmoothWidth: float,
-        kernel_size: float, 
         bidirectional: bool,
         max_mask_pct: float,
         num_masks: int
@@ -65,8 +63,6 @@ class GRU_24(BaseTimeMaskedModel):
         self.input_dropout = input_dropout
         self.strideLen = strideLen
         self.kernelLen = kernelLen
-        self.gaussianSmoothWidth = gaussianSmoothWidth
-        self.kernel_size = kernel_size
         self.bidirectional = bidirectional
 
         # === Input processing layers ===
@@ -108,10 +104,7 @@ class GRU_24(BaseTimeMaskedModel):
 
         # === Final linear projection ===
         self.fc_decoder_out = nn.Linear(rnn_out_dim, n_classes + 1)  # +1 for CTC blank
-        
-        self.gaussianSmoother = GaussianSmoothing(
-            self.neural_dim, self.kernel_size, self.gaussianSmoothWidth, dim=1
-        )
+
         
     def forward(self, neuralInput: torch.Tensor, X_len: torch.Tensor, dayIdx: torch.Tensor) -> torch.Tensor:
         
@@ -123,9 +116,7 @@ class GRU_24(BaseTimeMaskedModel):
         dayIdx      : torch.Tensor, shape (batch,) – index specifying the session/day of each sample
         """
         
-        neuralInput = torch.permute(neuralInput, (0, 2, 1))
-        neuralInput = self.gaussianSmoother(neuralInput)
-        neuralInput = torch.permute(neuralInput, (0, 2, 1))
+
         
         # --- SpecAugment‑style time masking (training only) ---
         if self.training and self.max_mask_pct > 0:

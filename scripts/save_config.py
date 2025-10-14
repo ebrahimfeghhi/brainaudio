@@ -6,7 +6,7 @@ custom_configs folder under the name provided by the user.
 '''
 import yaml
 
-with open('../src/brainaudio/training/utils/custom_config.yaml', 'r') as f:
+with open('custom_config.yaml', 'r') as f:
     custom_config = yaml.safe_load(f)
     
 config_saved_name = custom_config['modelName']

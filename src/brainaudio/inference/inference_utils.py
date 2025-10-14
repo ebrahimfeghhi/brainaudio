@@ -12,30 +12,47 @@ from torchaudio.functional import forced_align
 from torch.nn.functional import log_softmax
 import torchaudio.functional as F
 import pickle
+from typing import Optional
+import yaml
 
 from brainaudio.models.transformer import TransformerModel
 from brainaudio.models.gru_b2t_25 import GRU_25
+from brainaudio.models.gru_b2t_24 import GRU_24
 from brainaudio.datasets.loading_data import getDatasetLoaders
 from brainaudio.training.utils.augmentations import gauss_smooth
 
-def load_model(folder: str, device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")):
-    
+def load_model(
+    folder: str,
+    custom_args_path: Optional[str] = None,
+    device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+):
     """
-    Load a pre-trained model from a folder containing 'args' and 'modelWeights'.
+    Load a pre-trained model from a folder.
 
     Args:
-        folder (str): Path to folder containing 'args' (pickle) and 'modelWeights' (torch).
+        folder (str): Path to folder containing 'modelWeights'.
+        custom_args_path (Optional[str]): Path to a custom 'args' file. 
+                                          If None, looks for 'args' in `folder`. Defaults to None.
         device (torch.device): Device to map the model onto.
 
     Returns:
-        torch.nn.Module: The loader model in eval mode, and the args file.
+        torch.nn.Module: The loaded model in eval mode, and the config dictionary.
     """
     
-    # Load args
-    args_path = os.path.join(folder, "args")
-    with open(args_path, "rb") as handle:
-        config = pickle.load(handle)
+    # --- MODIFIED SECTION ---
+    # Determine the path for the args file
+    if custom_args_path:
+        print(f"Loading custom YAML args from: {custom_args_path}")
+        with open(custom_args_path, "r") as handle:
+            config = yaml.safe_load(handle)
+    else:
+        args_path = os.path.join(folder, "args")
+        print(f"Loading default pickle args from: {args_path}")
+        with open(args_path, "rb") as handle:
+            config = pickle.load(handle)
+    # ----------------------
         
+    # Load args                
     modelType = config['modelType']
     model_args = config['model'][modelType]
     
@@ -51,14 +68,22 @@ def load_model(folder: str, device: torch.device = torch.device("cuda" if torch.
                         kernel_size=config['smooth_kernel_size'], num_participants=len(model_args['features_list']), return_final_layer=config['return_final_layer'])
 
 
-    elif modelType == 'gru':
+    elif modelType == 'gru' and model_args['year'] == '2024':
+        
+        model = GRU_24(neural_dim=model_args['nInputFeatures'], n_classes=config['nClasses'], hidden_dim=model_args['nUnits'], 
+            layer_dim=model_args['nLayers'], nDays=model_args['nDays'], dropout=config['dropout'], input_dropout=config['input_dropout'],
+            strideLen=model_args['strideLen'], kernelLen=model_args['kernelLen'], gaussianSmoothWidth=config['gaussianSmoothWidth'], 
+            kernel_size=config['smooth_kernel_size'], bidirectional=model_args['bidirectional'], max_mask_pct=config['max_mask_pct'], 
+            num_masks=config['num_masks'])
+
+        
+    else:
         
         model = GRU_25(neural_dim=model_args['nInputFeatures'], n_classes=config['nClasses'], hidden_dim=model_args['nUnits'], 
             layer_dim=model_args['nLayers'], nDays=model_args['nDays'], dropout=config['dropout'], input_dropout=config['input_dropout'],
             strideLen=model_args['strideLen'], kernelLen=model_args['kernelLen'], gaussianSmoothWidth=config['gaussianSmoothWidth'], 
             kernel_size=config['smooth_kernel_size'], bidirectional=model_args['bidirectional'], max_mask_pct=config['max_mask_pct'], 
             num_masks=config['num_masks'])
-
 
     # Load weights
     ckpt_path = os.path.join(folder, "modelWeights")
@@ -68,7 +93,6 @@ def load_model(folder: str, device: torch.device = torch.device("cuda" if torch.
     model = model.to(device)
     model.eval()
     return model, config
-
 
 def obtain_word_level_timespans(alignments, scores, ground_truth_sequence, transcript,
                                 silence_token_id=40):
@@ -140,7 +164,7 @@ def obtain_word_level_timespans(alignments, scores, ground_truth_sequence, trans
     return word_span_information
 
 
-def save_transcripts(dataset_paths, partition, participant_ids, save_paths):
+def save_transcripts(dataset_paths, partition, save_paths):
     
     trainLoaders, valLoaders, _ = getDatasetLoaders(
         dataset_paths,
@@ -151,7 +175,7 @@ def save_transcripts(dataset_paths, partition, participant_ids, save_paths):
     
     dataLoaders = trainLoaders if partition == 'train' else valLoaders
     
-    for participant_id, dataLoader in zip(participant_ids, dataLoaders):
+    for participant_id, dataLoader in enumerate(dataLoaders):
         
         transcriptions = []
         
@@ -169,7 +193,7 @@ def save_transcripts(dataset_paths, partition, participant_ids, save_paths):
             
         
 def generate_and_save_logits(model, args, partition, device, 
-                             dataset_paths, save_paths, participant_ids):
+                             dataset_paths, save_paths):
     
     """
     Runs the model forward pass and saves the output logits to a file.
@@ -181,7 +205,6 @@ def generate_and_save_logits(model, args, partition, device,
         device (torch.device): The device to run the model on.
         dataset_paths (list): List of paths to the dataset files.
         save_paths (list): List of paths to save the output files.
-        participant_ids (list): List of participant IDs.
     """
     
     print(f"--- Starting: Generating logits for '{partition}' partition ---")
@@ -197,7 +220,7 @@ def generate_and_save_logits(model, args, partition, device,
         
     model.eval()
     with torch.no_grad():
-        for participant_id, dataLoader in zip(participant_ids, dataLoaders):
+        for participant_id, dataLoader in enumerate(dataLoaders):
             print(f"Processing participant {participant_id}...")
             
             logits_data = []

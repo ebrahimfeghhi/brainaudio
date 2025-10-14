@@ -116,10 +116,6 @@ class GRU_25(BaseTimeMaskedModel):
         # Learnable initial hidden states
         self.h0 = nn.Parameter(nn.init.xavier_uniform_(torch.zeros(1, 1, self.hidden_dim)))
         
-        #self.gaussianSmoother = GaussianSmoothing(
-        #    neural_dim, self.kernel_size, self.gaussianSmoothWidth, dim=1
-        #)
-        
         
     def forward(self, x, x_len, day_idx):
         
@@ -127,10 +123,6 @@ class GRU_25(BaseTimeMaskedModel):
         x        (tensor)  - batch of examples (trials) of shape: (batch_size, time_series_length, neural_dim)
         day_idx  (tensor)  - tensor which is a list of day indexs corresponding to the day of each example in the batch x. 
         '''
-        
-        #x = torch.permute(x, (0, 2, 1))
-        #x = self.gaussianSmoother(x)
-        # = torch.permute(x, (0, 2, 1))
         
         # --- SpecAugment‑style time masking (training only) ---
         if self.training and self.max_mask_pct > 0:

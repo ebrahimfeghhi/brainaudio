@@ -2,25 +2,25 @@
 #                       Shared Configuration
 # This section contains parameters common to all models and experiments.
 # ===================================================================
-outputDir: '/data2/brain2text/b2t_combined/outputs' # where to save trained model
+outputDir: '/data2/brain2text/b2t_24/outputs' # where to save trained model
 # '/data3/brain2text/b2t_25/outputs/'
-datasetPath: ['/data2/brain2text/b2t_25/brain2text25.pkl', '/data2/brain2text/b2t_24/brain2text24'] # neural dataset
+datasetPath: ['/data2/brain2text/b2t_24/brain2text24'] # neural dataset
 
 device: 'cuda:0'
-modelName: "tm_transformer_b2t_24+25_sWideEmb"
-modelType: 'transformer'
-optimizer: 'AdamW'
-learning_rate: 0.001
+modelName: "neurips_gru_nonoverlapping_4_4_768_seed_0"
+modelType: 'gru'
+optimizer: 'Adam'
+learning_rate: 0.02
 beta1: 0.9
 beta2: 0.999
 eps: 1.0e-8
 learning_scheduler: 'multistep'
-milestones: [571] # need to convert to batches
+n_epochs: 600
+milestones: [400] # need to convert to batches
 gamma: 0.1 # multiply learning rate by this factor at milestones
 learning_rate_min: 0.0001
 learning_rate_decay_steps: 120000 # in batches
 learning_rate_warmup_steps: 1000 # in batches
-n_epochs: 951
 batchSize: 64
 nClasses: 40 
 seed: 0
@@ -52,14 +52,15 @@ model:
   # --- GRU Model Arguments ---
   gru:
     name: 'GRU'
-    nInputFeatures: 512
+    year: '2025'
+    nInputFeatures: 256
     nClasses: 40
     nUnits: 768
     nLayers: 5
     bidirectional: false
     strideLen: 4
-    kernelLen: 14
-    nDays: 45
+    kernelLen: 4
+    nDays: 24
 
   # --- Transformer Model Arguments ---
   transformer:
