@@ -1,5 +1,7 @@
-import lm_decoder
 import os
+import numpy as np
+import lm_decoder
+
 
 def build_lm_decoder(model_path,
                      max_active=7000,
@@ -45,3 +47,32 @@ def build_lm_decoder(model_path,
     decoder = lm_decoder.BrainSpeechDecoder(decode_resource, decode_opts)
 
     return decoder
+
+def lm_decode(decoder, logits, returnNBest=False, rescore=False,
+              blankPenalty=0.0,
+              logPriors=None):
+    
+    assert len(logits.shape) == 2
+
+    if logPriors is None:
+        logPriors = np.zeros([1, logits.shape[1]])
+        
+    lm_decoder.DecodeNumpy(decoder, logits, logPriors, blankPenalty)
+    
+    decoder.FinishDecoding()
+    if rescore:
+        decoder.Rescore()
+        
+    if not returnNBest:
+        if len(decoder.result()) == 0:
+            decoded = ''
+        else:
+            decoded = decoder.result()[0].sentence
+    else:
+        decoded = []
+        for r in decoder.result():
+            decoded.append((r.sentence, r.ac_score, r.lm_score))
+    
+    decoder.Reset()
+
+    return decoded

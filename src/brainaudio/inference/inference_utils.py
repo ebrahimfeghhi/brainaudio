@@ -73,7 +73,8 @@ def load_model(folder: str, device: torch.device = torch.device("cuda" if torch.
 def obtain_word_level_timespans(alignments, scores, ground_truth_sequence, transcript,
                                 silence_token_id=40):
     
-    """Computes word level start and end times.
+    """
+    Computes word level start and end times.
     
     Parameters
     ----------
@@ -139,12 +140,39 @@ def obtain_word_level_timespans(alignments, scores, ground_truth_sequence, trans
     return word_span_information
 
 
+def save_transcripts(dataset_paths, partition, participant_ids, save_paths):
+    
+    trainLoaders, valLoaders, _ = getDatasetLoaders(
+        dataset_paths,
+        1, 
+        return_transcript=True, 
+        shuffle_train=False
+    )
+    
+    dataLoaders = trainLoaders if partition == 'train' else valLoaders
+    
+    for participant_id, dataLoader in zip(participant_ids, dataLoaders):
+        
+        transcriptions = []
+        
+        for batch in tqdm(dataLoader, desc=f"P{participant_id} Logits"):
+            
+            X, y, X_len, y_len, dayIdxs, transcripts = batch
+            
+            transcript_trial = transcripts[0].replace(".", "").lower()
+            
+            transcriptions.append(transcript_trial)
+            
+        save_path = f"{save_paths[participant_id]}/transcripts_{partition}.pkl"
+        with open(save_path, 'wb') as handle:
+            pickle.dump(transcriptions, handle)
+            
+        
 def generate_and_save_logits(model, args, partition, device, 
                              dataset_paths, save_paths, participant_ids):
     
     """
     Runs the model forward pass and saves the output logits to a file.
-    All dependencies are passed as arguments.
 
     Args:
         model (torch.nn.Module): The neural network model.
@@ -172,9 +200,11 @@ def generate_and_save_logits(model, args, partition, device,
         for participant_id, dataLoader in zip(participant_ids, dataLoaders):
             print(f"Processing participant {participant_id}...")
             
-            logits_data_by_day = {}
+            logits_data = []
+            transcriptions = []
         
             for batch in tqdm(dataLoader, desc=f"P{participant_id} Logits"):
+                
                 X, y, X_len, y_len, dayIdxs, transcripts = batch
 
                 X, y, X_len, y_len, dayIdxs = (
@@ -187,25 +217,17 @@ def generate_and_save_logits(model, args, partition, device,
                 logits = model.forward(X, X_len, participant_id, dayIdxs)
                 log_probs = log_softmax(logits, dim=-1)
                 
-                for i in range(log_probs.shape[0]):
-                    dayIdx = int(dayIdxs[i].item())
+                for i in range(log_probs.shape[0]):            
+                    logits_data.append(log_probs[i, :adjusted_lens[i]].cpu().numpy())
+                    transcriptions.append(transcripts[i])
                     
-                    sample_data = {
-                        'log_probs': log_probs[i, :adjusted_lens[i]].cpu(),
-                        'targets': y[i, :y_len[i]].cpu(),
-                        'transcript': transcripts[i]
-                    }
-                    
-                    if dayIdx not in logits_data_by_day:
-                        logits_data_by_day[dayIdx] = []
-                        
-                    logits_data_by_day[dayIdx].append(sample_data)
 
             save_path = f"{save_paths[participant_id]}/logits_{partition}.pkl"
             print(f"Saving logits for participant {participant_id} to {save_path}")
             with open(save_path, 'wb') as handle:
-                pickle.dump(logits_data_by_day, handle)
-    
+                pickle.dump(logits_data, handle)
+                
+            
     print("--- Finished: Logit generation complete. ---")
 
 # ==============================================================================
@@ -270,3 +292,95 @@ def compute_forced_alignments(partition, save_paths, participant_ids,
             pickle.dump(word_spans_dict, handle)
             
     print("--- Finished: Forced alignment complete. ---")
+    
+def compute_wer(r, h):
+    """
+    Calculation of WER with Levenshtein distance.
+    Works only for iterables up to 254 elements (uint8).
+    O(nm) time ans space complexity.
+    Parameters
+    ----------
+    r : list
+    h : list
+    Returns
+    -------
+    int
+    Examples
+    --------
+    >>> wer("who is there".split(), "is there".split())
+    1
+    >>> wer("who is there".split(), "".split())
+    3
+    >>> wer("".split(), "who is there".split())
+    3
+    """
+    # initialisation
+    import numpy
+    d = numpy.zeros((len(r)+1)*(len(h)+1), dtype=numpy.uint8)
+    d = d.reshape((len(r)+1, len(h)+1))
+    for i in range(len(r)+1):
+        for j in range(len(h)+1):
+            if i == 0:
+                d[0][j] = j
+            elif j == 0:
+                d[i][0] = i
+
+    # computation
+    for i in range(1, len(r)+1):
+        for j in range(1, len(h)+1):
+            if r[i-1] == h[j-1]:
+                d[i][j] = d[i-1][j-1]
+            else:
+                substitution = d[i-1][j-1] + 1
+                insertion    = d[i][j-1] + 1
+                deletion     = d[i-1][j] + 1
+                d[i][j] = min(substitution, insertion, deletion)
+
+    return d[len(r)][len(h)]
+
+def _cer_and_wer(decodedSentences, trueSentences, outputType='handwriting',
+                 returnCI=False):
+    allCharErr = []
+    allChar = []
+    allWordErr = []
+    allWord = []
+    for x in range(len(decodedSentences)):
+        decSent = decodedSentences[x]
+        trueSent = trueSentences[x]
+
+        nCharErr = compute_wer([c for c in trueSent], [c for c in decSent])
+        if outputType == 'handwriting':
+            trueWords = trueSent.replace(">", " > ").split(" ")
+            decWords = decSent.replace(">", " > ").split(" ")
+        elif outputType == 'speech' or outputType == 'speech_sil':
+            trueWords = trueSent.split(" ")
+            decWords = decSent.split(" ")
+        nWordErr = compute_wer(trueWords, decWords)
+
+        allCharErr.append(nCharErr)
+        allWordErr.append(nWordErr)
+        allChar.append(len(trueSent))
+        allWord.append(len(trueWords))
+
+    cer = np.sum(allCharErr) / np.sum(allChar)
+    wer = np.sum(allWordErr) / np.sum(allWord)
+
+    if not returnCI:
+        return cer, wer
+    else:
+        allChar = np.array(allChar)
+        allCharErr = np.array(allCharErr)
+        allWord = np.array(allWord)
+        allWordErr = np.array(allWordErr)
+
+        nResamples = 10000
+        resampledCER = np.zeros([nResamples,])
+        resampledWER = np.zeros([nResamples,])
+        for n in range(nResamples):
+            resampleIdx = np.random.randint(0, allChar.shape[0], [allChar.shape[0]])
+            resampledCER[n] = np.sum(allCharErr[resampleIdx]) / np.sum(allChar[resampleIdx])
+            resampledWER[n] = np.sum(allWordErr[resampleIdx]) / np.sum(allWord[resampleIdx])
+        cerCI = np.percentile(resampledCER, [2.5, 97.5])
+        werCI = np.percentile(resampledWER, [2.5, 97.5])
+
+        return (cer, cerCI[0], cerCI[1]), (wer, werCI[0], werCI[1])
