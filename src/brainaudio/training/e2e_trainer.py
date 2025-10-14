@@ -11,20 +11,10 @@ import wandb
 from itertools import zip_longest
 
 # brainaudio internal package imports
-from .utils.augmentations import gauss_smooth
-from .utils.loss import forward_ctc, evaluate
-from ..datasets.loading_data import getDatasetLoaders
-from .utils.learning_scheduler import create_learning_rate_scheduler
-
-
-
-from tqdm import tqdm
-from itertools import zip_longest
-from brainaudio.datasets.loading_data import getDatasetLoaders
 from brainaudio.training.utils.augmentations import gauss_smooth
-import torch
-import numpy as np
-import torch.nn as nn
+from brainaudio.training.utils.loss import forward_ctc, evaluate
+from brainaudio.datasets.loading_data import getDatasetLoaders
+from brainaudio.training.utils.learning_scheduler import create_learning_rate_scheduler
 
 def trainE2EModel(args, model):
 
@@ -39,7 +29,7 @@ def trainE2EModel(args, model):
         
     #optimizer = torch.optim.AdamW(model.parameters(), lr=args['learning_rate'], weight_decay=args['l2_decay'], eps=args['eps'], 
     #                            betas=(args['beta1'], args['beta2']), fused=True)
-
+    # scheduler = create_learning_rate_scheduler(args, optimizer)
         
     max_dataset_train_length = max(len(loader) for loader in trainLoaders)
     
@@ -99,8 +89,17 @@ def trainE2EModel(args, model):
                     adjustedLens = model.encoder.compute_length(X_len)
                     
                     llm_outs, logits = model(X, X_len, None, forced_alignments, adjustedLens, participant_idx=0)
+
+
+                    breakpoint()
+                    # loss calculation (ctc + llm)
+                    ctc_loss = forward_ctc(pred, adjustedLens, y, y_len)
+                    ce_loss = llm_outs.loss
+
+                    loss = ctc_loss + ce_loss
                     
-                    
+                    optimizer.step()            
+                    scheduler.step()
                     
         
                     

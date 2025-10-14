@@ -17,7 +17,8 @@ argparser = argparse.ArgumentParser()
 
 #mode = args['mode']
 #config_path = args['config_path']
-mode = 'train_e2e'
+#mode = 'train_e2e'
+mode = 'train_ctc'
 config_path = "tm_transformer_b2t_24+25_large_wide.yaml"
 config_file = f"../src/brainaudio/training/utils/custom_configs/{config_path}"
 
@@ -25,7 +26,6 @@ with open(config_file, 'r') as f:
     config = yaml.safe_load(f)
     
 model_type = config['modelType']
-
 
 model_args = config['model'][model_type]
 
@@ -51,10 +51,16 @@ if model_type == 'gru':
                 num_masks=config['num_masks'])
     
 if mode == 'train_e2e':
-    
+    llm = AutoModelForCausalLM.from_pretrained(config['llm_name'])
+    tokenizer = AutoTokenizer.from_pretrained(config['llm_name'])
     # Load model and tokenizer
     e2e_model = E2EModel(model, model_args['d_model'], llm, tokenizer, config["device"])
             
-        
     e2e_model.to(config['device'])
     trainE2EModel(config, e2e_model)
+
+
+elif mode == 'train_ctc':
+    model.to(config['device'])
+    trainModel(config, model)
+

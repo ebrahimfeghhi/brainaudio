@@ -10,10 +10,10 @@ import wandb
 from itertools import zip_longest
 
 # brainaudio internal package imports
-from .utils.augmentations import gauss_smooth
-from .utils.loss import forward_ctc, evaluate
-from ..datasets.loading_data import getDatasetLoaders
-from .utils.learning_scheduler import create_learning_rate_scheduler
+from brainaudio.training.utils.augmentations import gauss_smooth
+from brainaudio.training.utils.loss import forward_ctc, evaluate
+from brainaudio.datasets.loading_data import getDatasetLoaders
+from brainaudio.training.utils.learning_scheduler import create_learning_rate_scheduler
 
 def trainModel(args, model):
 
