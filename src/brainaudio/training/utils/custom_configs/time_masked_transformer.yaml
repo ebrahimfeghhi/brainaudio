@@ -1,6 +1,7 @@
-outputDir: /data3/brain2text/b2t_24/outputs/
-datasetPath: /data3/brain2text/b2t_24/brain2text24_log
+outputDir: /data2/brain2text/b2t_24/outputs/
+datasetPath: /data2/brain2text/b2t_24/brain2text24_log
 device: cuda:2
+modelType: transformer
 modelName: scratch
 optimizer: AdamW
 learning_rate: 0.001
@@ -37,9 +38,9 @@ model:
     nDays: 24
   transformer:
     name: Transformer
-    patch_size:
-    - 5
+    features_list:
     - 256
+    samples_per_patch: 5
     d_model: 384
     n_heads: 6
     mlp_dim_ratio: 4

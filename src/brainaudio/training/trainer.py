@@ -29,7 +29,7 @@ def trainModel(args, model):
     with open(outputDir + "/args", "wb") as file:
         pickle.dump(args, file)
 
-    trainLoaders, valLoaders, loadedData = getDatasetLoaders(
+    trainLoaders, valLoaders, testLoaders, loadedData = getDatasetLoaders(
         args["datasetPath"],
         args["batchSize"]
     )
@@ -109,7 +109,7 @@ def trainModel(args, model):
                 dayIdx = dayIdx.to(args["device"])
                 
                 with torch.autocast(device_type = args["device"], enabled = args['use_amp'], dtype = torch.bfloat16):
-
+                    
                     if args["whiteNoiseSD"] > 0:
                         X += torch.randn(X.shape, device=args["device"]) * args["whiteNoiseSD"]
 

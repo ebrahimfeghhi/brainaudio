@@ -16,6 +16,7 @@ from typing import Optional
 import yaml
 
 from brainaudio.models.transformer import TransformerModel
+from brainaudio.models.bit import BiT_Phoneme
 from brainaudio.models.gru_b2t_25 import GRU_25
 from brainaudio.models.gru_b2t_24 import GRU_24
 from brainaudio.datasets.loading_data import getDatasetLoaders
@@ -23,16 +24,16 @@ from brainaudio.training.utils.augmentations import gauss_smooth
 
 def load_model(
     folder: str,
-    custom_args_path: Optional[str] = None,
+    custom_config_path: Optional[str] = None,
     device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 ):
     """
     Load a pre-trained model from a folder.
 
-    Args:
+    config:
         folder (str): Path to folder containing 'modelWeights'.
-        custom_args_path (Optional[str]): Path to a custom 'args' file. 
-                                          If None, looks for 'args' in `folder`. Defaults to None.
+        custom_config_path (Optional[str]): Path to a custom 'config' file. 
+                                          If None, looks for 'config' in `folder`. Defaults to None.
         device (torch.device): Device to map the model onto.
 
     Returns:
@@ -40,62 +41,178 @@ def load_model(
     """
     
     # --- MODIFIED SECTION ---
-    # Determine the path for the args file
-    if custom_args_path:
-        print(f"Loading custom YAML args from: {custom_args_path}")
-        with open(custom_args_path, "r") as handle:
+    # Determine the path for the config file
+    if custom_config_path:
+        print(f"Loading custom YAML config from: {custom_config_path}")
+        with open(custom_config_path, "r") as handle:
             config = yaml.safe_load(handle)
     else:
-        args_path = os.path.join(folder, "args")
-        print(f"Loading default pickle args from: {args_path}")
-        with open(args_path, "rb") as handle:
+        config_path = os.path.join(folder, "config")
+        print(f"Loading default pickle config from: {config_path}")
+        with open(config_path, "rb") as handle:
             config = pickle.load(handle)
     # ----------------------
         
-    # Load args                
+    # Load config                
     modelType = config['modelType']
-    model_args = config['model'][modelType]
+    model_config = config['model'][modelType]
+
     
+
     if modelType == 'transformer':
         
         if 'return_final_layer' not in config:
             config['return_final_layer'] = False
         
-        model = TransformerModel(features_list=model_args['features_list'], samples_per_patch=model_args['samples_per_patch'], dim=model_args['d_model'], depth=model_args['depth'], 
-                        heads=model_args['n_heads'], mlp_dim_ratio=model_args['mlp_dim_ratio'],  dim_head=model_args['dim_head'], 
+        model = TransformerModel(features_list=model_config['features_list'], samples_per_patch=model_config['samples_per_patch'], dim=model_config['d_model'], depth=model_config['depth'], 
+                        heads=model_config['n_heads'], mlp_dim_ratio=model_config['mlp_dim_ratio'],  dim_head=model_config['dim_head'], 
                         dropout=config['dropout'], input_dropout=config['input_dropout'], nClasses=config['nClasses'], 
-                        max_mask_pct=config['max_mask_pct'], num_masks=config['num_masks'], num_participants=len(model_args['features_list']), return_final_layer=config['return_final_layer'])
+                        max_mask_pct=config['max_mask_pct'], num_masks=config['num_masks'], num_participants=len(model_config['features_list']), return_final_layer=config['return_final_layer'])
 
-
-    elif modelType == 'gru' and model_args['year'] == '2024':
+    
+    elif modelType == 'gru' and model_config['year'] == '2024':
+        breakpoint()
         
-        model = GRU_24(neural_dim=model_args['nInputFeatures'], n_classes=config['nClasses'], hidden_dim=model_args['nUnits'], 
-            layer_dim=model_args['nLayers'], nDays=model_args['nDays'], dropout=config['dropout'], input_dropout=config['input_dropout'],
-            strideLen=model_args['strideLen'], kernelLen=model_args['kernelLen'], bidirectional=model_args['bidirectional'], max_mask_pct=config['max_mask_pct'], num_masks=config['num_masks'])
+        model = GRU_24(neural_dim=model_config['nInputFeatures'], n_classes=config['nClasses'], hidden_dim=model_config['nUnits'], 
+            layer_dim=model_config['nLayers'], nDays=model_config['nDays'], dropout=config['dropout'], input_dropout=config['input_dropout'],
+            strideLen=model_config['strideLen'], kernelLen=model_config['kernelLen'], bidirectional=model_config['bidirectional'], max_mask_pct=config['max_mask_pct'], num_masks=config['num_masks'])
 
         
     else:
         
-        model = GRU_25(neural_dim=model_args['nInputFeatures'], n_classes=config['nClasses'], hidden_dim=model_args['nUnits'], 
-            layer_dim=model_args['nLayers'], nDays=model_args['nDays'], dropout=config['dropout'], input_dropout=config['input_dropout'],
-            strideLen=model_args['strideLen'], kernelLen=model_args['kernelLen'], bidirectional=model_args['bidirectional'], max_mask_pct=config['max_mask_pct'], num_masks=config['num_masks'])
+        model = GRU_25(neural_dim=model_config['nInputFeatures'], n_classes=config['nClasses'], hidden_dim=model_config['nUnits'], 
+            layer_dim=model_config['nLayers'], nDays=model_config['nDays'], dropout=config['dropout'], input_dropout=config['input_dropout'],
+            strideLen=model_config['strideLen'], kernelLen=model_config['kernelLen'], bidirectional=model_config['bidirectional'], max_mask_pct=config['max_mask_pct'], num_masks=config['num_masks'])
 
     # Load weights
     ckpt_path = os.path.join(folder, "modelWeights")
     state_dict = torch.load(ckpt_path, map_location=device)
-    
-    # older versions of the model performed gaussian smoothing within forward pass
-    # need to remove to load weights
-    filtered_state_dict = {
-        key: value for key, value in state_dict.items()
-        if "gaussianSmoother" not in key
-    }
-    model.load_state_dict(filtered_state_dict, strict=True)
+    model.load_state_dict(state_dict, strict=True)
 
     model = model.to(device)
     model.eval()
     return model, config
 
+def save_transcripts(dataset_paths, partition, save_paths):
+    
+    trainLoaders, valLoaders, _ = getDatasetLoaders(
+        dataset_paths,
+        1, 
+        return_transcript=True, 
+        shuffle_train=False
+    )
+    
+    dataLoaders = trainLoaders if partition == 'train' else valLoaders
+    
+    for participant_id, dataLoader in enumerate(dataLoaders):
+        
+        transcriptions = []
+        
+        for batch in tqdm(dataLoader, desc=f"P{participant_id} Logits"):
+            
+            X, y, X_len, y_len, dayIdxs, transcripts = batch
+            
+            transcript_trial = transcripts[0].replace(".", "").lower()
+            
+            transcriptions.append(transcript_trial)
+            
+        save_path = f"{save_paths[participant_id]}/transcripts_{partition}.pkl"
+        with open(save_path, 'wb') as handle:
+            pickle.dump(transcriptions, handle)
+            
+            
+def compute_per(logits, y, total_edit_distance, total_seq_length):
+    
+    decodedSeq = torch.argmax(logits, dim=-1)
+    decodedSeq = torch.unique_consecutive(decodedSeq, dim=-1)
+    decodedSeq = decodedSeq.numpy()
+    decodedSeq = np.array([i for i in decodedSeq if i != 0])
+    
+    matcher = SequenceMatcher(
+                    a=y.tolist(), b=decodedSeq.tolist()
+                )  
+    
+    total_edit_distance += matcher.distance()
+    total_seq_length += len(y)
+    
+    return total_edit_distance, total_seq_length
+        
+def generate_and_save_logits(model, config, partition, device, 
+                             dataset_paths, save_paths):
+    
+    """
+    Runs the model forward pass and saves the output logits to a file.
+
+    config:
+        model (torch.nn.Module): The neural network model.
+        config (dict): Dictionary of arguments.
+        partition (str): The data partition to process ('train' or 'val').
+        device (torch.device): The device to run the model on.
+        dataset_paths (list): List of paths to the dataset files.
+        save_paths (list): List of paths to save the output files.
+    """
+    
+    print(f"--- Starting: Generating logits for '{partition}' partition ---")
+
+    trainLoaders, valLoaders, testLoaders, _ = getDatasetLoaders(
+        dataset_paths,
+        config["batchSize"], 
+        return_transcript=True, 
+        shuffle_train=False
+    )
+    
+    if partition == "train":
+        dataLoaders = trainLoaders
+    elif partition == "val":
+        dataLoaders = valLoaders
+    elif partition == "test":
+        dataLoaders = testLoaders
+        
+    model.eval()
+    with torch.no_grad():
+        for participant_id, dataLoader in enumerate(dataLoaders):
+            print(f"Processing participant {participant_id}...")
+            
+            logits_data = []
+            transcriptions = []
+            total_edit_distance = 0
+            total_seq_length = 0
+        
+            for batch in tqdm(dataLoader, desc=f"P{participant_id} Logits"):
+                
+                X, y, X_len, y_len, dayIdxs, transcripts = batch
+
+                X, y, X_len, y_len, dayIdxs = (
+                    X.to(device), y.to(device), X_len.to(device), 
+                    y_len.to(device), dayIdxs.to(device)
+                )
+                
+                X = gauss_smooth(X, device=device, smooth_kernel_size=config['smooth_kernel_size'], 
+                                 smooth_kernel_std=config['gaussianSmoothWidth'])
+                
+                adjusted_lens = model.compute_length(X_len)
+                logits = model.forward(X, X_len, participant_id, dayIdxs)
+                
+                for i in range(logits.shape[0]):            
+                    
+                    ali = adjusted_lens[i]
+                    yli = y_len[i]
+                    
+                    logits_data.append(logits[i, :ali].cpu().numpy())
+                    transcriptions.append(transcripts[i])
+                
+                    total_edit_distance, total_seq_length = compute_per(logits[i, :ali].cpu(), 
+                    y[i, :yli].cpu(), total_edit_distance, total_seq_length)
+            
+            save_path = f"{save_paths[participant_id]}/logits_{partition}.npz"
+            print(f"Saving logits for participant {participant_id} to {save_path}")
+            np.savez_compressed(save_path, *logits_data)
+            print(f"Phoneme Error Rate for participant {participant_id}: {total_edit_distance/total_seq_length}")
+                
+            
+    print("--- Finished: Logit generation complete. ---")
+    
+    
 def obtain_word_level_timespans(alignments, scores, ground_truth_sequence, transcript,
                                 silence_token_id=40):
     
@@ -271,7 +388,7 @@ def compute_forced_alignments(partition, save_paths, participant_ids,
     Loads pre-computed logits and computes forced alignments.
     All dependencies are passed as arguments.
 
-    Args:
+    config:
         partition (str): The data partition to process.
         save_paths (list): List of paths where logits are and alignments will be saved.
         participant_ids (list): List of participant IDs.

@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 from .base_model import BaseTimeMaskedModel
+from ..training.utils.augmentations import GaussianSmoothing
 
 class GRU_24(BaseTimeMaskedModel):
     
@@ -105,6 +106,7 @@ class GRU_24(BaseTimeMaskedModel):
         # === Final linear projection ===
         self.fc_decoder_out = nn.Linear(rnn_out_dim, n_classes + 1)  # +1 for CTC blank
 
+        self.gaussianSmoother = GaussianSmoothing(neural_dim, 20, 2.0, dim=1)
         
     def forward(self, neuralInput: torch.Tensor, X_len: torch.Tensor, participant_id: torch.Tensor, 
                 dayIdx: torch.Tensor) -> torch.Tensor:
@@ -118,12 +120,16 @@ class GRU_24(BaseTimeMaskedModel):
         dayIdx      : torch.Tensor, shape (batch,), index specifying the session/day of each sample
         """
         
-
+        neuralInput = torch.permute(neuralInput, (0, 2, 1))  # (B, C, T)
+        neuralInput = self.gaussianSmoother(neuralInput)
+        neuralInput = torch.permute(neuralInput, (0, 2, 1))  # (B, T, C)
         
         # --- SpecAugment‑style time masking (training only) ---
         if self.training and self.max_mask_pct > 0:
             neuralInput, _ = self.apply_time_masking(neuralInput, X_len, mask_value=0)
-
+            
+        neuralInput = self.inputDropoutLayer(neuralInput)
+        
         # --- Day‑specific affine transform ---
         dayWeights = torch.index_select(self.dayWeights, 0, dayIdx)  # (B, C, C)
         transformedNeural = torch.einsum("btd,bdk->btk", neuralInput, dayWeights) + torch.index_select(
@@ -131,7 +137,6 @@ class GRU_24(BaseTimeMaskedModel):
         )
         transformedNeural = self.inputLayerNonlinearity(transformedNeural)
         
-        neuralInput = self.inputDropoutLayer(neuralInput)
 
         # --- Temporal unfolding (stride / kernel) ---
         stridedInputs = torch.permute(
