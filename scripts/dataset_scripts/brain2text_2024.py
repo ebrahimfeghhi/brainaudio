@@ -11,9 +11,9 @@ import pickle
 
 
 # ----------------------- USER-SPECIFIC INFORMATION -----------------------
-dataDir = "/home3/skaasyap/willett/competitionData/" # directory where data is stored at 
-dataSave = "/data2/brain2text/b2t_24/brain2text24.pkl" # directory where processed data is saved
-logBoth = False # if True, log both spike band power and tx crossings before normalization
+dataDir = "/data/willett_data/competitionData" # directory where data is stored at 
+dataSave = "/data2/brain2text/b2t_24/brain2text24_log.pkl" # directory where processed data is saved
+logBoth = True # if True, log both spike band power and tx crossings before normalization
 # -------------------------------------------------------------------------
 
  
@@ -176,7 +176,6 @@ sessionNames = ['t12.2022.04.28',  't12.2022.05.26',  't12.2022.06.21',  't12.20
 sessionNames.sort()
 
 for dayIdx in range(len(sessionNames)):
-    
     trainDataset = getDataset(dataDir + '/train/' + sessionNames[dayIdx] + '.mat', logBoth)
     testDataset = getDataset(dataDir + '/test/' + sessionNames[dayIdx] + '.mat', logBoth)
 

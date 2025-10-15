@@ -7,7 +7,7 @@ outputDir: '/data2/brain2text/b2t_24/outputs' # where to save trained model
 datasetPath: ['/data2/brain2text/b2t_24/brain2text24'] # neural dataset
 
 device: 'cuda:0'
-modelName: "neurips_gru_nonoverlapping_4_4_768_seed_0"
+modelName: "gru_nonoverlapping_4_4_fixed"
 modelType: 'gru'
 optimizer: 'Adam'
 learning_rate: 0.02
@@ -55,9 +55,9 @@ model:
     year: '2024'
     nInputFeatures: 256
     nClasses: 40
-    nUnits: 768
+    nUnits: 1024
     nLayers: 5
-    bidirectional: false
+    bidirectional: True
     strideLen: 4
     kernelLen: 4
     nDays: 24

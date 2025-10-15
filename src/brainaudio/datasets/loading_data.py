@@ -67,6 +67,7 @@ class SpeechDataset(Dataset):
 
 
         self.n_trials = len(self.days)
+        
 
     def __len__(self):
         return self.n_trials
@@ -143,6 +144,7 @@ def getDatasetLoaders(
     
     train_data_loaders = []
     val_data_loaders = []
+    test_data_loaders = []
     loadedData = []
     for i in range(len(data_paths)):
         
@@ -151,8 +153,19 @@ def getDatasetLoaders(
             ds = pickle.load(handle)
         loadedData.append(ds)
         
+        test_ds = SpeechDataset(ds['test'], pid=i, return_transcript=return_transcript, return_alignments=return_alignments)
         train_ds = SpeechDataset(ds['train'], transform=None, pid=i, return_transcript=return_transcript, return_alignments=return_alignments)
         val_ds = SpeechDataset(ds['val'], pid=i, return_transcript=return_transcript, return_alignments=return_alignments)
+        
+        test_loader = DataLoader(
+            test_ds,
+            batch_size=1,
+            shuffle=False,
+            num_workers=0,
+            pin_memory=True,
+            collate_fn=_padding,
+        )
+
 
         train_loader = DataLoader(
             train_ds,
@@ -171,8 +184,10 @@ def getDatasetLoaders(
             pin_memory=True,
             collate_fn=_padding,
         )
-
+        
+   
         train_data_loaders.append(train_loader)
         val_data_loaders.append(val_loader)
+        test_data_loaders.append(test_loader)
 
-    return train_data_loaders, val_data_loaders, loadedData
+    return train_data_loaders, val_data_loaders, test_data_loaders, loadedData
