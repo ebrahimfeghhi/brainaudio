@@ -18,7 +18,9 @@ argparser = argparse.ArgumentParser()
 #mode = args['mode']
 #config_path = args['config_path']
 #mode = 'train_e2e'
+
 mode = 'train_ctc'
+
 config_path = "tm_transformer_b2t_24+25_large_wide.yaml"
 config_file = f"../src/brainaudio/training/utils/custom_configs/{config_path}"
 
@@ -63,6 +65,7 @@ if mode == 'train_e2e':
 
 
 elif mode == 'train_ctc':
+    label = "char" if config["nClasses"] == 26 else "phoneme"
     model.to(config['device'])
-    trainModel(config, model)
+    trainModel(config, model, label)
 
