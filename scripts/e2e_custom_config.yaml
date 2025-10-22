@@ -39,6 +39,9 @@ learning_rate_warmup_steps: 1000 # in batches
 n_epochs: 951
 top_k: 10
 ctc_weight: 0.3
+
+top_k: 10
+ctc_weight: 0.3
 use_peft: True
 
 

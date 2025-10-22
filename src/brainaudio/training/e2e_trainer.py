@@ -15,6 +15,9 @@ from brainaudio.training.utils.augmentations import gauss_smooth
 from brainaudio.training.utils.loss import forward_ctc, evaluate_e2e
 from brainaudio.datasets.loading_data import getDatasetLoaders
 from brainaudio.training.utils.learning_scheduler import create_learning_rate_scheduler
+from brainaudio.training.utils.loss import forward_ctc, evaluate_e2e
+from brainaudio.datasets.loading_data import getDatasetLoaders
+from brainaudio.training.utils.learning_scheduler import create_learning_rate_scheduler
 
 def trainE2EModel(args, model):
 
@@ -110,6 +113,9 @@ def trainE2EModel(args, model):
                         X_len -= cut 
                         
                     X = gauss_smooth(inputs=X, device=args['device'], smooth_kernel_size=args['smooth_kernel_size'], smooth_kernel_std=args['gaussianSmoothWidth'])
+                    
+                    # ----- Model Forward Pass -----
+
                     
                     # ----- Model Forward Pass -----
 
