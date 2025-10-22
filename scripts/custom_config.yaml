@@ -2,27 +2,27 @@
 #                       Shared Configuration
 # This section contains parameters common to all models and experiments.
 # ===================================================================
-outputDir: '/data2/brain2text/b2t_24/outputs' # where to save trained model
-# '/data3/brain2text/b2t_25/outputs/'
-datasetPath: ['/data2/brain2text/b2t_24/brain2text24'] # neural dataset
+outputDir: '/data2/brain2text/b2t_combined/outputs/' # where to save trained model
+datasetPath: ['/data2/brain2text/b2t_25/brain2text25_with_fa' , '/data2/brain2text/b2t_24/brain2text24_fa'] # neural dataset
 
 device: 'cuda:0'
-modelName: "gru_nonoverlapping_4_4_fixed"
-modelType: 'gru'
-optimizer: 'Adam'
-learning_rate: 0.02
+modelName: "tm_transformer_combined_lw_char"
+modelType: 'transformer'
+optimizer: 'AdamW'
+learning_rate: 0.001
 beta1: 0.9
 beta2: 0.999
 eps: 1.0e-8
 learning_scheduler: 'multistep'
-n_epochs: 600
+n_epochs: 571
 milestones: [400] # need to convert to batches
 gamma: 0.1 # multiply learning rate by this factor at milestones
 learning_rate_min: 0.0001
 learning_rate_decay_steps: 120000 # in batches
 learning_rate_warmup_steps: 1000 # in batches
+n_epochs: 951
 batchSize: 64
-nClasses: 40 
+nClasses: 26 # 26 if training on characters
 seed: 0
 load_pretrained_model: ''
 grad_norm_clip_value: -1
@@ -67,12 +67,11 @@ model:
     name: 'Transformer'
     features_list: [512, 256] # For multiple dataset, order the feature list aligning with corresponding dataset
     samples_per_patch: 4
-    d_model: 384        
-    n_heads: 6          
+    d_model: 512        
+    n_heads: 8      
     mlp_dim_ratio: 4 
-    embed_mlp_ratio: 1.5
     dim_head: 64 
-    depth: 5 
+    depth: 7
 
 wandb:
   project: "nejm-brain-to-text" 

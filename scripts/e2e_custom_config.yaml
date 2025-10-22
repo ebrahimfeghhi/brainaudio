@@ -7,7 +7,6 @@ outputDir: '/data2/brain2text/b2t_combined/outputs' # where to save trained E2E 
 datasetPath: ['/data2/brain2text/b2t_25/brain2text25.pkl', '/data2/brain2text/b2t_24/brain2text24']
 faPath: ['data2/brain2text/b2t_25/brain2text25_with_fa', 'data2/brain2text/b2t_24/brain2text24_with_fa']
 
-
 device: 'cuda:0'
 modelName: ""
 
@@ -40,6 +39,7 @@ learning_rate_warmup_steps: 1000 # in batches
 n_epochs: 951
 top_k: 10
 ctc_weight: 0.3
+use_peft: True
 
 
 # standard regularization techniques

@@ -29,6 +29,7 @@ def trainModel(args, model):
     with open(outputDir + "/args", "wb") as file:
         pickle.dump(args, file)
 
+    #! add char ctc training logic
     trainLoaders, valLoaders, testLoaders, loadedData = getDatasetLoaders(
         args["datasetPath"],
         args["batchSize"]

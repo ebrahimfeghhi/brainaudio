@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader, Dataset, ConcatDataset
 
 class SpeechDataset(Dataset):
 
-    def __init__(self, data, transform=None, return_transcript=False, pid=None, return_alignments=False):
+    def __init__(self, data, transform=None, return_transcript=False, pid=None, return_alignments=False, test_mode=False):
         
         """
         Defines a Pytorch dataset object which returns neural data, output text labels, 
@@ -22,6 +22,7 @@ class SpeechDataset(Dataset):
             return_transcript (bool): returns the ground-truth transcript if True.
             pid (int): participant id 
             return_alignments (bool): returns forced alignments if True.  
+            test_mode (bool): Construct the data structure differently to account for the missing fields of the test data
             
         """
         self.data = data
@@ -54,18 +55,35 @@ class SpeechDataset(Dataset):
                 feats = data[day]["sentenceDat"][trial]
                 self.neural_feats.append(feats)
 
-                self.text_seqs.append(data[day]["text"][trial])
+                if test_mode:
+                    self.text_seqs.append(None)
+                else:
+                    self.text_seqs.append(data[day]["text"][trial])
+                    
+                # Neural data is always present across dataset splits 
                 self.neural_time_bins.append(feats.shape[0])
-                self.text_seq_lens.append(data[day]["textLens"][trial])
-                self.transcriptions.append(data[day]['transcriptions'][trial])
+
+                if test_mode:
+                    self.text_seq_lens.append(None)
+                else: 
+                    self.text_seq_lens.append(data[day]["textLens"][trial])
+
+                if test_mode:
+                    self.transcriptions.append(None)
+                else: 
+                    self.transcriptions.append(data[day]['transcriptions'][trial])
+
                 self.days.append(day)
                 self.participant_id.append(pid)
                 
                 if self.return_alignments:
-                    self.alignments.append(data[day]['forced_alignments'][trial])
+                    if test_mode:
+                        self.transcriptions.append(None)
+                    else: 
+                        self.alignments.append(data[day]['forced_alignments'][trial])
+                    
+
                 
-
-
         self.n_trials = len(self.days)
         
 
@@ -153,7 +171,7 @@ def getDatasetLoaders(
             ds = pickle.load(handle)
         loadedData.append(ds)
         
-        test_ds = SpeechDataset(ds['test'], pid=i, return_transcript=return_transcript, return_alignments=return_alignments)
+        test_ds = SpeechDataset(ds['test'], pid=i, return_transcript=return_transcript, return_alignments=return_alignments, test_mode=True)
         train_ds = SpeechDataset(ds['train'], transform=None, pid=i, return_transcript=return_transcript, return_alignments=return_alignments)
         val_ds = SpeechDataset(ds['val'], pid=i, return_transcript=return_transcript, return_alignments=return_alignments)
         

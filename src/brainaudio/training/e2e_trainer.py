@@ -46,9 +46,10 @@ def trainE2EModel(args, model):
         
     max_dataset_train_length = max(len(loader) for loader in trainLoaders)
 
-    testLoss = []
-    testWER = []
+    test_loss = []
+    test_wer = []
     startTime = time.time()
+    
     
     for epoch in range(args['n_epochs']):
         
@@ -113,8 +114,9 @@ def trainE2EModel(args, model):
                     # ----- Model Forward Pass -----
 
                     adjustedLens = model.encoder.compute_length(X_len)
+
                     #! Replace with Dynamic chunking logic here!
-                    chunk_size=args.get('chunk_size', 0),
+                    chunk_size=args.get('chunk_size', 0)
                     llm_context_chunks=args.get('llm_context_chunks', 1)
 
 
@@ -164,10 +166,7 @@ def trainE2EModel(args, model):
             avgDayLoss_array.append(test_loss)
             avgDayctcLoss_array.append(test_ctc)
             avgDayceLoss_array.append(test_ce)
-
             wers.append(wer)
-
-
 
         # Log the metrics to wandb
         log_dict = {
@@ -186,28 +185,29 @@ def trainE2EModel(args, model):
                 log_dict[f"test_ce_loss_{pid}"] = test_ce_loss
                 log_dict[f"WER_{pid}"] = wer
 
-
         wandb.log(log_dict)
 
-
-    # if len(testCER) > 0 and np.mean(cer_array) < np.min(testCER):
-    #     torch.save(model.state_dict(), outputDir + "/modelWeights")
-    #     torch.save(optimizer.state_dict(), outputDir + "/optimizer")
-    #     torch.save(scheduler.state_dict(), outputDir + '/scheduler')
-        
-    # if len(testLoss) > 0 and np.mean(avgDayLoss_array) < np.min(testLoss):
-    #     torch.save(model.state_dict(), outputDir + "/modelWeights_ctc")
-        
+        if len(test_wer) > 0 and np.mean(wers) < np.min(test_wer):
+            torch.save(model.state_dict(), outputDir + "/modelWeights")
+            torch.save(optimizer.state_dict(), outputDir + "/optimizer")
+            torch.save(scheduler.state_dict(), outputDir + '/scheduler')
+            save_path = os.path.join(outputDir, "best_model_adapters")
+            model.save_pretrained(save_path)
             
-    # testLoss.append(np.mean(avgDayLoss_array))
-    # testCER.append(np.mean(cer_array))
+        if len(test_loss) > 0 and np.mean(avgDayLoss_array) < np.min(test_loss):
+            torch.save(model.state_dict(), outputDir + "/modelWeights_ctc")
 
-    # tStats = {}
-    # tStats["testLoss"] = np.array(testLoss)
-    # tStats["testCER"] = np.array(testCER)
 
-    # with open(outputDir + "/trainingStats", "wb") as file:
-    #     pickle.dump(tStats, file)
+        test_loss.append(np.mean(avgDayLoss_array))
+        test_wer.append(np.mean(wers))
+
+        test_stats = {}
+        test_stats["test_loss"] = np.array()
+        test_stats["test_wer"] = np.array()
+
+        with open(outputDir + "/trainingStats", "wb") as file:
+          pickle.dump(test_stats, file)
+
         
     wandb.finish()
     return
