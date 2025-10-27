@@ -15,7 +15,7 @@ from brainaudio.training.utils.loss import forward_ctc, evaluate
 from brainaudio.datasets.loading_data import getDatasetLoaders
 from brainaudio.training.utils.learning_scheduler import create_learning_rate_scheduler
 
-def trainModel(args, model):
+def trainModel(args, model, label="phoneme"):
 
     wandb.init(project=args["wandb"]["project"], 
                 entity=args["wandb"]["entity"], config=dict(args), name=args['modelName'])
@@ -29,9 +29,12 @@ def trainModel(args, model):
     with open(outputDir + "/args", "wb") as file:
         pickle.dump(args, file)
 
+    char_label = False if label == "phoneme" else True
+
     trainLoaders, valLoaders, testLoaders, loadedData = getDatasetLoaders(
         args["datasetPath"],
-        args["batchSize"]
+        args["batchSize"],
+        char_label=char_label
     )
     
     # Watch the model

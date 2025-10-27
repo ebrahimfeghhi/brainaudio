@@ -18,7 +18,9 @@ argparser = argparse.ArgumentParser()
 #mode = args['mode']
 #config_path = args['config_path']
 #mode = 'train_e2e'
+
 mode = 'train_ctc'
+
 config_path = "tm_transformer_b2t_24+25_large_wide.yaml"
 config_file = f"../src/brainaudio/training/utils/custom_configs/{config_path}"
 
@@ -39,28 +41,31 @@ if model_type == 'transformer':
     model = TransformerModel(features_list=model_args['features_list'], samples_per_patch=model_args['samples_per_patch'], dim=model_args['d_model'], depth=model_args['depth'], 
                      heads=model_args['n_heads'], mlp_dim_ratio=model_args['mlp_dim_ratio'],  dim_head=model_args['dim_head'], 
                      dropout=config['dropout'], input_dropout=config['input_dropout'], nClasses=config['nClasses'], 
-                     max_mask_pct=config['max_mask_pct'], num_masks=config['num_masks'], gaussianSmoothWidth=config['gaussianSmoothWidth'], 
-                     kernel_size=config['smooth_kernel_size'], num_participants=len(model_args['features_list']), return_final_layer=return_final_layer)
+                     max_mask_pct=config['max_mask_pct'], num_masks=config['num_masks'], num_participants=len(model_args['features_list']), return_final_layer=return_final_layer)
     
 if model_type == 'gru':
     
     model = GRU_25(neural_dim=model_args['nInputFeatures'], n_classes=config['nClasses'], hidden_dim=model_args['nUnits'], 
                 layer_dim=model_args['nLayers'], nDays=model_args['nDays'], dropout=config['dropout'], input_dropout=config['input_dropout'],
-                strideLen=model_args['strideLen'], kernelLen=model_args['kernelLen'], gaussianSmoothWidth=config['gaussianSmoothWidth'], 
-                kernel_size=config['smooth_kernel_size'], bidirectional=model_args['bidirectional'], max_mask_pct=config['max_mask_pct'], 
+                strideLen=model_args['strideLen'], kernelLen=model_args['kernelLen'], bidirectional=model_args['bidirectional'], max_mask_pct=config['max_mask_pct'], 
                 num_masks=config['num_masks'])
     
 if mode == 'train_e2e':
     llm = AutoModelForCausalLM.from_pretrained(config['llm_name'])
     tokenizer = AutoTokenizer.from_pretrained(config['llm_name'])
     # Load model and tokenizer
-    e2e_model = E2EModel(model, model_args['d_model'], llm, tokenizer, config["device"])
+    if config["use_peft"]:
+        peft_config = config["peft"]
+        e2e_model = E2EModel(model, model_args['d_model'], llm, tokenizer, config["device"], peft_config)
+    else:
+        e2e_model = E2EModel(model, model_args['d_model'], llm, tokenizer, config["device"])
             
     e2e_model.to(config['device'])
     trainE2EModel(config, e2e_model)
 
 
 elif mode == 'train_ctc':
+    label = "char" if config["nClasses"] == 26 else "phoneme"
     model.to(config['device'])
-    trainModel(config, model)
+    trainModel(config, model, label)
 
