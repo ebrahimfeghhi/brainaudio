@@ -21,7 +21,7 @@ argparser = argparse.ArgumentParser()
 
 mode = 'train_ctc'
 
-config_path = "tm_transformer_b2t_24+25_large_wide.yaml"
+config_path = "tm_transformer_combined_lw_char.yaml"
 config_file = f"../src/brainaudio/training/utils/custom_configs/{config_path}"
 
 with open(config_file, 'r') as f:
@@ -65,7 +65,7 @@ if mode == 'train_e2e':
 
 
 elif mode == 'train_ctc':
-    label = "char" if config["nClasses"] == 26 else "phoneme"
+    label = "phoneme" if config["nClasses"] == 40 else "char"
     model.to(config['device'])
     trainModel(config, model, label)
 

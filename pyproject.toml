@@ -10,6 +10,7 @@ requires-python = ">=3.12"
 dependencies = [
     "edit-distance>=1.0.7",
     "einops>=0.8.1",
+    "flashlight-text>=0.0.7",
     "g2p-en>=2.1.0",
     "h5py>=3.14.0",
     "ipykernel>=6.30.1",

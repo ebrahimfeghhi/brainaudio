@@ -22,7 +22,7 @@ learning_rate_decay_steps: 120000 # in batches
 learning_rate_warmup_steps: 1000 # in batches
 n_epochs: 951
 batchSize: 64
-nClasses: 26 # 26 if training on characters
+nClasses: 32 # 26 if training on characters
 seed: 0
 load_pretrained_model: ''
 grad_norm_clip_value: -1

@@ -1,0 +1,62 @@
+outputDir: /data2/brain2text/b2t_combined/outputs/
+datasetPath:
+- /data2/brain2text/b2t_25/brain2text25_with_fa_char
+- /data2/brain2text/b2t_24/brain2text24_with_fa_char
+device: cuda:2
+modelName: tm_transformer_combined_lw_char
+modelType: transformer
+optimizer: AdamW
+learning_rate: 0.001
+beta1: 0.9
+beta2: 0.999
+eps: 1.0e-08
+learning_scheduler: multistep
+n_epochs: 951
+milestones:
+- 400
+gamma: 0.1
+learning_rate_min: 0.0001
+learning_rate_decay_steps: 120000
+learning_rate_warmup_steps: 1000
+batchSize: 64
+nClasses: 32
+seed: 0
+load_pretrained_model: ''
+grad_norm_clip_value: -1
+num_masks: 20
+max_mask_pct: 0.075
+whiteNoiseSD: 0.2
+constantOffsetSD: 0.05
+gaussianSmoothWidth: 2.0
+smooth_kernel_size: 20
+random_cut: 0
+use_amp: true
+l2_decay: 1.0e-05
+input_dropout: 0.2
+dropout: 0.35
+model:
+  gru:
+    name: GRU
+    year: '2024'
+    nInputFeatures: 256
+    nClasses: 40
+    nUnits: 1024
+    nLayers: 5
+    bidirectional: true
+    strideLen: 4
+    kernelLen: 4
+    nDays: 24
+  transformer:
+    name: Transformer
+    features_list:
+    - 512
+    - 256
+    samples_per_patch: 4
+    d_model: 512
+    n_heads: 8
+    mlp_dim_ratio: 4
+    dim_head: 64
+    depth: 7
+wandb:
+  project: nejm-brain-to-text
+  entity: lionelhu926-ucla

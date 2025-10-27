@@ -116,9 +116,6 @@ def trainE2EModel(args, model):
                     
                     # ----- Model Forward Pass -----
 
-                    
-                    # ----- Model Forward Pass -----
-
                     adjustedLens = model.encoder.compute_length(X_len)
 
                     #! Replace with Dynamic chunking logic here!
