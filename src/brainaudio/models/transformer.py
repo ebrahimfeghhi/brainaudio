@@ -152,7 +152,7 @@ class TransformerModel(BaseTimeMaskedModel):
     def __init__(self, *, samples_per_patch, features_list, dim, depth, heads, mlp_dim_ratio,
                  dim_head, dropout, input_dropout,
                  nClasses, max_mask_pct, num_masks, num_participants, 
-                 return_final_layer):
+                 return_final_layer, bidirectional):
    
         super().__init__(max_mask_pct=max_mask_pct, num_masks=num_masks)
 
@@ -168,6 +168,7 @@ class TransformerModel(BaseTimeMaskedModel):
         self.nClasses = nClasses
         self.num_participants = num_participants
         self.return_final_layer = return_final_layer
+        self.bidirectional = bidirectional
         
         # self.mask_token = nn.Parameter(torch.randn(self.patch_dim))  
         self.patch_embedders = nn.ModuleList([])
@@ -228,7 +229,10 @@ class TransformerModel(BaseTimeMaskedModel):
         b, seq_len, _ = x.shape
 
         # Create temporal mask
-        temporal_mask = create_temporal_mask(seq_len, device=x.device)
+        if self.bidirectional:
+            temporal_mask = None
+        else:
+            temporal_mask = create_temporal_mask(seq_len, device=x.device)
 
         x = self.transformer(x, mask=temporal_mask)
         

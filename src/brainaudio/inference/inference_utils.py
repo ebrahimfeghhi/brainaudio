@@ -16,7 +16,6 @@ from typing import Optional
 import yaml
 
 from brainaudio.models.transformer import TransformerModel
-from brainaudio.models.bit import BiT_Phoneme
 from brainaudio.models.gru_b2t_25 import GRU_25
 from brainaudio.models.gru_b2t_24 import GRU_24
 from brainaudio.datasets.loading_data import getDatasetLoaders
@@ -24,7 +23,6 @@ from brainaudio.training.utils.augmentations import gauss_smooth
 
 def load_model(
     folder: str,
-    custom_config_path: Optional[str] = None,
     device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 ):
     """
@@ -32,8 +30,6 @@ def load_model(
 
     config:
         folder (str): Path to folder containing 'modelWeights'.
-        custom_config_path (Optional[str]): Path to a custom 'config' file. 
-                                          If None, looks for 'config' in `folder`. Defaults to None.
         device (torch.device): Device to map the model onto.
 
     Returns:
@@ -42,15 +38,11 @@ def load_model(
     
     # --- MODIFIED SECTION ---
     # Determine the path for the config file
-    if custom_config_path:
-        print(f"Loading custom YAML config from: {custom_config_path}")
-        with open(custom_config_path, "r") as handle:
-            config = yaml.safe_load(handle)
-    else:
-        config_path = os.path.join(folder, "config")
-        print(f"Loading default pickle config from: {config_path}")
-        with open(config_path, "rb") as handle:
-            config = pickle.load(handle)
+
+    config_path = os.path.join(folder, "args")
+    print(f"Loading default pickle config from: {config_path}")
+    with open(config_path, "rb") as handle:
+        config = pickle.load(handle)
     # ----------------------
         
     # Load config                
@@ -92,34 +84,6 @@ def load_model(
     model = model.to(device)
     model.eval()
     return model, config
-
-def save_transcripts(dataset_paths, partition, save_paths):
-    
-    trainLoaders, valLoaders, _ = getDatasetLoaders(
-        dataset_paths,
-        1, 
-        return_transcript=True, 
-        shuffle_train=False
-    )
-    
-    dataLoaders = trainLoaders if partition == 'train' else valLoaders
-    
-    for participant_id, dataLoader in enumerate(dataLoaders):
-        
-        transcriptions = []
-        
-        for batch in tqdm(dataLoader, desc=f"P{participant_id} Logits"):
-            
-            X, y, X_len, y_len, dayIdxs, transcripts = batch
-            
-            transcript_trial = transcripts[0].replace(".", "").lower()
-            
-            transcriptions.append(transcript_trial)
-            
-        save_path = f"{save_paths[participant_id]}/transcripts_{partition}.pkl"
-        with open(save_path, 'wb') as handle:
-            pickle.dump(transcriptions, handle)
-            
             
 def compute_per(logits, y, total_edit_distance, total_seq_length):
     
@@ -137,82 +101,7 @@ def compute_per(logits, y, total_edit_distance, total_seq_length):
     
     return total_edit_distance, total_seq_length
         
-def generate_and_save_logits(model, config, partition, device, 
-                             dataset_paths, save_paths):
-    
-    """
-    Runs the model forward pass and saves the output logits to a file.
 
-    config:
-        model (torch.nn.Module): The neural network model.
-        config (dict): Dictionary of arguments.
-        partition (str): The data partition to process ('train' or 'val').
-        device (torch.device): The device to run the model on.
-        dataset_paths (list): List of paths to the dataset files.
-        save_paths (list): List of paths to save the output files.
-    """
-    
-    print(f"--- Starting: Generating logits for '{partition}' partition ---")
-
-    trainLoaders, valLoaders, testLoaders, _ = getDatasetLoaders(
-        dataset_paths,
-        config["batchSize"], 
-        return_transcript=True, 
-        shuffle_train=False
-    )
-    
-    if partition == "train":
-        dataLoaders = trainLoaders
-    elif partition == "val":
-        dataLoaders = valLoaders
-    elif partition == "test":
-        dataLoaders = testLoaders
-        
-    model.eval()
-    with torch.no_grad():
-        for participant_id, dataLoader in enumerate(dataLoaders):
-            print(f"Processing participant {participant_id}...")
-            
-            logits_data = []
-            transcriptions = []
-            total_edit_distance = 0
-            total_seq_length = 0
-        
-            for batch in tqdm(dataLoader, desc=f"P{participant_id} Logits"):
-                
-                X, y, X_len, y_len, dayIdxs, transcripts = batch
-
-                X, y, X_len, y_len, dayIdxs = (
-                    X.to(device), y.to(device), X_len.to(device), 
-                    y_len.to(device), dayIdxs.to(device)
-                )
-                
-                X = gauss_smooth(X, device=device, smooth_kernel_size=config['smooth_kernel_size'], 
-                                 smooth_kernel_std=config['gaussianSmoothWidth'])
-                
-                adjusted_lens = model.compute_length(X_len)
-                logits = model.forward(X, X_len, participant_id, dayIdxs)
-                
-                for i in range(logits.shape[0]):            
-                    
-                    ali = adjusted_lens[i]
-                    yli = y_len[i]
-                    
-                    logits_data.append(logits[i, :ali].cpu().numpy())
-                    transcriptions.append(transcripts[i])
-                
-                    total_edit_distance, total_seq_length = compute_per(logits[i, :ali].cpu(), 
-                    y[i, :yli].cpu(), total_edit_distance, total_seq_length)
-            
-            save_path = f"{save_paths[participant_id]}/logits_{partition}.npz"
-            print(f"Saving logits for participant {participant_id} to {save_path}")
-            np.savez_compressed(save_path, *logits_data)
-            print(f"Phoneme Error Rate for participant {participant_id}: {total_edit_distance/total_seq_length}")
-                
-            
-    print("--- Finished: Logit generation complete. ---")
-    
-    
 def obtain_word_level_timespans(alignments, scores, ground_truth_sequence, transcript,
                                 silence_token_id=40):
     
@@ -292,7 +181,7 @@ def save_transcripts(dataset_paths, partition, save_paths):
         partition (str): The data partition to process ('train' or 'val').
         save_paths (list): List of paths to save the transcripts.
     '''
-    trainLoaders, valLoaders, _ = getDatasetLoaders(
+    trainLoaders, valLoaders, _, _ = getDatasetLoaders(
         dataset_paths,
         1, 
         return_transcript=True, 
@@ -305,7 +194,7 @@ def save_transcripts(dataset_paths, partition, save_paths):
         
         transcriptions = []
         
-        for batch in tqdm(dataLoader, desc=f"P{participant_id} Logits"):
+        for batch in tqdm(dataLoader, desc=f"P{participant_id} Transcripts"):
             
             X, y, X_len, y_len, dayIdxs, transcripts = batch
             
@@ -318,39 +207,49 @@ def save_transcripts(dataset_paths, partition, save_paths):
             pickle.dump(transcriptions, handle)
             
         
-def generate_and_save_logits(model, args, partition, device, 
-                             dataset_paths, save_paths):
+def generate_and_save_logits(model, config, partition, device, 
+                             dataset_paths, save_paths, participant_ids, char_label):
     
     """
     Runs the model forward pass and saves the output logits to a file.
 
-    Args:
+    config:
         model (torch.nn.Module): The neural network model.
-        args (dict): Dictionary of arguments.
+        config (dict): Dictionary of arguments.
         partition (str): The data partition to process ('train' or 'val').
         device (torch.device): The device to run the model on.
         dataset_paths (list): List of paths to the dataset files.
         save_paths (list): List of paths to save the output files.
+        participant_ids (list): List of integer participant ids 
+        char_label (bool): use characters if True, else phonemes
     """
     
     print(f"--- Starting: Generating logits for '{partition}' partition ---")
 
-    trainLoaders, valLoaders, _ = getDatasetLoaders(
+    trainLoaders, valLoaders, testLoaders, _ = getDatasetLoaders(
         dataset_paths,
-        args["batchSize"], 
+        config["batchSize"], 
         return_transcript=True, 
-        shuffle_train=False
+        shuffle_train=False, 
+        char_label=char_label
     )
     
-    dataLoaders = trainLoaders if partition == 'train' else valLoaders
+    if partition == "train":
+        dataLoaders = trainLoaders
+    elif partition == "val":
+        dataLoaders = valLoaders
+    elif partition == "test":
+        dataLoaders = testLoaders
         
     model.eval()
     with torch.no_grad():
-        for participant_id, dataLoader in enumerate(dataLoaders):
+        for dataLoader, participant_id in zip(dataLoaders, participant_ids):
             print(f"Processing participant {participant_id}...")
             
             logits_data = []
             transcriptions = []
+            total_edit_distance = 0
+            total_seq_length = 0
         
             for batch in tqdm(dataLoader, desc=f"P{participant_id} Logits"):
                 
@@ -361,20 +260,27 @@ def generate_and_save_logits(model, args, partition, device,
                     y_len.to(device), dayIdxs.to(device)
                 )
                 
-                X = gauss_smooth(X, device=device, smooth_kernel_size=args['smooth_kernel_size'], smooth_kernel_std=args['gaussianSmoothWidth'])
+                X = gauss_smooth(X, device=device, smooth_kernel_size=config['smooth_kernel_size'], 
+                                 smooth_kernel_std=config['gaussianSmoothWidth'])
+                
                 adjusted_lens = model.compute_length(X_len)
                 logits = model.forward(X, X_len, participant_id, dayIdxs)
-                log_probs = log_softmax(logits, dim=-1)
                 
-                for i in range(log_probs.shape[0]):            
-                    logits_data.append(log_probs[i, :adjusted_lens[i]].cpu().numpy())
-                    transcriptions.append(transcripts[i])
+                for i in range(logits.shape[0]):            
                     
-
-            save_path = f"{save_paths[participant_id]}/logits_{partition}.pkl"
+                    ali = adjusted_lens[i]
+                    yli = y_len[i]
+                    
+                    logits_data.append(logits[i, :ali].cpu().numpy())
+                    transcriptions.append(transcripts[i])
+                
+                    total_edit_distance, total_seq_length = compute_per(logits[i, :ali].cpu(), 
+                    y[i, :yli].cpu(), total_edit_distance, total_seq_length)
+            
+            save_path = f"{save_paths[participant_id]}/logits_{partition}.npz"
             print(f"Saving logits for participant {participant_id} to {save_path}")
-            with open(save_path, 'wb') as handle:
-                pickle.dump(logits_data, handle)
+            np.savez_compressed(save_path, *logits_data)
+            print(f"Error Rate for participant {participant_id}: {total_edit_distance/total_seq_length}")
                 
             
     print("--- Finished: Logit generation complete. ---")

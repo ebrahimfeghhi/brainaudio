@@ -15,8 +15,7 @@ def main():
     save_transcripts(
         partition=PARTITION,
         dataset_paths=DATASET_PATHS,
-        save_paths=SAVE_PATHS,
-        participant_ids=PARTICIPANT_IDS
+        save_paths=SAVE_PATHS
     )
 
 if __name__ == "__main__":
