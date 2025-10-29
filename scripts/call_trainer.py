@@ -66,7 +66,7 @@ if mode == 'train_e2e':
 
 
 elif mode == 'train_ctc':
-    label = "char" if config["nClasses"] == 26 else "phoneme"
+    label = "phoneme" if config["nClasses"] == 40 else "char"
     model.to(config['device'])
     trainModel(config, model, label)
 
