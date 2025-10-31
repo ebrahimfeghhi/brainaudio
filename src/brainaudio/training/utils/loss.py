@@ -3,6 +3,8 @@ import tqdm
 from .augmentations import gauss_smooth
 from edit_distance import SequenceMatcher
 import numpy as np
+import pandas as pd
+from brainaudio.inference.inference_utils import _cer_and_wer
 
 def forward_ctc(
         encoder_out: torch.Tensor,
@@ -35,7 +37,7 @@ def forward_ctc(
     
     
   
-def evaluate(val_loader, model, participant_id, forward_ctc, args):
+def evaluate(val_loader, model, participant_id, forward_ctc, args, epoch):
     """
     Runs the validation loop for the model.
 
@@ -111,6 +113,72 @@ def evaluate(val_loader, model, participant_id, forward_ctc, args):
 
     return avg_loss, cer
 
+
+ 
+def evaluate_wer(val_loader, model, participant_id, forward_ctc, args, beam_search_decoder):
+    """
+    Runs the validation loop for the model.
+
+    Args:
+        val_loader (DataLoader): The validation data loader.
+        model (nn.Module): The model to evaluate.
+        participant_id (int): The id of the participant.
+        forward_ctc (function): The CTC loss function.
+        args (Namespace or dict): A configuration object with necessary parameters 
+                                  like smooth_kernel_size and gaussianSmoothWidth.
+
+    Returns:
+        tuple: A tuple containing:
+            - avg_loss (float): The average validation loss.
+            - cer (float): The Character Error Rate.
+    """
+    # Set the model to evaluation mode
+    model.eval()
+    all_losses = []
+    total_edit_distance = 0
+    total_seq_length = 0
+    pred_arr = []
+    val_transcripts = pd.read_pickle("/data2/brain2text/b2t_24/transcripts_val.pkl")
+
+    device = args["device"]
+    # Disable gradient calculations for validation
+    with torch.no_grad():
+      
+        print("EVAL WER")
+      
+        # Wrap loader in tqdm for a progress bar
+        
+        for batch in tqdm.tqdm(val_loader, desc=f"Evaluating Participant {participant_id}"):
+          
+            X, y, X_len, y_len, testDayIdx = batch
+
+            # Move data to the specified device
+            X = X.to(device)
+            y = y.to(device)
+            X_len = X_len.to(device)
+            y_len = y_len.to(device)
+            testDayIdx = testDayIdx.to(device)
+
+            X = gauss_smooth(X, device=device, smooth_kernel_size=args['smooth_kernel_size'], smooth_kernel_std=args['gaussianSmoothWidth'])
+            adjusted_lens = model.compute_length(X_len)
+
+            pred = model.forward(X, X_len, participant_id, testDayIdx)
+            loss = forward_ctc(pred, adjusted_lens, y, y_len)
+            
+            # Use .item() to get the scalar value of the loss
+            all_losses.append(loss.item())
+            
+            beam_out = beam_search_decoder(pred.to("cpu"))
+            beam_search_transcript = " ".join(beam_out[0][0].words).strip()
+            pred_arr.append(beam_search_transcript)
+
+    # --- Calculate Final Metrics ---
+    avg_loss = np.mean(all_losses) if all_losses else 0.0
+    cer, wer, wer_sent = _cer_and_wer(pred_arr, val_transcripts)
+    
+    print("WER: ", wer)
+
+    return avg_loss, wer
 
 def evaluate_e2e(val_loader, model, participant_id, forward_ctc, args, chunk_size, llm_context_chunks):
   """

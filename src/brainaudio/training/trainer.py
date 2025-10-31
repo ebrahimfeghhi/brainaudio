@@ -8,10 +8,11 @@ from tqdm import tqdm
 import torch.nn.functional as F
 import wandb
 from itertools import zip_longest
+from torchaudio.models.decoder import ctc_decoder
 
 # brainaudio internal package imports
 from brainaudio.training.utils.augmentations import gauss_smooth
-from brainaudio.training.utils.loss import forward_ctc, evaluate
+from brainaudio.training.utils.loss import forward_ctc, evaluate_wer
 from brainaudio.datasets.loading_data import getDatasetLoaders
 from brainaudio.training.utils.learning_scheduler import create_learning_rate_scheduler
 
@@ -74,6 +75,12 @@ def trainModel(args, model, label="phoneme"):
     train_loss = []
         
     max_dataset_train_length = max(len(loader) for loader in trainLoaders)
+    
+    language_model_path = "/data2/brain2text/lm/languageModel/"
+    units_txt_file_pytorch_char = f"{language_model_path}units_pytorch_character.txt"
+    lexicon_char_file= f"{language_model_path}lexicon_char.txt"
+    decoder_char = ctc_decoder(tokens=units_txt_file_pytorch_char, lexicon=lexicon_char_file, 
+                       beam_size=50, nbest=1, lm=None)
     
     for epoch in range(args['n_epochs']):
         
@@ -160,7 +167,7 @@ def trainModel(args, model, label="phoneme"):
         current_lr = optimizer.param_groups[0]['lr']
         
         for participant_id, valLoader in enumerate(valLoaders):
-            avgDayLoss, cer = evaluate(valLoader, model, participant_id, forward_ctc, args)
+            avgDayLoss, cer = evaluate_wer(valLoader, model, participant_id, forward_ctc, args, decoder_char)
             avgDayLoss_array.append(avgDayLoss)
             cer_array.append(cer)
         

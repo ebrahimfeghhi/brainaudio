@@ -1,12 +1,12 @@
 outputDir: /data2/brain2text/b2t_24/outputs/
 datasetPath:
-- /data2/brain2text/b2t_24/brain2text24_log.pkl
-device: cuda:2
-modelName: tm_transformer_b2t_24_phone
+- /data2/brain2text/b2t_24/brain2text24_log_char.pkl
+device: cuda:3
+modelName: character_model_wer_beam_search_eval_large
 modelType: transformer
 optimizer: AdamW
 learning_rate: 0.001
-n_epochs: 250
+n_epochs: 600
 beta1: 0.9
 beta2: 0.999
 eps: 1.0e-08
@@ -18,7 +18,7 @@ learning_rate_min: 0
 learning_rate_decay_steps: 0
 learning_rate_warmup_steps: 0
 batchSize: 64
-nClasses: 40
+nClasses: 32
 seed: 0
 load_pretrained_model: ''
 grad_norm_clip_value: -1
@@ -49,11 +49,11 @@ model:
     features_list:
     - 256
     samples_per_patch: 5
-    d_model: 384
-    n_heads: 6
+    d_model: 512
+    n_heads: 8
     mlp_dim_ratio: 4
     dim_head: 64
-    depth: 5
+    depth: 7
     bidirectional: False
 wandb:
   project: "nejm-brain-to-text" 
