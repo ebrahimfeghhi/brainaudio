@@ -59,10 +59,7 @@ class SpeechDataset(Dataset):
                 if test_mode:
                     self.text_seqs.append(None)
                 else:
-                    if char_label:
-                        self.text_seqs.append(data[day]["textC"][trial])
-                    else:
-                        self.text_seqs.append(data[day]["text"][trial])
+                    self.text_seqs.append(data[day]["text"][trial])
                     
                 # Neural data is always present across dataset splits 
                 self.neural_time_bins.append(feats.shape[0])
@@ -70,10 +67,7 @@ class SpeechDataset(Dataset):
                 if test_mode:
                     self.text_seq_lens.append(None)
                 else: 
-                    if char_label:
-                        self.text_seq_lens.append(data[day]["textLensC"][trial])
-                    else:
-                        self.text_seq_lens.append(data[day]["textLens"][trial])
+                    self.text_seq_lens.append(data[day]["textLens"][trial])
 
                 if test_mode:
                     self.transcriptions.append(None)

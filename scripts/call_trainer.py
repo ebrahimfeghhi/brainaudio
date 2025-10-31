@@ -21,7 +21,7 @@ argparser = argparse.ArgumentParser()
 
 mode = 'train_ctc'
 
-config_path = "tm_transformer_b2t_24+25_large_wide_bidir.yaml"
+config_path = "time_masked_transformer_b2t_24.yaml"
 config_file = f"../src/brainaudio/training/utils/custom_configs/{config_path}"
 
 with open(config_file, 'r') as f:

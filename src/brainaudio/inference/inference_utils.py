@@ -155,7 +155,8 @@ def load_model(
         model = TransformerModel(features_list=model_config['features_list'], samples_per_patch=model_config['samples_per_patch'], dim=model_config['d_model'], depth=model_config['depth'], 
                         heads=model_config['n_heads'], mlp_dim_ratio=model_config['mlp_dim_ratio'],  dim_head=model_config['dim_head'], 
                         dropout=config['dropout'], input_dropout=config['input_dropout'], nClasses=config['nClasses'], 
-                        max_mask_pct=config['max_mask_pct'], num_masks=config['num_masks'], num_participants=len(model_config['features_list']), return_final_layer=config['return_final_layer'])
+                        max_mask_pct=config['max_mask_pct'], num_masks=config['num_masks'], num_participants=len(model_config['features_list']), return_final_layer=config['return_final_layer'], 
+                        bidirectional=model_config["bidirectional"])
 
     
     elif modelType == 'gru' and model_config['year'] == '2024':

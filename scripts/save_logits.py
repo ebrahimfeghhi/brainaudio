@@ -5,13 +5,13 @@ from brainaudio.inference.inference_utils import load_model, generate_and_save_l
 import os
 
 # --- Configuration ---
-MODEL_NAME = "tm_transformer_combined_lw_char"
-LOAD_MODEL_FOLDER = f"/data2/brain2text/b2t_combined/outputs/{MODEL_NAME}"  
+MODEL_NAME = "tm_transformer_b2t_24_phone"
+LOAD_MODEL_FOLDER = f"/data2/brain2text/b2t_24/outputs/{MODEL_NAME}"  
 DEVICE = "cuda:2"   
-DATASET_PATHS = ['/data2/brain2text/b2t_24/brain2text24_with_fa_char']
-SAVE_PATHS = {1:'/data2/brain2text/b2t_24/logits/'}
+DATASET_PATHS = ['/data2/brain2text/b2t_24/brain2text24_log.pkl']
+SAVE_PATHS = {0:'/data2/brain2text/b2t_24/logits/'}
 PARTITION = 'val'
-PARTICIPANT_IDS = [1]
+PARTICIPANT_IDS = [0]
 char_label = True
 
 

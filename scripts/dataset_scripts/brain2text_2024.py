@@ -11,8 +11,9 @@ import pickle
 
 
 # ----------------------- USER-SPECIFIC INFORMATION -----------------------
-dataDir = "/data/willett_data/competitionData" # directory where data is stored at 
-dataSave = "/data2/brain2text/b2t_24/brain2text24_log.pkl" # directory where processed data is saved
+dataDir = "/home3/skaasyap/willett/competitionData/" # directory where data is stored at 
+output_type = "char"
+dataSave = "/data2/brain2text/b2t_24/brain2text24_log_char.pkl" # directory where processed data is saved
 logBoth = True # if True, log both spike band power and tx crossings before normalization
 # -------------------------------------------------------------------------
 
@@ -33,6 +34,28 @@ PHONE_DEF_SIL = PHONE_DEF + ['SIL']
 
 def phoneToId(p):
     return PHONE_DEF_SIL.index(p)
+
+CHAR_VOCAB = [
+    "<sp>",          # space token
+    "!", ",", ".", "?", "'",   # punctuation (incl. apostrophe)
+] + [chr(i) for i in range(ord('a'), ord('z') + 1)]  # 'a'..'z'
+
+# Build mappings
+_CHAR_TO_ID = {c: i for i, c in enumerate(CHAR_VOCAB)}
+_ID_TO_CHAR = {i: c for c, i in _CHAR_TO_ID.items()}
+
+# Convenience indices
+SPACE_ID = _CHAR_TO_ID["<sp>"]
+
+def charToId(c: str) -> int:
+    """Map raw input char to ID, normalizing space and lowercase."""
+    if c == " ":
+        c = "<sp>"
+    c = c.lower()
+    return _CHAR_TO_ID[c]
+
+def idToChar(i: int) -> str:
+    return _ID_TO_CHAR[i]
 
 def loadFeaturesAndNormalize(sessionPath, logBoth):
     
@@ -105,7 +128,7 @@ def loadFeaturesAndNormalize(sessionPath, logBoth):
     return session_data
 
 
-def getDataset(fileName, logBoth):
+def getDataset(fileName, logBoth, output_type):
     
     session_data = loadFeaturesAndNormalize(fileName, logBoth)
 
@@ -125,23 +148,40 @@ def getDataset(fileName, logBoth):
         maxSeqLen = 500
 
         # ----- build phoneme ids (used for 'phoneme' or 'both') -----
-        phonemes = []
-        for p in g2p(thisTranscription):
-            if addInterWordSymbol and p == ' ':
+        if output_type == "phonemes":
+            phonemes = []
+            for p in g2p(thisTranscription):
+                if addInterWordSymbol and p == ' ':
+                    phonemes.append('SIL')
+                p = re.sub(r'[0-9]', '', p)           # remove stress
+                if re.match(r'[A-Z]+', p):            # keep only phoneme labels
+                    phonemes.append(p)
+            if addInterWordSymbol:
                 phonemes.append('SIL')
-            p = re.sub(r'[0-9]', '', p)           # remove stress
-            if re.match(r'[A-Z]+', p):            # keep only phoneme labels
-                phonemes.append(p)
-        if addInterWordSymbol:
-            phonemes.append('SIL')
 
-        seqLenP = len(phonemes)
-        seqIDsP = np.zeros([maxSeqLen], dtype=np.int32)
-        seqIDsP[:seqLenP] = [phoneToId(p) + 1 for p in phonemes]
+            seqLenP = len(phonemes)
+            seqIDsP = np.zeros([maxSeqLen], dtype=np.int32)
+            seqIDsP[:seqLenP] = [phoneToId(p) + 1 for p in phonemes]
 
-        seq.append(seqIDsP)         
-        
+            seq.append(seqIDsP)         
+            
+        elif output_type == "char":
+            
+            txt = thisTranscription.replace('-', ' ')
+            characters = []
+            for c in txt:
+                if addInterWordSymbol and c == ' ':
+                    characters.append('<sp>')
+                else:
+                    characters.append(c)
+            if addInterWordSymbol:
+                characters.append('<sp>')
 
+            seqLenC = len(characters)
+            seqIDsC = np.zeros([maxSeqLen], dtype=np.int32)
+            seqIDsC[:seqLenC] = [charToId(c) + 1 for c in characters]
+            seq.append(seqIDsC)         
+            
     # ----- package dataset -----
     newDataset = {
         'sentenceDat': allDat,
@@ -176,14 +216,14 @@ sessionNames = ['t12.2022.04.28',  't12.2022.05.26',  't12.2022.06.21',  't12.20
 sessionNames.sort()
 
 for dayIdx in range(len(sessionNames)):
-    trainDataset = getDataset(dataDir + '/train/' + sessionNames[dayIdx] + '.mat', logBoth)
-    testDataset = getDataset(dataDir + '/test/' + sessionNames[dayIdx] + '.mat', logBoth)
+    trainDataset = getDataset(dataDir + '/train/' + sessionNames[dayIdx] + '.mat', logBoth, output_type)
+    testDataset = getDataset(dataDir + '/test/' + sessionNames[dayIdx] + '.mat', logBoth, output_type)
 
     trainDatasets.append(trainDataset)
     testDatasets.append(testDataset)
 
     if os.path.exists(dataDir + '/competitionHoldOut/' + sessionNames[dayIdx] + '.mat'):
-        dataset = getDataset(dataDir + '/competitionHoldOut/' + sessionNames[dayIdx] + '.mat', logBoth)
+        dataset = getDataset(dataDir + '/competitionHoldOut/' + sessionNames[dayIdx] + '.mat', logBoth, output_type)
         competitionDatasets.append(dataset)
         
 allDatasets = {}

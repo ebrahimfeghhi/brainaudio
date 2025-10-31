@@ -22,6 +22,9 @@ def create_learning_rate_scheduler(args, optim):
         '''
         Create lr lambdas for each param group that implement cosine decay
         Different lr lambda decaying for day params vs rest of the model
+        
+        current_step: current batch index
+        min_learning_rate_ratio: Learning rate shou
         '''
         
         
@@ -45,11 +48,8 @@ def create_learning_rate_scheduler(args, optim):
         
         if scheduler_type == 'multistep':
             
-            if current_step in milestones:
-                
-                return gamma
-            
-            return 1
+            power = sum([1 for m in milestones if current_step >= m])
+            return gamma ** power
         
         if scheduler_type == 'None':
             
