@@ -12,7 +12,7 @@ from torchaudio.models.decoder import ctc_decoder
 
 # brainaudio internal package imports
 from brainaudio.training.utils.augmentations import gauss_smooth
-from brainaudio.training.utils.loss import forward_ctc, evaluate_wer
+from brainaudio.training.utils.loss import forward_ctc, evaluate
 from brainaudio.datasets.loading_data import getDatasetLoaders
 from brainaudio.training.utils.learning_scheduler import create_learning_rate_scheduler
 
@@ -167,7 +167,7 @@ def trainModel(args, model, label="phoneme"):
         current_lr = optimizer.param_groups[0]['lr']
         
         for participant_id, valLoader in enumerate(valLoaders):
-            avgDayLoss, cer = evaluate_wer(valLoader, model, participant_id, forward_ctc, args, decoder_char)
+            avgDayLoss, cer = evaluate(valLoader, model, participant_id, forward_ctc, args, decoder_char)
             avgDayLoss_array.append(avgDayLoss)
             cer_array.append(cer)
         

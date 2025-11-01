@@ -2,15 +2,15 @@ outputDir: /data2/brain2text/b2t_combined/outputs/
 datasetPath:
 - /data2/brain2text/b2t_25/brain2text25_with_fa
 - /data2/brain2text/b2t_24/brain2text24_with_fa
-device: cuda:0
-modelName: tm_transformer_b2t_24+25_large_wide_bidir_grad_clip
+device: cuda:1
+modelName: tm_transformer_b2t_24+25_large_wide_bidir_grad_clip_cosine_decay_v2
 modelType: transformer
 optimizer: AdamW
 learning_rate: 0.001
 beta1: 0.9
 beta2: 0.999
 eps: 1.0e-08
-learning_scheduler: multistep
+learning_scheduler: cosine
 milestones:
 - 571
 gamma: 0.1

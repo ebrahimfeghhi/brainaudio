@@ -56,6 +56,7 @@ model:
     mlp_dim_ratio: 4
     dim_head: 64
     depth: 7
+    bidirectional: True
 wandb:
   project: "nejm-brain-to-text" 
   entity: "lionelhu926-ucla"
