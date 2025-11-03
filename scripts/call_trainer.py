@@ -8,6 +8,7 @@ from brainaudio.models.gru_b2t_25 import GRU_25
 from brainaudio.models.transformer import TransformerModel
 from brainaudio.models.e2e import E2EModel
 from brainaudio.training.trainer import trainModel
+from brainaudio.training.trainer_wer import trainModelWER
 from brainaudio.training.e2e_trainer import trainE2EModel
 
 argparser = argparse.ArgumentParser()
@@ -68,5 +69,5 @@ if mode == 'train_e2e':
 elif mode == 'train_ctc':
     label = "phoneme" if config["nClasses"] == 40 else "char"
     model.to(config['device'])
-    trainModel(config, model, label)
+    trainModelWER(config, model, label)
 

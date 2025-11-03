@@ -135,12 +135,15 @@ def evaluate_wer(val_loader, model, participant_id, forward_ctc, args, beam_sear
     # Set the model to evaluation mode
     model.eval()
     all_losses = []
-    total_edit_distance = 0
-    total_seq_length = 0
     pred_arr = []
-    val_transcripts = pd.read_pickle("/data2/brain2text/b2t_24/transcripts_val.pkl")
+    
+    if participant_id == 1:
+        val_transcripts = pd.read_pickle("/data2/brain2text/b2t_24/transcripts_val.pkl")
+    else:
+        val_transcripts = pd.read_pickle("/data2/brain2text/b2t_25/transcripts_val.pkl")
 
     device = args["device"]
+    acoustic_scale = 0.8
     # Disable gradient calculations for validation
     with torch.no_grad():
       
@@ -168,7 +171,7 @@ def evaluate_wer(val_loader, model, participant_id, forward_ctc, args, beam_sear
             # Use .item() to get the scalar value of the loss
             all_losses.append(loss.item())
             
-            beam_out = beam_search_decoder(pred.to("cpu"))
+            beam_out = beam_search_decoder(pred.to("cpu")*acoustic_scale)
             beam_search_transcript = " ".join(beam_out[0][0].words).strip()
             pred_arr.append(beam_search_transcript)
 
