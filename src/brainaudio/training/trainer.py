@@ -22,7 +22,7 @@ def trainModel(args, model, label="phoneme"):
         
     outputDir = f'{args["outputDir"]}{args["modelName"]}'
     
-    os.makedirs(outputDir, exist_ok=False)
+    os.makedirs(outputDir, exist_ok=True)
     torch.manual_seed(args["seed"])
     np.random.seed(args["seed"])
 
@@ -84,7 +84,7 @@ def trainModel(args, model, label="phoneme"):
         train_loop = tqdm(
             zip_longest(*trainLoaders), 
             total=max_dataset_train_length, 
-            desc="Training Epoch"
+            desc=f"Training Epoch {epoch+1} / {args['n_epochs']}"
         )
         
         # batches is a list containing batched data for each participant
@@ -133,8 +133,21 @@ def trainModel(args, model, label="phoneme"):
                     adjustedLens = model.compute_length(X_len)
                 
                     pred = model.forward(X, X_len, participant_id, dayIdx)
+
+                    # chunk_cfg = getattr(model, "last_chunk_config", None)
+                    # if chunk_cfg is not None:
+                    #     wandb.log({
+                    #         "chunk/last_chunk_size": chunk_cfg.chunk_size or 0,
+                    #         "chunk/last_context_chunks": chunk_cfg.context_chunks or 0,
+                    #     })
+                    # else:
+                    #     wandb.log({
+                    #         "chunk/last_chunk_size": 0,
+                    #         "chunk/last_context_chunks": 0,
+                    #     })
                     
                     loss = forward_ctc(pred, adjustedLens, y, y_len)
+
                                         
                     train_loss.append(loss.cpu().detach().numpy())    
                     

@@ -21,7 +21,7 @@ argparser = argparse.ArgumentParser()
 
 mode = 'train_ctc'
 
-config_path = "tm_transformer_b2t_24+25_large_wide_bidir.yaml"
+config_path = "tm_transformer_combined_unidir_chunked.yaml"
 config_file = f"../src/brainaudio/training/utils/custom_configs/{config_path}"
 
 with open(config_file, 'r') as f:
@@ -42,7 +42,7 @@ if model_type == 'transformer':
                      heads=model_args['n_heads'], mlp_dim_ratio=model_args['mlp_dim_ratio'],  dim_head=model_args['dim_head'], 
                      dropout=config['dropout'], input_dropout=config['input_dropout'], nClasses=config['nClasses'], 
                      max_mask_pct=config['max_mask_pct'], num_masks=config['num_masks'], num_participants=len(model_args['features_list']), return_final_layer=return_final_layer, 
-                     bidirectional=model_args["bidirectional"])
+                     bidirectional=model_args["bidirectional"], chunked_attention=model_args['chunked_attention'])
     
 if model_type == 'gru':
     
