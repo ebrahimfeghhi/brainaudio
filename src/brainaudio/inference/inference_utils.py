@@ -488,3 +488,10 @@ def normalize_shorthand(text: str) -> str:
         )
 
     return modified_text
+
+def clean_string(transcript):
+    
+    transcript = re.sub(r"[^a-zA-Z\- \']", "", transcript)
+    transcript = transcript.replace("--", "").lower()
+    
+    return transcript

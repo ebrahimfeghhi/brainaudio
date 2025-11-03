@@ -4,7 +4,7 @@ from .augmentations import gauss_smooth
 from edit_distance import SequenceMatcher
 import numpy as np
 import pandas as pd
-from brainaudio.inference.inference_utils import _cer_and_wer
+from brainaudio.inference.inference_utils import _cer_and_wer, normalize_shorthand, clean_string
 
 def forward_ctc(
         encoder_out: torch.Tensor,
@@ -153,7 +153,7 @@ def evaluate_wer(val_loader, model, participant_id, forward_ctc, args, beam_sear
           
             X, y, X_len, y_len, testDayIdx, val_transcript = batch
             
-            val_transcripts.append(val_transcript[0].lower().replace('.', '').replace('?', '').replace('!', ''))
+            val_transcripts.append(clean_string(val_transcript[0]))
 
             # Move data to the specified device
             X = X.to(device)
@@ -172,8 +172,8 @@ def evaluate_wer(val_loader, model, participant_id, forward_ctc, args, beam_sear
             all_losses.append(loss.item())
             
             beam_out = beam_search_decoder(pred.to("cpu")*args["acoustic_scale"])
-            beam_search_transcript = " ".join(beam_out[0][0].words).strip()
-            pred_arr.append(beam_search_transcript)
+            beam_search_transcript = " ".join(normalize_shorthand(beam_out[0][0].words)).strip()
+            pred_arr.append(clean_string(beam_search_transcript))
 
     # --- Calculate Final Metrics ---
     avg_loss = np.mean(all_losses) if all_losses else 0.0
