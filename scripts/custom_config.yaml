@@ -73,7 +73,6 @@ model:
     depth: 7
     bidirectional: False
     chunked_attention:
-      enable_dynamic: True
       chunkwise_prob: 1.0 # 1.0 = always chunk, 0.0 = never chunk (full context)
       # chunk size in terms of how many patches
       chunk_size_min: 8
