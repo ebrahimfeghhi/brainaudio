@@ -3,20 +3,20 @@
 # This section contains parameters common to all models and experiments.
 # ===================================================================
 outputDir: '/data2/brain2text/b2t_combined/outputs/' # where to save trained model
-datasetPath: ['/data2/brain2text/b2t_25/brain2text25_with_fa' , '/data2/brain2text/b2t_24/brain2text24_fa'] # neural dataset
+datasetPath: ['/data2/brain2text/b2t_25/brain2text25_with_fa' , '/data2/brain2text/b2t_24/brain2text24_with_fa'] # neural dataset
 
 device: 'cuda:1'
-modelName: "tm_transformer_combined_bidirectional"
+modelName: "tm_transformer_combined_unidir_chunked"
 modelType: 'transformer'
 optimizer: 'AdamW'
 learning_rate: 0.001
 beta1: 0.9
 beta2: 0.999
 eps: 1.0e-8
-learning_scheduler: 'multistep'
+learning_scheduler: 'cosine'
 n_epochs: 951
 milestones: [400] # need to convert to batches
-gamma: 0.1 # multiply learning rate by this factor at milestones
+gamma: None # multiply learning rate by this factor at milestones
 learning_rate_min: 0.0001
 learning_rate_decay_steps: 120000 # in batches
 learning_rate_warmup_steps: 1000 # in batches
@@ -24,7 +24,7 @@ batchSize: 64
 nClasses: 40 
 seed: 0
 load_pretrained_model: ''
-grad_norm_clip_value: -1
+grad_norm_clip_value: 10
 
 # time masking aug
 num_masks: 20
@@ -71,6 +71,21 @@ model:
     mlp_dim_ratio: 4 
     dim_head: 64 
     depth: 7
+    bidirectional: False
+    chunked_attention:
+      enable_dynamic: True
+      chunkwise_prob: 1.0 # 1.0 = always chunk, 0.0 = never chunk (full context)
+      # chunk size in terms of how many patches
+      chunk_size_min: 8
+      chunk_size_max: 64
+      context_chunks_min: 1
+      context_chunks_max: 4
+      seed: 1
+      # If not dynamic chunking training, use evaluation parameters for static chunking training
+      eval:
+        chunk_size: null
+        context_chunks: null
+        # If not chunking, set to None for both chunk_size and context_chunks
 
 wandb:
   project: "nejm-brain-to-text" 
