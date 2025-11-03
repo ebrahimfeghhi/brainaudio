@@ -14,6 +14,7 @@ import torchaudio.functional as F
 import pickle
 from typing import Optional
 import yaml
+import re
 
 from brainaudio.models.transformer import TransformerModel
 from brainaudio.models.gru_b2t_25 import GRU_25
@@ -444,3 +445,46 @@ def compute_forced_alignments(partition, save_paths, participant_ids,
             pickle.dump(word_spans_dict, handle)
             
     print("--- Finished: Forced alignment complete. ---")
+    
+
+# --- The dictionary of informal shorthand words ---
+# Does not include "a" or "I" as they are standard English.
+SHORTHAND_MAP = {
+    'b': 'be',
+    'c': 'see',
+    'r': 'are',
+    'u': 'you',
+    'y': 'why'
+}
+
+def normalize_shorthand(text: str) -> str:
+    """
+    Converts informal single-character shorthand (like 'u', 'r', 'c')
+    in a string to their full-word equivalents.
+    ASSUMES INPUT TEXT IS ALREADY LOWERCASE.
+
+    Args:
+        text: The input string (assumed to be lowercase).
+
+    Returns:
+        The modified string with shorthand words replaced.
+    """
+    
+    modified_text = text
+    
+    for shorthand, full_word in SHORTHAND_MAP.items():
+        
+        # This is the regex pattern to find the whole word.
+        # \b = word boundary (matches start/end of a word)
+        # re.escape(shorthand) = the letter itself (e.g., 'c')
+        # No re.IGNORECASE needed as we assume lowercase input.
+        pattern = r'\b' + re.escape(shorthand) + r'\b'
+
+        # Simplified replacement: just use the lowercase full word.
+        modified_text = re.sub(
+            pattern, 
+            full_word, 
+            modified_text
+        )
+
+    return modified_text

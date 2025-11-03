@@ -12,7 +12,7 @@ from torchaudio.models.decoder import ctc_decoder
 
 # brainaudio internal package imports
 from brainaudio.training.utils.augmentations import gauss_smooth
-from brainaudio.training.utils.loss import forward_ctc, evaluate
+from brainaudio.training.utils.loss import forward_ctc, evaluate, evaluate_wer
 from brainaudio.datasets.loading_data import getDatasetLoaders
 from brainaudio.training.utils.learning_scheduler import create_learning_rate_scheduler
 
@@ -35,7 +35,8 @@ def trainModel(args, model, label="phoneme"):
     trainLoaders, valLoaders, testLoaders, loadedData = getDatasetLoaders(
         args["datasetPath"],
         args["batchSize"],
-        char_label=char_label
+        char_label=char_label, 
+        return_transcript=True
     )
     
     # Watch the model
@@ -76,11 +77,14 @@ def trainModel(args, model, label="phoneme"):
         
     max_dataset_train_length = max(len(loader) for loader in trainLoaders)
     
-    language_model_path = "/data2/brain2text/lm/languageModel/"
-    units_txt_file_pytorch_char = f"{language_model_path}units_pytorch_character.txt"
-    lexicon_char_file= f"{language_model_path}lexicon_char.txt"
-    decoder_char = ctc_decoder(tokens=units_txt_file_pytorch_char, lexicon=lexicon_char_file, 
-                       beam_size=50, nbest=1, lm=None)
+    if args["evaluate_wer"]:
+        language_model_path = "/data2/brain2text/lm/languageModel/"
+        units_txt_file_pytorch = f"{language_model_path}units_pytorch.txt"
+        imagineville_vocab_phoneme = "/data2/brain2text/lm/vocab_lower_100k_pytorch_phoneme.txt"
+        decoder = ctc_decoder(tokens=units_txt_file_pytorch, lexicon=imagineville_vocab_phoneme, 
+                        beam_size=args["beam_size"], nbest=1, lm="/data2/brain2text/lm/lm_dec19_huge_4gram.kenlm", 
+                        lm_weight=args["lm_weight"], word_score=args["word_score"])
+    
     
     for epoch in range(args['n_epochs']):
         
@@ -166,57 +170,57 @@ def trainModel(args, model, label="phoneme"):
 
         current_lr = optimizer.param_groups[0]['lr']
         
-        for participant_id, valLoader in enumerate(valLoaders):
-            avgDayLoss, cer = evaluate(valLoader, model, participant_id, forward_ctc, args, decoder_char)
-            avgDayLoss_array.append(avgDayLoss)
-            cer_array.append(cer)
+        if epoch % args["evaluate_every_n_epochs"] == 0:
         
-        endTime = time.time()
-        avgDayLoss_log=str(avgDayLoss_array)
-        cer_log=str(cer_array)
-        
-        #print(
-        #   f"Epoch {epoch}, ctc loss: {avgDayLoss_log:>7f}, cer: {cer_log:>7f}"
-        #   + f", time/batch: {(endTime - startTime)/100:>7.3f}"
-        #)
-
-        # Log the metrics to wandb
-        log_dict = {
-            "train_ctc_Loss": avgTrainLoss,
-            "ctc_loss": avgDayLoss_array[0],
-            "cer": cer_array[0],
-            "learning_rate": current_lr, 
-            "grad_norm": np.mean(grad_norm_store), 
-            "time_per_epoch": (endTime - startTime) / 100
-        }
-        
-        if len(avgDayLoss_array) > 0:
-            
-            for pid, (avgDayLoss, cer) in enumerate(zip(avgDayLoss_array[1:], cer_array[1:])):
+            for participant_id, valLoader in enumerate(valLoaders):
                 
-                log_dict[f"ctc_loss_{pid}"] = avgDayLoss
-                log_dict[f"cer_{pid}"] = cer
-
-        wandb.log(log_dict)
-        
-        if len(testCER) > 0 and np.mean(cer_array) < np.min(testCER):
-            torch.save(model.state_dict(), outputDir + "/modelWeights")
-            torch.save(optimizer.state_dict(), outputDir + "/optimizer")
-            torch.save(scheduler.state_dict(), outputDir + '/scheduler')
+                if args["evaluate_wer"]:
+                    avgDayLoss, cer = evaluate_wer(valLoader, model, participant_id, forward_ctc, args, decoder)
+                else:
+                    avgDayLoss, cer = evaluate(valLoader, model, participant_id, forward_ctc, args)
+                    
+                avgDayLoss_array.append(avgDayLoss)
+                cer_array.append(cer)
             
-        if len(testLoss) > 0 and np.mean(avgDayLoss_array) < np.min(testLoss):
-            torch.save(model.state_dict(), outputDir + "/modelWeights_ctc")
+            endTime = time.time()
             
+            # Log the metrics to wandb
+            log_dict = {
+                "train_ctc_Loss": avgTrainLoss,
+                "ctc_loss": avgDayLoss_array[0],
+                "cer": cer_array[0],
+                "learning_rate": current_lr, 
+                "grad_norm": np.mean(grad_norm_store), 
+                "time_per_epoch": (endTime - startTime) / 100
+            }
+            
+            if len(avgDayLoss_array) > 0:
                 
-        testLoss.append(np.mean(avgDayLoss_array))
-        testCER.append(np.mean(cer_array))
+                for pid, (avgDayLoss, cer) in enumerate(zip(avgDayLoss_array[1:], cer_array[1:])):
+                    
+                    log_dict[f"ctc_loss_{pid}"] = avgDayLoss
+                    log_dict[f"cer_{pid}"] = cer
 
-        tStats = {}
-        tStats["testLoss"] = np.array(testLoss)
-        tStats["testCER"] = np.array(testCER)
+            wandb.log(log_dict)
+            
+            if len(testCER) > 0 and np.mean(cer_array) < np.min(testCER):
+                torch.save(model.state_dict(), outputDir + "/modelWeights")
+                torch.save(optimizer.state_dict(), outputDir + "/optimizer")
+                torch.save(scheduler.state_dict(), outputDir + '/scheduler')
+                
+            if len(testLoss) > 0 and np.mean(avgDayLoss_array) < np.min(testLoss):
+                torch.save(model.state_dict(), outputDir + "/modelWeights_ctc")
+                
+                    
+            testLoss.append(np.mean(avgDayLoss_array))
+            testCER.append(np.mean(cer_array))
 
-        with open(outputDir + "/trainingStats", "wb") as file:
-            pickle.dump(tStats, file)
+            tStats = {}
+            tStats["testLoss"] = np.array(testLoss)
+            tStats["testCER"] = np.array(testCER)
+
+            with open(outputDir + "/trainingStats", "wb") as file:
+                pickle.dump(tStats, file)
         
                                 
     wandb.finish()

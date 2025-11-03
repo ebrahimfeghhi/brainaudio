@@ -37,7 +37,8 @@ def forward_ctc(
     
     
   
-def evaluate(val_loader, model, participant_id, forward_ctc, args, epoch):
+def evaluate(val_loader, model, participant_id, forward_ctc, args):
+    
     """
     Runs the validation loop for the model.
 
@@ -52,8 +53,9 @@ def evaluate(val_loader, model, participant_id, forward_ctc, args, epoch):
     Returns:
         tuple: A tuple containing:
             - avg_loss (float): The average validation loss.
-            - cer (float): The Character Error Rate.
+            - per (float): The Phoneme Error Rate.
     """
+    
     # Set the model to evaluation mode
     model.eval()
     all_losses = []
@@ -68,7 +70,7 @@ def evaluate(val_loader, model, participant_id, forward_ctc, args, epoch):
         
         for batch in tqdm.tqdm(val_loader, desc=f"Evaluating Participant {participant_id}"):
           
-            X, y, X_len, y_len, testDayIdx = batch
+            X, y, X_len, y_len, testDayIdx = batch[0:5]
 
             # Move data to the specified device
             X = X.to(device)
@@ -109,13 +111,12 @@ def evaluate(val_loader, model, participant_id, forward_ctc, args, epoch):
     avg_loss = np.mean(all_losses) if all_losses else 0.0
     
     # Calculate CER, handling division by zero
-    cer = total_edit_distance / total_seq_length if total_seq_length > 0 else float('nan')
+    per = total_edit_distance / total_seq_length if total_seq_length > 0 else float('nan')
 
-    return avg_loss, cer
+    return avg_loss, per
 
-
- 
 def evaluate_wer(val_loader, model, participant_id, forward_ctc, args, beam_search_decoder):
+    
     """
     Runs the validation loop for the model.
 
@@ -126,24 +127,21 @@ def evaluate_wer(val_loader, model, participant_id, forward_ctc, args, beam_sear
         forward_ctc (function): The CTC loss function.
         args (Namespace or dict): A configuration object with necessary parameters 
                                   like smooth_kernel_size and gaussianSmoothWidth.
+        beam_search_decoder: Pytorch CTC beam search decoder
 
     Returns:
         tuple: A tuple containing:
             - avg_loss (float): The average validation loss.
-            - cer (float): The Character Error Rate.
+            - wer (float): The Word Error Rate.
     """
     # Set the model to evaluation mode
     model.eval()
     all_losses = []
     pred_arr = []
-    
-    if participant_id == 1:
-        val_transcripts = pd.read_pickle("/data2/brain2text/b2t_24/transcripts_val.pkl")
-    else:
-        val_transcripts = pd.read_pickle("/data2/brain2text/b2t_25/transcripts_val.pkl")
+    val_transcripts = []
 
     device = args["device"]
-    acoustic_scale = 0.8
+
     # Disable gradient calculations for validation
     with torch.no_grad():
       
@@ -153,7 +151,9 @@ def evaluate_wer(val_loader, model, participant_id, forward_ctc, args, beam_sear
         
         for batch in tqdm.tqdm(val_loader, desc=f"Evaluating Participant {participant_id}"):
           
-            X, y, X_len, y_len, testDayIdx = batch
+            X, y, X_len, y_len, testDayIdx, val_transcript = batch
+            
+            val_transcripts.append(val_transcript[0].lower().replace('.', '').replace('?', '').replace('!', ''))
 
             # Move data to the specified device
             X = X.to(device)
@@ -171,13 +171,13 @@ def evaluate_wer(val_loader, model, participant_id, forward_ctc, args, beam_sear
             # Use .item() to get the scalar value of the loss
             all_losses.append(loss.item())
             
-            beam_out = beam_search_decoder(pred.to("cpu")*acoustic_scale)
+            beam_out = beam_search_decoder(pred.to("cpu")*args["acoustic_scale"])
             beam_search_transcript = " ".join(beam_out[0][0].words).strip()
             pred_arr.append(beam_search_transcript)
 
     # --- Calculate Final Metrics ---
     avg_loss = np.mean(all_losses) if all_losses else 0.0
-    cer, wer, wer_sent = _cer_and_wer(pred_arr, val_transcripts)
+    _, wer, _= _cer_and_wer(pred_arr, val_transcripts)
     
     print("WER: ", wer)
 

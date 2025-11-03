@@ -82,8 +82,7 @@ class SpeechDataset(Dataset):
                         self.transcriptions.append(None)
                     else: 
                         self.alignments.append(data[day]['forced_alignments'][trial])
-                    
-
+                
                 
         self.n_trials = len(self.days)
         
@@ -92,7 +91,9 @@ class SpeechDataset(Dataset):
         return self.n_trials
 
     def __getitem__(self, idx):
+        
         neural_feats = torch.tensor(self.neural_feats[idx], dtype=torch.float32)
+        
         if self.transform:
             neural_feats = self.transform(neural_feats)
 

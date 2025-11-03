@@ -1,12 +1,14 @@
 outputDir: /data2/brain2text/b2t_24/outputs/
 datasetPath:
-- /data2/brain2text/b2t_24/brain2text24_log_char.pkl
-device: cuda:3
-modelName: character_model_wer_beam_search_eval_large
+- /data2/brain2text/b2t_24/brain2text24_log.pkl
+device: cuda:0
+evaluate_wer: False
+evaluate_every_n_epochs: 1
+modelName: tm_transformer_24
 modelType: transformer
 optimizer: AdamW
 learning_rate: 0.001
-n_epochs: 600
+n_epochs: 250
 beta1: 0.9
 beta2: 0.999
 eps: 1.0e-08
@@ -18,7 +20,7 @@ learning_rate_min: 0
 learning_rate_decay_steps: 0
 learning_rate_warmup_steps: 0
 batchSize: 64
-nClasses: 32
+nClasses: 40
 seed: 0
 load_pretrained_model: ''
 grad_norm_clip_value: -1
@@ -33,6 +35,10 @@ use_amp: true
 l2_decay: 1.0e-05
 input_dropout: 0.2
 dropout: 0.35
+acoustic_scale: 0.8
+lm_weight: 2.0
+word_score: 0.1
+beam_size: 30 
 model:
   gru:
     name: GRU
@@ -49,11 +55,11 @@ model:
     features_list:
     - 256
     samples_per_patch: 5
-    d_model: 512
-    n_heads: 8
+    d_model: 384
+    n_heads: 6
     mlp_dim_ratio: 4
     dim_head: 64
-    depth: 7
+    depth: 5
     bidirectional: False
 wandb:
   project: "nejm-brain-to-text" 
