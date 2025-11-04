@@ -11,7 +11,7 @@ import pickle
 
 
 # ----------------------- USER-SPECIFIC INFORMATION -----------------------
-dataDir = "/home3/skaasyap/willett/competitionData/" # directory where data is stored at 
+dataDir = "/data/willett_data/competitionData/" # directory where data is stored at 
 output_type = "char"
 dataSave = "/data2/brain2text/b2t_24/brain2text24_log_char.pkl" # directory where processed data is saved
 logBoth = True # if True, log both spike band power and tx crossings before normalization

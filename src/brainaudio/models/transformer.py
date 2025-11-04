@@ -2,9 +2,6 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 import math
-import random
-from dataclasses import dataclass
-from typing import Optional, Tuple, List
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
 from torch.nn import functional as F
@@ -28,91 +25,6 @@ def pad_to_multiple(tensor, multiple, dim=1, value=0):
     pad_dims[-2 * dim - 1] = padding_needed  # padding at the end
     return F.pad(tensor, pad_dims, value=value)
 
-
-@dataclass
-class ChunkConfig:
-    """Configuration for chunked attention."""
-    chunk_size: Optional[int]
-    context_chunks: Optional[int] = None
-
-    def is_unchunked(self) -> bool:
-        return self.chunk_size is None or self.chunk_size <= 0
-
-
-class ChunkConfigSampler:
-    def __init__(
-        self,
-        *,
-        chunk_size_range:  Optional[Tuple[int, int]] = None,
-        context_chunks_range: Optional[Tuple[int, int]] = None,
-        chunkwise_prob: float = 1.0,
-        left_constrain_prob: float = 1.0,
-        seed: Optional[int] = None,
-    ) -> None:
-        chunk_size_min, chunk_size_max = chunk_size_range
-        if chunk_size_max < chunk_size_min:
-            raise ValueError(f"Chunk size range fault: max size is {chunk_size_max} and min size is {chunk_size_min}")
-        chunk_context_min, chunk_context_max = context_chunks_range
-        if chunk_context_max < chunk_context_min:
-            raise ValueError(f"Chunk context range fault: max context is {chunk_context_max} and min context is {chunk_context_min}")
-        self.chunk_size_range = chunk_size_range
-        # Store the new context range
-        self.context_chunks_range = context_chunks_range
-        
-        self.chunkwise_prob = max(0.0, min(1.0, float(chunkwise_prob)))
-        self.left_constrain_prob = max(0.0, min(1.0, float(left_constrain_prob)))
-        self._rng = random.Random(seed)
-
-    def _sample_range(self, range_values: Optional[Tuple[int, int]]) -> Optional[int]:
-        if range_values is None:
-            return None
-        low, high = range_values
-        low = max(0, int(low))
-        high = max(low, int(high))
-
-        if low == high:
-            return low
-
-        return self._rng.randint(low, high)
-
-    def sample(self) -> ChunkConfig:
-        if self.chunkwise_prob < 1.0 and self._rng.random() > self.chunkwise_prob:
-            # Return config for full context
-            return ChunkConfig(chunk_size=None, context_chunks=None)
-        # Sample the single chunk size value
-        chunk_size = self._sample_range(self.chunk_size_range)
-
-        if self.context_chunks_range is None:
-            context_chunks = None
-        else:
-            if self.left_constrain_prob < 1.0 and self._rng.random() > self.left_constrain_prob:
-                context_chunks = None   # “no limit” case
-            else:
-                context_chunks = self._sample_range(self.context_chunks_range)
-        
-        return ChunkConfig(chunk_size=chunk_size, context_chunks=context_chunks)
-
-
-def create_dynamic_chunk_mask(seq_len: int, config: ChunkConfig, device=None):
-    if config is None or config.is_unchunked() or seq_len <= 0:
-        return None
-
-    chunk_size = max(1, min(int(config.chunk_size), seq_len))
-    chunk_ids = torch.arange(seq_len, device=device) // chunk_size
-
-    query_chunk_ids = chunk_ids.unsqueeze(1)  # (T, 1)
-    key_chunk_ids = chunk_ids.unsqueeze(0)    # (1, T)
-
-    if config.context_chunks is None:
-        lower_bound = torch.zeros_like(query_chunk_ids)
-        upper_bound = query_chunk_ids
-    else:
-        context_chunks = max(0, int(config.context_chunks))
-        lower_bound = (query_chunk_ids - context_chunks).clamp(min=0)
-        upper_bound = query_chunk_ids
-
-    mask = (key_chunk_ids >= lower_bound) & (key_chunk_ids <= upper_bound)
-    return mask.unsqueeze(0).unsqueeze(0)
 
 class FFN(nn.Module):
     def __init__(self, dim, hidden_dim, dropout = 0.):
@@ -144,7 +56,7 @@ def get_sinusoidal_pos_emb(seq_len, dim, device=None):
 def create_temporal_mask(seq_len, device=None):
     """
     Build a boolean mask of shape [1, 1, seq_len, seq_len] that allows each
-    timestep t to attend to positions ≤ t
+    timestep t to attend to positions ≤ t 
 
     Args:
         seq_len (int): sequence length T
@@ -159,7 +71,7 @@ def create_temporal_mask(seq_len, device=None):
 
 class Attention(nn.Module):
     
-    def __init__(self, dim, heads, dim_head, dropout, max_rel_dist=200, use_relative_bias=True, cache_trimming=False):
+    def __init__(self, dim, heads, dim_head, dropout, max_rel_dist=200, use_relative_bias=True):
         super().__init__()
         inner_dim = dim_head * heads
         project_out = not (heads == 1 and dim_head == dim)
@@ -181,34 +93,14 @@ class Attention(nn.Module):
         # T5-style relative position bias
         self.max_rel_dist = max_rel_dist
         self.use_relative_bias = use_relative_bias
+        
         if self.use_relative_bias:
             self.rel_pos_bias = nn.Embedding(2 * max_rel_dist - 1, 1)
-
-        self.cache_trimming = cache_trimming 
       
-    def forward(self, x, temporal_mask=None, past_key_value=None, use_cache:bool=False, max_cache_len:Optional[int]=None):
-        """
-        Args:
-            past_key_value: optional tuple (past_keys, past_values) with shape [B, H, T_past, D]
-            use_cache: if True, return updated (keys, values) alongside the output
-            max_cache_len: keep only the most recent this-many time steps from the cache
-        """
+    def forward(self, x, temporal_mask=None):
         x = self.norm(x)
         qkv = self.to_qkv(x).chunk(3, dim=-1)
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h=self.heads), qkv)
-
-        if past_key_value is not None:
-            past_k, past_v = past_key_value
-            if past_k is not None and past_v is not None:
-                k = torch.cat([past_k, k], dim=2)
-                v = torch.cat([past_v, v], dim=2)
-        if use_cache:
-            cached_k, cached_v = k, v
-            if max_cache_len is not None and self.cache_trimming:
-                cached_k = cached_k[:, :, -max_cache_len:, :]
-                cached_v = cached_v[:, :, -max_cache_len:, :]
-        else:
-            cached_k = cached_v = None
 
         dots = torch.matmul(q, k.transpose(-1, -2)) * self.scale  # (b, h, n, n)
 
@@ -230,7 +122,7 @@ class Attention(nn.Module):
         out = torch.matmul(attn, v)
         out = rearrange(out, 'b h n d -> b n (h d)')
 
-        return self.to_out(out), (cached_k, cached_v)
+        return self.to_out(out)
 
 class Transformer(nn.Module):
     def __init__(self, dim, depth, heads, dim_head, mlp_dim_ratio, 
@@ -247,24 +139,11 @@ class Transformer(nn.Module):
                 FFN(dim=dim, hidden_dim=mlp_dim, dropout=dropout)
             ]))
 
-    def forward(self, x, mask=None, past_key_values: Optional[List[Optional[Tuple[Tensor, Tensor]]]] = None,
-                use_cache:bool=False, max_cache_len:Optional[int]=None):
-
-        next_key_values = [] if use_cache else None
-
-        for layer_idx, (attn, ffn) in enumerate(self.layers):
-            pkv = None
-            if past_key_values is not None and len(past_key_values) > layer_idx:
-                pkv = past_key_values[layer_idx]
-            attn_out, new_pkv = attn(x, temporal_mask=mask, past_key_value=pkv, use_cache=use_cache, max_cache_len=max_cache_len)
-            x = attn_out + x
+    def forward(self, x, mask=None):
+        for attn, ffn in self.layers:
+            x = attn(x, temporal_mask=mask) + x
             x = ffn(x) + x
-
-            if use_cache:
-                next_key_values.append(new_pkv)
-
-        x = self.norm(x)
-        return x, next_key_values
+        return self.norm(x)
     
 
 class TransformerModel(BaseTimeMaskedModel):
@@ -272,7 +151,7 @@ class TransformerModel(BaseTimeMaskedModel):
     def __init__(self, *, samples_per_patch, features_list, dim, depth, heads, mlp_dim_ratio,
                  dim_head, dropout, input_dropout,
                  nClasses, max_mask_pct, num_masks, num_participants, 
-                 return_final_layer, bidirectional, chunked_attention=None):
+                 return_final_layer, bidirectional):
    
         super().__init__(max_mask_pct=max_mask_pct, num_masks=num_masks)
 
@@ -289,11 +168,6 @@ class TransformerModel(BaseTimeMaskedModel):
         self.num_participants = num_participants
         self.return_final_layer = return_final_layer
         self.bidirectional = bidirectional
-        self._train_sampler: Optional[ChunkConfigSampler] = None
-        self._eval_config: Optional[ChunkConfig] = None
-        self._last_chunk_config: Optional[ChunkConfig] = None
-        if isinstance(chunked_attention, dict):
-            self._setup_chunked_attention(chunked_attention)
         
         # self.mask_token = nn.Parameter(torch.randn(self.patch_dim))  
         self.patch_embedders = nn.ModuleList([])
@@ -320,106 +194,14 @@ class TransformerModel(BaseTimeMaskedModel):
                                     self.dropout, use_relative_bias=True)
     
         self.projection = nn.Linear(self.dim, nClasses+1)
-
-    def compute_length(self, X_len):
         
-        # computing ceiling because X is padded to be divisible by path_height
-        return torch.ceil(X_len / self.samples_per_patch).to(dtype=torch.int32)
-        
-    @staticmethod
-    def _coerce_positive(value: Optional[int]) -> Optional[int]:
-        if value is None:
-            return None
-        int_value = int(value)
-        return int_value if int_value > 0 else None
-
-    @staticmethod
-    def _coerce_nonnegative(value: Optional[int]) -> Optional[int]:
-        if value is None:
-            return None
-        int_value = int(value)
-        return max(0, int_value)
-
-    def _parse_range(self, config_dict, key_prefix: str) -> Optional[Tuple[int, int]]:
-        min_key = f"{key_prefix}_min"
-        max_key = f"{key_prefix}_max"
-        if min_key not in config_dict and max_key not in config_dict:
-            return None
-
-        min_val = config_dict.get(min_key)
-        max_val = config_dict.get(max_key, min_val)
-        if min_val is None or max_val is None:
-            return None
-
-        min_val = max(0, int(min_val))
-        max_val = max(min_val, int(max_val))
-        return (min_val, max_val)
-
-    def _build_chunk_config(self, data) -> Optional[ChunkConfig]:
-        if not data:
-            return None
-
-        chunk_size = self._coerce_positive(data.get("chunk_size"))
-        context_chunks = self._coerce_nonnegative(data.get("context_chunks"))
-
-        if chunk_size is None and context_chunks is None:
-            return None
-
-        return ChunkConfig(
-            chunk_size=chunk_size,
-            context_chunks=context_chunks,
-        )
-
-    def _setup_chunked_attention(self, config_dict) -> None:
-
-        min_chunk_size = config_dict["chunk_size_min"]
-        max_chunk_size = config_dict["chunk_size_max"]
-        min_context_range = config_dict["context_chunks_min"]
-        max_context_range = config_dict["context_chunks_max"]
-
-        chunkwise_prob = float(config_dict.get("chunkwise_prob", 0.0))
-        left_constrain_prob = float(config_dict.get("left_constrain_prob", 1.0))
-        self._chunky_training = chunkwise_prob > 0.0
-
-        sampler = ChunkConfigSampler(
-        chunk_size_range=(min_chunk_size, max_chunk_size),
-        context_chunks_range=(min_context_range, max_context_range),
-        chunkwise_prob=chunkwise_prob,
-        left_constrain_prob=left_constrain_prob,
-        seed=config_dict.get("seed"),
-        )
-
-        self._train_sampler = sampler
-        self._eval_config = self._build_chunk_config(config_dict.get("eval"))
-
-
-    def _sample_chunk_config(self) -> Optional[ChunkConfig]:
-        if self._train_sampler is None and self._eval_config is None:
-            return None
-
-        if self.training and self._train_sampler is not None:
-            return self._train_sampler.sample()
-
-        return ChunkConfig(
-            chunk_size=self._eval_config.chunk_size,
-            context_chunks=self._eval_config.context_chunks,
-        ) if self._eval_config else None
-
-    @property
-    def last_chunk_config(self) -> Optional[ChunkConfig]:
-        return self._last_chunk_config
-
-    def forward(self, neuralInput, X_len, participant_idx=None, day_idx=None, 
-                past_key_values: Optional[List[Optional[Tuple[Tensor, Tensor]]]]=None,use_cache:bool=False):
+    def forward(self, neuralInput, X_len, participant_idx=None, day_idx=None):
         """
         Args:
             neuralInput: Tensor of shape (B, T, F)
             X_len: Tensor of shape (B, )
             participant_idx: integer ID, all data for a given batch must come from the same participant 
             dayIdx: Not used for Transformer 
-            past_key_values: cached past kv matrices
-            use_cache: flag for kv-cache usage
-
         Returns:
             Tensor: (B, num_patches, dim)
         """
@@ -427,9 +209,7 @@ class TransformerModel(BaseTimeMaskedModel):
         neuralInput = pad_to_multiple(neuralInput, multiple=self.samples_per_patch)
         
         neuralInput = neuralInput.unsqueeze(1)
-        if self.bidirectional and use_cache:
-            raise RuntimeError("Bidirectional Models are not compatible with KV-cached inference")
-            
+        
         # add time masking
         if self.training and self.max_mask_pct > 0:
             patchify = self.patch_embedders[participant_idx][0]
@@ -447,66 +227,23 @@ class TransformerModel(BaseTimeMaskedModel):
         
         b, seq_len, _ = x.shape
 
-        temporal_mask = None
-
-        chunk_config = self._sample_chunk_config()
-
-        max_cache_len = None
-
-        if chunk_config is not None and not chunk_config.is_unchunked():
-            chunk_len = int(chunk_config.chunk_size)
-            context_chunks = int(chunk_config.context_chunks or 0)
-            max_cache_len = chunk_len * (context_chunks + 1)  # left context + current chunk
-
-        applied_config: Optional[ChunkConfig] = None
-
-        # No chunking if the model is bidirectional. The model sees the full context without making
-        if self.bidirectional: 
+        # Create temporal mask
+        if self.bidirectional:
             temporal_mask = None
-        # Unidirectional case compatible with both chunked and unchunked attentions
-        else: 
-            # handles when chunkwise_prob = 0
-            if chunk_config is None or chunk_config.is_unchunked():
-                if getattr(self, "_chunky_training", False):
-                    # chunking is enabled, but this batch is “unchunked” → allow full self-attention
-                    temporal_mask = None
-                else:
-                    # chunking is completely disabled → stay causal (streaming)
-                    temporal_mask = create_temporal_mask(seq_len, device=x.device)
-            # In chunking case, we use chunked causal masking
-            else:
-                # In chunking case, sometimes we chunk, so we use chunked causal masking
-                applied_config = chunk_config
-                temporal_mask = create_dynamic_chunk_mask(
-                    seq_len, applied_config, device=x.device
-                )
-                # safety net
-                if temporal_mask is None:
-                    temporal_mask = create_temporal_mask(seq_len, device=x.device)
-
-        if applied_config is not None:
-            self._last_chunk_config = applied_config
-        elif chunk_config is not None and chunk_config.is_unchunked():
-            self._last_chunk_config = chunk_config
         else:
-            self._last_chunk_config = None
+            temporal_mask = create_temporal_mask(seq_len, device=x.device)
 
-        transformer_out, next_key_values = self.transformer(
-            x,
-            mask=temporal_mask,
-            past_key_values=past_key_values,
-            use_cache=use_cache,
-            max_cache_len=max_cache_len,
-        )
+        x = self.transformer(x, mask=temporal_mask)
         
-        out = self.projection(transformer_out)
+        out = self.projection(x)
         
         if self.return_final_layer:
-            return out, transformer_out
-
-        if use_cache:
-            return out, next_key_values
+            return out, x
+        
         return out
     
-    
+    def compute_length(self, X_len):
+        
+        # computing ceiling because X is padded to be divisible by path_height
+        return torch.ceil(X_len / self.samples_per_patch).to(dtype=torch.int32)
     
