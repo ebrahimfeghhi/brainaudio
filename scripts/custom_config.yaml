@@ -3,10 +3,12 @@
 # This section contains parameters common to all models and experiments.
 # ===================================================================
 outputDir: '/data2/brain2text/b2t_combined/outputs/' # where to save trained model
-datasetPath: ['/data2/brain2text/b2t_25/brain2text25_with_fa' , '/data2/brain2text/b2t_24/brain2text24_with_fa'] # neural dataset
+datasetPath: ['/data2/brain2text/b2t_25/brain2text25_with_fa'] # neural dataset
 
 device: 'cuda:1'
-modelName: "tm_transformer_combined_unidir_chunked"
+evaluate_wer: True
+evaluate_every_n_epochs: 5
+modelName: "tm_transformer_b2t25_unidir_unconstrained"
 modelType: 'transformer'
 optimizer: 'AdamW'
 learning_rate: 0.001
@@ -43,6 +45,12 @@ l2_decay: 1.0e-5
 input_dropout: 0.2
 dropout: 0.35
 
+# LM-related parameters
+acoustic_scale: 0.8
+lm_weight: 2.0
+word_score: 0.1
+beam_size: 30
+
 # ===================================================================
 #                    Model-Specific Configurations
 # Each sub-section defines the architecture for a different model.
@@ -64,7 +72,7 @@ model:
   # --- Transformer Model Arguments ---
   transformer:
     name: 'Transformer'
-    features_list: [512, 256] # For multiple dataset, order the feature list aligning with corresponding dataset
+    features_list: [512] # For multiple dataset, order the feature list aligning with corresponding dataset
     samples_per_patch: 4
     d_model: 512        
     n_heads: 8      
@@ -73,14 +81,14 @@ model:
     depth: 7
     bidirectional: False
     chunked_attention:
-      chunkwise_prob: 1.0 # 1.0 = always chunk, 0.0 = never chunk (full context)
-      # chunk size in terms of how many patches
-      chunk_size_min: 8
-      chunk_size_max: 64
-      context_chunks_min: 1
-      context_chunks_max: 4
+      chunkwise_prob: 0.0 # 1.0 = always chunk, 0.0 = never chunk
+      # chunk size in terms of how many patches. .inf means full context
+      chunk_size_min: 1
+      chunk_size_max: 1
+      left_constrain_prob: 1.0
+      context_chunks_min: 100 # 10 sec given 100 ms patches
+      context_chunks_max: 100 # 10 sec given 100 ms patches
       seed: 1
-      # If not dynamic chunking training, use evaluation parameters for static chunking training
       eval:
         chunk_size: null
         context_chunks: null
@@ -89,7 +97,5 @@ model:
 wandb:
   project: "nejm-brain-to-text" 
   entity: "lionelhu926-ucla"
-
-
 
   

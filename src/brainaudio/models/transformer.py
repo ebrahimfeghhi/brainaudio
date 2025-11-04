@@ -35,7 +35,7 @@ class ChunkConfig:
     chunk_size: Optional[int]
     context_chunks: Optional[int] = None
 
-    def is_full_context(self) -> bool:
+    def is_unchunked(self) -> bool:
         return self.chunk_size is None or self.chunk_size <= 0
 
 
@@ -43,20 +43,24 @@ class ChunkConfigSampler:
     def __init__(
         self,
         *,
-        chunk_size_range: Tuple[int, int],
+        chunk_size_range:  Optional[Tuple[int, int]] = None,
         context_chunks_range: Optional[Tuple[int, int]] = None,
         chunkwise_prob: float = 1.0,
+        left_constrain_prob: float = 1.0,
         seed: Optional[int] = None,
     ) -> None:
         chunk_size_min, chunk_size_max = chunk_size_range
         if chunk_size_max < chunk_size_min:
             raise ValueError(f"Chunk size range fault: max size is {chunk_size_max} and min size is {chunk_size_min}")
-        
+        chunk_context_min, chunk_context_max = context_chunks_range
+        if chunk_context_max < chunk_context_min:
+            raise ValueError(f"Chunk context range fault: max context is {chunk_context_max} and min context is {chunk_context_min}")
         self.chunk_size_range = chunk_size_range
         # Store the new context range
         self.context_chunks_range = context_chunks_range
         
         self.chunkwise_prob = max(0.0, min(1.0, float(chunkwise_prob)))
+        self.left_constrain_prob = max(0.0, min(1.0, float(left_constrain_prob)))
         self._rng = random.Random(seed)
 
     def _sample_range(self, range_values: Optional[Tuple[int, int]]) -> Optional[int]:
@@ -77,14 +81,20 @@ class ChunkConfigSampler:
             return ChunkConfig(chunk_size=None, context_chunks=None)
         # Sample the single chunk size value
         chunk_size = self._sample_range(self.chunk_size_range)
-        # Sample the single context_chunks value
-        context_chunks = self._sample_range(self.context_chunks_range)
+
+        if self.context_chunks_range is None:
+            context_chunks = None
+        else:
+            if self.left_constrain_prob < 1.0 and self._rng.random() > self.left_constrain_prob:
+                context_chunks = None   # “no limit” case
+            else:
+                context_chunks = self._sample_range(self.context_chunks_range)
         
         return ChunkConfig(chunk_size=chunk_size, context_chunks=context_chunks)
 
 
 def create_dynamic_chunk_mask(seq_len: int, config: ChunkConfig, device=None):
-    if config is None or config.is_full_context() or seq_len <= 0:
+    if config is None or config.is_unchunked() or seq_len <= 0:
         return None
 
     chunk_size = max(1, min(int(config.chunk_size), seq_len))
@@ -92,7 +102,6 @@ def create_dynamic_chunk_mask(seq_len: int, config: ChunkConfig, device=None):
 
     query_chunk_ids = chunk_ids.unsqueeze(1)  # (T, 1)
     key_chunk_ids = chunk_ids.unsqueeze(0)    # (1, T)
-    
 
     if config.context_chunks is None:
         lower_bound = torch.zeros_like(query_chunk_ids)
@@ -101,7 +110,6 @@ def create_dynamic_chunk_mask(seq_len: int, config: ChunkConfig, device=None):
         context_chunks = max(0, int(config.context_chunks))
         lower_bound = (query_chunk_ids - context_chunks).clamp(min=0)
         upper_bound = query_chunk_ids
-
 
     mask = (key_chunk_ids >= lower_bound) & (key_chunk_ids <= upper_bound)
     return mask.unsqueeze(0).unsqueeze(0)
@@ -140,7 +148,6 @@ def create_temporal_mask(seq_len, device=None):
 
     Args:
         seq_len (int): sequence length T
-
 
     Returns:
         torch.Tensor: Boolean mask of shape [1, 1, T, T]
@@ -368,12 +375,17 @@ class TransformerModel(BaseTimeMaskedModel):
         min_chunk_size = config_dict["chunk_size_min"]
         max_chunk_size = config_dict["chunk_size_max"]
         min_context_range = config_dict["context_chunks_min"]
-        max_context_range = config_dict["context_chunks_min"]
+        max_context_range = config_dict["context_chunks_max"]
+
+        chunkwise_prob = float(config_dict.get("chunkwise_prob", 0.0))
+        left_constrain_prob = float(config_dict.get("left_constrain_prob", 1.0))
+        self._chunky_training = chunkwise_prob > 0.0
 
         sampler = ChunkConfigSampler(
         chunk_size_range=(min_chunk_size, max_chunk_size),
         context_chunks_range=(min_context_range, max_context_range),
-        chunkwise_prob=config_dict.get("chunkwise_prob", 0.0),
+        chunkwise_prob=chunkwise_prob,
+        left_constrain_prob=left_constrain_prob,
         seed=config_dict.get("seed"),
         )
 
@@ -441,7 +453,7 @@ class TransformerModel(BaseTimeMaskedModel):
 
         max_cache_len = None
 
-        if chunk_config is not None and not chunk_config.is_full_context():
+        if chunk_config is not None and not chunk_config.is_unchunked():
             chunk_len = int(chunk_config.chunk_size)
             context_chunks = int(chunk_config.context_chunks or 0)
             max_cache_len = chunk_len * (context_chunks + 1)  # left context + current chunk
@@ -453,22 +465,28 @@ class TransformerModel(BaseTimeMaskedModel):
             temporal_mask = None
         # Unidirectional case compatible with both chunked and unchunked attentions
         else: 
-            if chunk_config is None or chunk_config.is_full_context():
-                temporal_mask = create_temporal_mask(seq_len, device=x.device)
+            # handles when chunkwise_prob = 0
+            if chunk_config is None or chunk_config.is_unchunked():
+                if getattr(self, "_chunky_training", False):
+                    # chunking is enabled, but this batch is “unchunked” → allow full self-attention
+                    temporal_mask = None
+                else:
+                    # chunking is completely disabled → stay causal (streaming)
+                    temporal_mask = create_temporal_mask(seq_len, device=x.device)
             # In chunking case, we use chunked causal masking
             else:
                 # In chunking case, sometimes we chunk, so we use chunked causal masking
                 applied_config = chunk_config
                 temporal_mask = create_dynamic_chunk_mask(
-                    seq_len, applied_config, is_causal=True, device=x.device
+                    seq_len, applied_config, device=x.device
                 )
-                # In chunking case, some times we don't chunk, so we use full context causal masking
+                # safety net
                 if temporal_mask is None:
                     temporal_mask = create_temporal_mask(seq_len, device=x.device)
 
         if applied_config is not None:
             self._last_chunk_config = applied_config
-        elif chunk_config is not None and chunk_config.is_full_context():
+        elif chunk_config is not None and chunk_config.is_unchunked():
             self._last_chunk_config = chunk_config
         else:
             self._last_chunk_config = None

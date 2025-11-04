@@ -172,7 +172,7 @@ def evaluate_wer(val_loader, model, participant_id, forward_ctc, args, beam_sear
             all_losses.append(loss.item())
             
             beam_out = beam_search_decoder(pred.to("cpu")*args["acoustic_scale"])
-            beam_search_transcript = " ".join(normalize_shorthand(beam_out[0][0].words)).strip()
+            beam_search_transcript = normalize_shorthand(" ".join(beam_out[0][0].words).strip())
             pred_arr.append(clean_string(beam_search_transcript))
 
     # --- Calculate Final Metrics ---

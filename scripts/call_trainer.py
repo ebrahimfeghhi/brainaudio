@@ -5,7 +5,7 @@ from brainaudio.training.trainer import trainModel
 
 mode = 'train_ctc'
 
-config_path = "time_masked_transformer_b2t_24.yaml"
+config_path = "tm_transformer_b2t25_unidir_unconstrained.yaml"
 config_file = f"../src/brainaudio/training/utils/custom_configs/{config_path}"
 
 with open(config_file, 'r') as f:
