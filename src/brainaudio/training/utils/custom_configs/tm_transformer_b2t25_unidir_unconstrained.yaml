@@ -4,7 +4,7 @@ datasetPath:
 device: cuda:0
 evaluate_wer: true
 evaluate_every_n_epochs: 5
-modelName: tm_transformer_b2t25_unidir_unconstrained
+modelName: tm_transformer_b2t25_unidir_unconstrained_v2
 modelType: transformer
 optimizer: AdamW
 learning_rate: 0.001
@@ -62,17 +62,6 @@ model:
     dim_head: 64
     depth: 7
     bidirectional: false
-    chunked_attention:
-      chunkwise_prob: 0.0
-      chunk_size_min: 1
-      chunk_size_max: 1
-      left_constrain_prob: 1.0
-      context_chunks_min: 100
-      context_chunks_max: 100
-      seed: 1
-      eval:
-        chunk_size: null
-        context_chunks: null
 wandb:
   project: nejm-brain-to-text
   entity: lionelhu926-ucla

@@ -8,7 +8,7 @@ datasetPath: ['/data2/brain2text/b2t_25/brain2text25_with_fa'] # neural dataset
 device: 'cuda:1'
 evaluate_wer: True
 evaluate_every_n_epochs: 5
-modelName: "tm_transformer_b2t25_unidir_unconstrained"
+modelName: "tm_transformer_b2t25_unidir_small"
 modelType: 'transformer'
 optimizer: 'AdamW'
 learning_rate: 0.001
@@ -74,18 +74,19 @@ model:
     name: 'Transformer'
     features_list: [512] # For multiple dataset, order the feature list aligning with corresponding dataset
     samples_per_patch: 4
-    d_model: 512        
-    n_heads: 8      
+    d_model: 384       
+    n_heads: 6      
     mlp_dim_ratio: 4 
     dim_head: 64 
-    depth: 7
-    bidirectional: False
+    depth: 5
     chunked_attention:
       chunkwise_prob: 0.0 # 1.0 = always chunk, 0.0 = never chunk
-      # chunk size in terms of how many patches. .inf means full context
+      # chunk size in terms of how many patches. 
+      # .inf means full context
       chunk_size_min: 1
       chunk_size_max: 1
-      left_constrain_prob: 1.0
+      left_constrain_prob: 1.0 # 1.0 = always restric left context, 0.0 = never restrict
+      # context size in terms of how many chunks.
       context_chunks_min: 100 # 10 sec given 100 ms patches
       context_chunks_max: 100 # 10 sec given 100 ms patches
       seed: 1

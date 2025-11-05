@@ -4,7 +4,7 @@ from torch import Tensor
 import math
 import random
 from dataclasses import dataclass
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List, Union
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
 from torch.nn import functional as F
@@ -32,30 +32,42 @@ def pad_to_multiple(tensor, multiple, dim=1, value=0):
 @dataclass
 class ChunkConfig:
     """Configuration for chunked attention."""
-    chunk_size: Optional[int]
-    context_chunks: Optional[int] = None
+    chunk_size: Optional[Union[int, float]]
+    context_chunks: Optional[int] 
 
     def is_full_context(self) -> bool:
         return self.chunk_size is None or self.chunk_size <= 0
+    
+    def is_causal_attention(self) -> bool:
+        """
+        Returns True if this config is for full-context CAUSAL attention.
+        This is distinct from chunk_size=inf, which is full-context BIDIRECTIONAL.
+        """
+        return self.chunk_size is None
 
 
 class ChunkConfigSampler:
     def __init__(
         self,
         *,
-        chunk_size_range: Tuple[int, int],
-        context_chunks_range: Optional[Tuple[int, int]] = None,
+        chunk_size_range: Tuple[Union[int, float], Union[int, float]],
+        context_chunks_range: Tuple[int, int],
         chunkwise_prob: float = 1.0,
+        left_constrain_prob: float = 1.0,
         seed: Optional[int] = None,
     ) -> None:
         chunk_size_min, chunk_size_max = chunk_size_range
         if chunk_size_max < chunk_size_min:
             raise ValueError(f"Chunk size range fault: max size is {chunk_size_max} and min size is {chunk_size_min}")
-        
+        context_chunks_min, context_chunks_max = context_chunks_range
+        if context_chunks_max < context_chunks_min:
+            raise ValueError(f"Context chunks range fault: max size is {context_chunks_max} and min size is {context_chunks_min}")
+        # Store the new chunk size range
         self.chunk_size_range = chunk_size_range
         # Store the new context range
         self.context_chunks_range = context_chunks_range
-        
+
+        self.left_constrain_prob = max(0.0, min(1.0, float(left_constrain_prob)))
         self.chunkwise_prob = max(0.0, min(1.0, float(chunkwise_prob)))
         self._rng = random.Random(seed)
 
@@ -63,9 +75,15 @@ class ChunkConfigSampler:
         if range_values is None:
             return None
         low, high = range_values
+        
+        # Handle the infinite case
+        if low == float('inf'):
+            # Assume if low is inf, high is also inf
+            return float('inf')
+
+        # Handle finite (int) case
         low = max(0, int(low))
         high = max(low, int(high))
-
         if low == high:
             return low
 
@@ -73,12 +91,18 @@ class ChunkConfigSampler:
 
     def sample(self) -> ChunkConfig:
         if self.chunkwise_prob < 1.0 and self._rng.random() > self.chunkwise_prob:
-            # Return config for full context
+            # Case for no chunking
             return ChunkConfig(chunk_size=None, context_chunks=None)
+
         # Sample the single chunk size value
         chunk_size = self._sample_range(self.chunk_size_range)
         # Sample the single context_chunks value
-        context_chunks = self._sample_range(self.context_chunks_range)
+        if self.left_constrain_prob < 1.0 and self._rng.random() > self.left_constrain_prob:
+            # Case 1: for no left-constrained chunking context
+            context_chunks = None   # “no limit” case
+        else:
+            # Case 2: for left-constrained chunking context
+            context_chunks = self._sample_range(self.context_chunks_range)
         
         return ChunkConfig(chunk_size=chunk_size, context_chunks=context_chunks)
 
@@ -265,7 +289,7 @@ class TransformerModel(BaseTimeMaskedModel):
     def __init__(self, *, samples_per_patch, features_list, dim, depth, heads, mlp_dim_ratio,
                  dim_head, dropout, input_dropout,
                  nClasses, max_mask_pct, num_masks, num_participants, 
-                 return_final_layer, bidirectional, chunked_attention=None):
+                 return_final_layer, chunked_attention=None):
    
         super().__init__(max_mask_pct=max_mask_pct, num_masks=num_masks)
 
@@ -281,7 +305,6 @@ class TransformerModel(BaseTimeMaskedModel):
         self.nClasses = nClasses
         self.num_participants = num_participants
         self.return_final_layer = return_final_layer
-        self.bidirectional = bidirectional
         self._train_sampler: Optional[ChunkConfigSampler] = None
         self._eval_config: Optional[ChunkConfig] = None
         self._last_chunk_config: Optional[ChunkConfig] = None
@@ -368,12 +391,15 @@ class TransformerModel(BaseTimeMaskedModel):
         min_chunk_size = config_dict["chunk_size_min"]
         max_chunk_size = config_dict["chunk_size_max"]
         min_context_range = config_dict["context_chunks_min"]
-        max_context_range = config_dict["context_chunks_min"]
-
+        max_context_range = config_dict["context_chunks_max"]
+        
+        left_constrain_prob = config_dict.get("left_constrain_prob", 0.0)
+        chunkwise_prob = config_dict.get("chunkwise_prob", 0.0)
         sampler = ChunkConfigSampler(
         chunk_size_range=(min_chunk_size, max_chunk_size),
         context_chunks_range=(min_context_range, max_context_range),
-        chunkwise_prob=config_dict.get("chunkwise_prob", 0.0),
+        chunkwise_prob=chunkwise_prob,
+        left_constrain_prob=left_constrain_prob,
         seed=config_dict.get("seed"),
         )
 
@@ -441,31 +467,42 @@ class TransformerModel(BaseTimeMaskedModel):
 
         max_cache_len = None
 
-        if chunk_config is not None and not chunk_config.is_full_context():
-            chunk_len = int(chunk_config.chunk_size)
-            context_chunks = int(chunk_config.context_chunks or 0)
-            max_cache_len = chunk_len * (context_chunks + 1)  # left context + current chunk
-
         applied_config: Optional[ChunkConfig] = None
+        if chunk_config is None or chunk_config.is_causal_attention():
+            # --- Case 1: Full Unidirectional CAUSAL ---
+            # chunk_size is None (e.g., from chunkwise_prob: 0.0)
+            temporal_mask = create_temporal_mask(seq_len, device=x.device)
+            if use_cache:
+                # Standard causal masking is compatible with a non-trimming cache
+                max_cache_len = None
+        
+        else:
+            # --- Case 2: Chunked / Bidirectional ---
+            
+            is_bidirectional = (
+                chunk_config.chunk_size == float('inf') or
+                chunk_config.chunk_size >= seq_len
+            )
 
-        # No chunking if the model is bidirectional. The model sees the full context without making
-        if self.bidirectional: 
-            temporal_mask = None
-        # Unidirectional case compatible with both chunked and unchunked attentions
-        else: 
-            if chunk_config is None or chunk_config.is_full_context():
-                temporal_mask = create_temporal_mask(seq_len, device=x.device)
-            # In chunking case, we use chunked causal masking
+            if is_bidirectional:
+                # --- Case 2a: Full-context BIDIRECTIONAL ---
+                # (chunk_size=inf OR chunk_size >= seq_len)
+                temporal_mask = None  # No mask = full bidirectional attention
+                if use_cache:
+                    raise RuntimeError("Bidirectional Models (chunk_size >= seq_len or inf) are not compatible with KV-cached inference")
             else:
-                # In chunking case, sometimes we chunk, so we use chunked causal masking
+                # --- Case 2b: Chunked Unidirectional (Streaming) ---
+                # (chunk_size is a finite int < seq_len)
                 applied_config = chunk_config
                 temporal_mask = create_dynamic_chunk_mask(
-                    seq_len, applied_config, is_causal=True, device=x.device
+                    seq_len, applied_config, device=x.device
                 )
-                # In chunking case, some times we don't chunk, so we use full context causal masking
-                if temporal_mask is None:
-                    temporal_mask = create_temporal_mask(seq_len, device=x.device)
-
+                
+                # Setup KV cache trimming (safe to cast to int now)
+                chunk_len = int(chunk_config.chunk_size)
+                context_chunks = int(chunk_config.context_chunks or 0)
+                max_cache_len = chunk_len * (context_chunks + 1)
+                
         if applied_config is not None:
             self._last_chunk_config = applied_config
         elif chunk_config is not None and chunk_config.is_full_context():
