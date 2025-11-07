@@ -3,7 +3,7 @@ datasetPath:
 - /data2/brain2text/b2t_25/brain2text25_with_fa
 - /data2/brain2text/b2t_24/brain2text24_with_fa
 device: cuda:0
-evaluate_wer: False
+evaluate_wer: True
 evaluate_every_n_epochs: 5
 modelName: tm_transformer_b2t_24+25_large_wide_v2
 modelType: transformer
