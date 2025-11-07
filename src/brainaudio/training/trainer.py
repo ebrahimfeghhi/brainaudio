@@ -74,6 +74,10 @@ def trainModel(args, model, label="phoneme"):
     testCER = []
     startTime = time.time()
     train_loss = []
+    enable_interctc = args["interctc"]["enable_interctc"]
+    alpha = args["interctc"]["alpha"] if enable_interctc else None
+        
+
         
     max_dataset_train_length = max(len(loader) for loader in trainLoaders)
     
@@ -142,8 +146,20 @@ def trainModel(args, model, label="phoneme"):
                     X = gauss_smooth(inputs=X, device=args['device'], smooth_kernel_size=args['smooth_kernel_size'], smooth_kernel_std=args['gaussianSmoothWidth'])
                     
                     adjustedLens = model.compute_length(X_len)
-                
-                    pred = model.forward(X, X_len, participant_id, dayIdx)
+                    if enable_interctc:
+                        pred, inter_pred = model.forward(X, X_len, participant_id, dayIdx)
+
+                        main_loss =  forward_ctc(pred, adjustedLens, y, y_len)
+
+                        aux_losses = []
+                        for inter_logits in inter_pred:
+                            aux_losses.append(forward_ctc(inter_logits, adjustedLens, y, y_len))
+                        aux_loss = torch.mean(torch.stack(aux_losses))
+
+                        loss = (1 - alpha) * main_loss + alpha * aux_loss
+                    else:
+                        pred, _ = model.forward(X, X_len, participant_id, dayIdx)
+                        loss = forward_ctc(pred, adjustedLens, y, y_len)
 
                     # chunk_cfg = getattr(model, "last_chunk_config", None)
                     # if chunk_cfg is not None:
@@ -157,7 +173,6 @@ def trainModel(args, model, label="phoneme"):
                     #         "chunk/last_context_chunks": 0,
                     #     })
                     
-                    loss = forward_ctc(pred, adjustedLens, y, y_len)
 
                                         
                     train_loss.append(loss.cpu().detach().numpy())    

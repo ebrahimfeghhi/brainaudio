@@ -1,10 +1,10 @@
-outputDir: /data2/brain2text/b2t_combined/outputs/
+outputDir: /data2/brain2text/b2t_25/outputs/
 datasetPath:
 - /data2/brain2text/b2t_25/brain2text25_with_fa
-device: cuda:0
+device: cuda:2
 evaluate_wer: true
 evaluate_every_n_epochs: 5
-modelName: tm_transformer_b2t25_unidir_unconstrained_v2
+modelName: tm_transformer_b2t25_bidir_small
 modelType: transformer
 optimizer: AdamW
 learning_rate: 0.001
@@ -62,15 +62,15 @@ model:
     dim_head: 64
     depth: 5
     chunked_attention:
-      chunkwise_prob: 0.0
-      chunk_size_min: 1
-      chunk_size_max: 10
-      left_constrain_prob: 1.0
-      context_chunks_min: 50
-      context_chunks_max: 50
+      chunkwise_prob: 1.0
+      chunk_size_min: .inf
+      chunk_size_max: .inf
+      left_constrain_prob: 0.0
+      context_chunks_min: 20
+      context_chunks_max: 40
       seed: 1
       eval:
-        chunk_size: null
+        chunk_size: .inf
         context_chunks: null
 wandb:
   project: nejm-brain-to-text

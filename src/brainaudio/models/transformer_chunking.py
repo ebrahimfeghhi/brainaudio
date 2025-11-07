@@ -12,6 +12,7 @@ from .base_model import BaseTimeMaskedModel
 
 '''
 Code adapted from Francois Porcher: https://github.com/FrancoisPorcher/vit-pytorch
+Dynamic Chunking credits to SpeechBrain
 '''
 
 def pad_to_multiple(tensor, multiple, dim=1, value=0):
@@ -35,8 +36,6 @@ class ChunkConfig:
     chunk_size: Optional[Union[int, float]]
     context_chunks: Optional[int] 
 
-    def is_full_context(self) -> bool:
-        return self.chunk_size is None or self.chunk_size <= 0
     
     def is_causal_attention(self) -> bool:
         """
@@ -71,19 +70,21 @@ class ChunkConfigSampler:
         self.chunkwise_prob = max(0.0, min(1.0, float(chunkwise_prob)))
         self._rng = random.Random(seed)
 
-    def _sample_range(self, range_values: Optional[Tuple[int, int]]) -> Optional[int]:
+    def _sample_range(self, range_values: Optional[Tuple[Union[int, float], Union[int, float]]]) -> Optional[int]:
         if range_values is None:
             return None
         low, high = range_values
         
         # Handle the infinite case
-        if low == float('inf'):
+        if low == float('inf') or high == float('inf'):
             # Assume if low is inf, high is also inf
             return float('inf')
 
-        # Handle finite (int) case
+        # Handle finite (int) case: sanity guard for defined range
         low = max(0, int(low))
         high = max(low, int(high))
+
+        # Static chunking case
         if low == high:
             return low
 
@@ -108,9 +109,6 @@ class ChunkConfigSampler:
 
 
 def create_dynamic_chunk_mask(seq_len: int, config: ChunkConfig, device=None):
-    if config is None or config.is_full_context() or seq_len <= 0:
-        return None
-
     chunk_size = max(1, min(int(config.chunk_size), seq_len))
     chunk_ids = torch.arange(seq_len, device=device) // chunk_size
 
@@ -342,50 +340,17 @@ class TransformerModel(BaseTimeMaskedModel):
         # computing ceiling because X is padded to be divisible by path_height
         return torch.ceil(X_len / self.samples_per_patch).to(dtype=torch.int32)
         
-    @staticmethod
-    def _coerce_positive(value: Optional[int]) -> Optional[int]:
-        if value is None:
-            return None
-        int_value = int(value)
-        return int_value if int_value > 0 else None
-
-    @staticmethod
-    def _coerce_nonnegative(value: Optional[int]) -> Optional[int]:
-        if value is None:
-            return None
-        int_value = int(value)
-        return max(0, int_value)
-
-    def _parse_range(self, config_dict, key_prefix: str) -> Optional[Tuple[int, int]]:
-        min_key = f"{key_prefix}_min"
-        max_key = f"{key_prefix}_max"
-        if min_key not in config_dict and max_key not in config_dict:
-            return None
-
-        min_val = config_dict.get(min_key)
-        max_val = config_dict.get(max_key, min_val)
-        if min_val is None or max_val is None:
-            return None
-
-        min_val = max(0, int(min_val))
-        max_val = max(min_val, int(max_val))
-        return (min_val, max_val)
-
+    # To separately build a chunkconfig for evaluation
     def _build_chunk_config(self, data) -> Optional[ChunkConfig]:
-        if not data:
-            return None
-
-        chunk_size = self._coerce_positive(data.get("chunk_size"))
-        context_chunks = self._coerce_nonnegative(data.get("context_chunks"))
-
-        if chunk_size is None and context_chunks is None:
-            return None
+        chunk_size = data.get("chunk_size")
+        context_chunks = data.get("context_chunks")
 
         return ChunkConfig(
             chunk_size=chunk_size,
             context_chunks=context_chunks,
         )
 
+    # one-time initialization of 1. train config sampler and 2. build eval config 
     def _setup_chunked_attention(self, config_dict) -> None:
 
         min_chunk_size = config_dict["chunk_size_min"]
@@ -408,16 +373,14 @@ class TransformerModel(BaseTimeMaskedModel):
 
 
     def _sample_chunk_config(self) -> Optional[ChunkConfig]:
-        if self._train_sampler is None and self._eval_config is None:
-            return None
-
-        if self.training and self._train_sampler is not None:
+        # Sample train config
+        if self.training:
             return self._train_sampler.sample()
-
+        # Return eval config
         return ChunkConfig(
             chunk_size=self._eval_config.chunk_size,
             context_chunks=self._eval_config.context_chunks,
-        ) if self._eval_config else None
+        ) 
 
     @property
     def last_chunk_config(self) -> Optional[ChunkConfig]:
@@ -441,8 +404,6 @@ class TransformerModel(BaseTimeMaskedModel):
         neuralInput = pad_to_multiple(neuralInput, multiple=self.samples_per_patch)
         
         neuralInput = neuralInput.unsqueeze(1)
-        if self.bidirectional and use_cache:
-            raise RuntimeError("Bidirectional Models are not compatible with KV-cached inference")
             
         # add time masking
         if self.training and self.max_mask_pct > 0:
@@ -464,11 +425,12 @@ class TransformerModel(BaseTimeMaskedModel):
         temporal_mask = None
 
         chunk_config = self._sample_chunk_config()
+        self._last_chunk_config = chunk_config
 
         max_cache_len = None
 
         applied_config: Optional[ChunkConfig] = None
-        if chunk_config is None or chunk_config.is_causal_attention():
+        if chunk_config.is_causal_attention():
             # --- Case 1: Full Unidirectional CAUSAL ---
             # chunk_size is None (e.g., from chunkwise_prob: 0.0)
             temporal_mask = create_temporal_mask(seq_len, device=x.device)
@@ -478,7 +440,6 @@ class TransformerModel(BaseTimeMaskedModel):
         
         else:
             # --- Case 2: Chunked / Bidirectional ---
-            
             is_bidirectional = (
                 chunk_config.chunk_size == float('inf') or
                 chunk_config.chunk_size >= seq_len
@@ -502,13 +463,6 @@ class TransformerModel(BaseTimeMaskedModel):
                 chunk_len = int(chunk_config.chunk_size)
                 context_chunks = int(chunk_config.context_chunks or 0)
                 max_cache_len = chunk_len * (context_chunks + 1)
-                
-        if applied_config is not None:
-            self._last_chunk_config = applied_config
-        elif chunk_config is not None and chunk_config.is_full_context():
-            self._last_chunk_config = chunk_config
-        else:
-            self._last_chunk_config = None
 
         transformer_out, next_key_values = self.transformer(
             x,
