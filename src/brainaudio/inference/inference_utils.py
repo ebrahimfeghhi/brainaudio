@@ -157,8 +157,7 @@ def load_model(
                         heads=model_config['n_heads'], mlp_dim_ratio=model_config['mlp_dim_ratio'],  dim_head=model_config['dim_head'], 
                         dropout=config['dropout'], input_dropout=config['input_dropout'], nClasses=config['nClasses'], 
                         max_mask_pct=config['max_mask_pct'], num_masks=config['num_masks'], num_participants=len(model_config['features_list']), return_final_layer=config['return_final_layer'],
-                        bidirectional=model_config.get('bidirectional', True),
-                        chunked_attention=model_config.get('chunked_attention'))
+                        bidirectional=model_config.get('bidirectional', True))
 
     
     elif modelType == 'gru' and model_config['year'] == '2024':
