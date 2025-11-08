@@ -15,11 +15,6 @@ Code adapted from Francois Porcher: https://github.com/FrancoisPorcher/vit-pytor
 Dynamic Chunking credits to SpeechBrain
 '''
 
-
-
-
-
-
 def pad_to_multiple(tensor, multiple, dim=1, value=0):
     
     """
@@ -356,16 +351,13 @@ class TransformerModel(BaseTimeMaskedModel):
     def last_chunk_config(self) -> Optional[ChunkConfig]:
         return self._last_chunk_config
 
-    def forward(self, neuralInput, X_len, participant_idx=None, day_idx=None, 
-                past_key_values: Optional[List[Optional[Tuple[Tensor, Tensor]]]]=None,use_cache:bool=False):
+    def forward(self, neuralInput, X_len, participant_idx=None, day_idx=None):
         """
         Args:
             neuralInput: Tensor of shape (B, T, F)
             X_len: Tensor of shape (B, )
             participant_idx: integer ID, all data for a given batch must come from the same participant 
             dayIdx: Not used for Transformer 
-            past_key_values: cached past kv matrices
-            use_cache: flag for kv-cache usage
 
         Returns:
             Tensor: (B, num_patches, dim)

@@ -8,7 +8,7 @@ datasetPath: ['/data2/brain2text/b2t_25/brain2text25.pkl'] # neural dataset
 device: 'cuda:0'
 evaluate_wer: True
 evaluate_every_n_epochs: 5
-modelName: "tm_transformer_b2t25_chunking_test_run"
+modelName: "tm_transformer_b2t25_interctc_test_run"
 modelType: 'transformer'
 optimizer: 'AdamW'
 learning_rate: 0.001
@@ -51,6 +51,12 @@ lm_weight: 2.0
 word_score: 0.1
 beam_size: 30
 
+# inter_ctc setup
+interctc:
+  enable_interctc: true
+  alpha: 0.25
+  inter_ctc_per_layers: 3
+
 # ===================================================================
 #                    Model-Specific Configurations
 # Each sub-section defines the architecture for a different model.
@@ -79,6 +85,7 @@ model:
     mlp_dim_ratio: 4 
     dim_head: 64 
     depth: 5
+    bidirectional: true
     chunked_attention:
       chunkwise_prob: 0.6 # 1.0 = always chunk, 0.0 = never chunk
       # chunk size in terms of how many patches. 
