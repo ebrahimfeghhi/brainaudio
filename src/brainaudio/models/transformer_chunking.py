@@ -31,12 +31,17 @@ def pad_to_multiple(tensor, multiple, dim=1, value=0):
 
 @dataclass
 class ChunkConfig:
-    """Configuration for chunked attention."""
+    """Configuration for chunked attention.
+    
+    chunk_size: the number of patches (tokens) per chunk. If None, use full context.
+    context_chunks: the number of left context chunks to attend to. If None, attend to all previous chunks.
+    
+    """
     chunk_size: Optional[Union[int, float]]
     context_chunks: Optional[int] 
 
     def is_full_context(self) -> bool:
-        return self.chunk_size is None or self.chunk_size <= 0
+        return self.chunk_size is None
     
     def is_causal_attention(self) -> bool:
         """
@@ -44,8 +49,7 @@ class ChunkConfig:
         This is distinct from chunk_size=inf, which is full-context BIDIRECTIONAL.
         """
         return self.chunk_size is None
-
-
+    
 class ChunkConfigSampler:
     def __init__(
         self,
@@ -56,6 +60,16 @@ class ChunkConfigSampler:
         left_constrain_prob: float = 1.0,
         seed: Optional[int] = None,
     ) -> None:
+        
+        """
+        chunk_size_range: Tuple (min_chunk_size, max_chunk_size). Use float('inf') for infinite chunk size.
+        context_chunks_range: Tuple (min_context_chunks, max_context_chunks).
+        chunkwise_prob: Probability of using chunked attention. (0.0 = no chunking, 1.0 = always chunking)
+        left_constrain_prob: Probability of using left-constrained context. (0.0 = no left constraint, 1.0 = always left constraint)
+        seed: Optional random seed for reproducibility.
+        """
+        
+        
         chunk_size_min, chunk_size_max = chunk_size_range
         if chunk_size_max < chunk_size_min:
             raise ValueError(f"Chunk size range fault: max size is {chunk_size_max} and min size is {chunk_size_min}")
@@ -91,7 +105,7 @@ class ChunkConfigSampler:
 
     def sample(self) -> ChunkConfig:
         if self.chunkwise_prob < 1.0 and self._rng.random() > self.chunkwise_prob:
-            # Case for no chunking
+            # Case for no chunking. run in full context mode
             return ChunkConfig(chunk_size=None, context_chunks=None)
 
         # Sample the single chunk size value
@@ -108,7 +122,13 @@ class ChunkConfigSampler:
 
 
 def create_dynamic_chunk_mask(seq_len: int, config: ChunkConfig, device=None):
-    if config is None or config.is_full_context() or seq_len <= 0:
+    
+    """
+    seq_len: sequence length T after padding
+    config: ChunkConfig object defining chunk_size and context_chunks   
+    """
+    
+    if config.is_full_context():
         return None
 
     chunk_size = max(1, min(int(config.chunk_size), seq_len))
@@ -117,7 +137,6 @@ def create_dynamic_chunk_mask(seq_len: int, config: ChunkConfig, device=None):
     query_chunk_ids = chunk_ids.unsqueeze(1)  # (T, 1)
     key_chunk_ids = chunk_ids.unsqueeze(0)    # (1, T)
     
-
     if config.context_chunks is None:
         lower_bound = torch.zeros_like(query_chunk_ids)
         upper_bound = query_chunk_ids
@@ -125,7 +144,6 @@ def create_dynamic_chunk_mask(seq_len: int, config: ChunkConfig, device=None):
         context_chunks = max(0, int(config.context_chunks))
         lower_bound = (query_chunk_ids - context_chunks).clamp(min=0)
         upper_bound = query_chunk_ids
-
 
     mask = (key_chunk_ids >= lower_bound) & (key_chunk_ids <= upper_bound)
     return mask.unsqueeze(0).unsqueeze(0)

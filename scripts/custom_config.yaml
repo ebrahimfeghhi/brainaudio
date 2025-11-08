@@ -5,7 +5,7 @@
 outputDir: '/data2/brain2text/b2t_combined/outputs/' # where to save trained model
 datasetPath: ['/data2/brain2text/b2t_25/brain2text25_with_fa'] # neural dataset
 
-device: 'cuda:1'
+device: 'cuda:0'
 evaluate_wer: True
 evaluate_every_n_epochs: 5
 modelName: "tm_transformer_b2t25_unidir_small"
@@ -46,7 +46,7 @@ input_dropout: 0.2
 dropout: 0.35
 
 # LM-related parameters
-acoustic_scale: 0.8
+acoustic_scale: 0.6
 lm_weight: 2.0
 word_score: 0.1
 beam_size: 30

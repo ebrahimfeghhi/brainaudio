@@ -1,7 +1,7 @@
 outputDir: /data2/brain2text/b2t_25/outputs/
-datasetPath: /data2/brain2text/b2t_25/brain2text25_log.pkl
+datasetPath: /data2/brain2text/b2t_25/brain2text25_with_fa 
 device: cuda:1
-modelName: tm_transformer_b2t_25_with_24_hp
+modelName: tm_transformer_b2t_25
 modelType: transformer
 optimizer: AdamW
 learning_rate: 0.001
@@ -10,7 +10,7 @@ batchSize: 64
 nClasses: 40
 beta1: 0.9
 beta2: 0.999
-learning_scheduler: multistep
+learning_scheduler: cosine
 milestones:
 - 571
 gamma: 0.1
