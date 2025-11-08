@@ -2,13 +2,13 @@
 #                       Shared Configuration
 # This section contains parameters common to all models and experiments.
 # ===================================================================
-outputDir: '/data2/brain2text/b2t_combined/outputs/' # where to save trained model
+outputDir: '/data2/brain2text/b2t_25/outputs/' # where to save trained model
 datasetPath: ['/data2/brain2text/b2t_25/brain2text25_with_fa'] # neural dataset
 
 device: 'cuda:0'
 evaluate_wer: True
 evaluate_every_n_epochs: 5
-modelName: "tm_transformer_b2t25_unidir_small"
+modelName: "tm_transformer_b2t25_bidir_small"
 modelType: 'transformer'
 optimizer: 'AdamW'
 learning_rate: 0.001
@@ -51,6 +51,12 @@ lm_weight: 2.0
 word_score: 0.1
 beam_size: 30
 
+# Intermediate ctc conditioning parameters
+interctc:
+  enable_interctc: true
+  alpha: 0.4
+  inter_ctc_per_layers: 2
+
 # ===================================================================
 #                    Model-Specific Configurations
 # Each sub-section defines the architecture for a different model.
@@ -72,28 +78,30 @@ model:
   # --- Transformer Model Arguments ---
   transformer:
     name: 'Transformer'
-    features_list: [512] # For multiple dataset, order the feature list aligning with corresponding dataset
-    samples_per_patch: 4
+    features_list: [256] # For multiple dataset, order the feature list aligning with corresponding dataset
+    samples_per_patch: 4 # 100ms
     d_model: 384       
     n_heads: 6      
     mlp_dim_ratio: 4 
     dim_head: 64 
     depth: 5
     chunked_attention:
-      chunkwise_prob: 0.0 # 1.0 = always chunk, 0.0 = never chunk
+      chunkwise_prob: 1.0 # 1.0 = always chunk, 0.0 = never chunk
       # chunk size in terms of how many patches. 
       # .inf means full context
-      chunk_size_min: 1
-      chunk_size_max: 1
-      left_constrain_prob: 1.0 # 1.0 = always restric left context, 0.0 = never restrict
+      chunk_size_min: .inf # 100 ms
+      chunk_size_max: .inf
+      left_constrain_prob: 0.75 # 1.0 = always restric left context, 0.0 = never restrict
       # context size in terms of how many chunks.
-      context_chunks_min: 100 # 10 sec given 100 ms patches
-      context_chunks_max: 100 # 10 sec given 100 ms patches
+      context_chunks_min: 20 
+      context_chunks_max: 40
+      # Context Range: 2000 ms - 20000 ms
       seed: 1
       eval:
-        chunk_size: null
+        chunk_size: .inf
         context_chunks: null
-        # If not chunking, set to None for both chunk_size and context_chunks
+        # If causal masking eval, set to null for both chunk_size and context_chunks
+        # If non-causal masking eval, set chunk size to .inf
 
 wandb:
   project: "nejm-brain-to-text" 

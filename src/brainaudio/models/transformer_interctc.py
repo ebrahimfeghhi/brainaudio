@@ -1,0 +1,272 @@
+import torch 
+import torch.nn as nn
+from torch import Tensor
+import math
+import numpy as np
+from einops import rearrange, repeat
+from einops.layers.torch import Rearrange
+from torch.nn import functional as F
+from .base_model import BaseTimeMaskedModel
+
+'''
+Code adapted from Francois Porcher: https://github.com/FrancoisPorcher/vit-pytorch
+'''
+
+def pad_to_multiple(tensor, multiple, dim=1, value=0):
+    
+    """
+    Pads `tensor` along `dim` so that its size is divisible by `multiple`.
+    """
+    
+    size = tensor.size(dim)
+    padding_needed = (multiple - size % multiple) % multiple
+    if padding_needed == 0:
+        return tensor
+    pad_dims = [0] * (2 * tensor.dim())
+    pad_dims[-2 * dim - 1] = padding_needed  # padding at the end
+    return F.pad(tensor, pad_dims, value=value)
+
+
+class FFN(nn.Module):
+    def __init__(self, dim, hidden_dim, dropout = 0.):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.LayerNorm(dim),
+            nn.Linear(dim, hidden_dim),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim, dim),
+            nn.Dropout(dropout)
+        )
+
+    def forward(self, x):
+        return self.net(x)
+    
+def pair(t):
+    return t if isinstance(t, tuple) else (t, t)
+
+def get_sinusoidal_pos_emb(seq_len, dim, device=None):
+    position = torch.arange(seq_len, device=device).unsqueeze(1)
+    div_term = torch.exp(torch.arange(0, dim, 2, device=device) * -(math.log(10000.0) / dim))
+    pe = torch.zeros(seq_len, dim, device=device)
+    pe[:, 0::2] = torch.sin(position * div_term)
+    pe[:, 1::2] = torch.cos(position * div_term)
+    return pe
+
+
+def create_temporal_mask(seq_len, device=None):
+    """
+    Build a boolean mask of shape [1, 1, seq_len, seq_len] that allows each
+    timestep t to attend to positions ≤ t 
+
+    Args:
+        seq_len (int): sequence length T
+
+    Returns:
+        torch.Tensor: Boolean mask of shape [1, 1, T, T]
+    """
+    i = torch.arange(seq_len, device=device).unsqueeze(1)  # [T, 1] (query index)
+    j = torch.arange(seq_len, device=device).unsqueeze(0)  # [1, T] (key index)
+    mask = j <= i                           # [T, T], True = allowed
+    return mask.unsqueeze(0).unsqueeze(0)                  # [1, 1, T, T]
+
+class Attention(nn.Module):
+    
+    def __init__(self, dim, heads, dim_head, dropout, max_rel_dist=200, use_relative_bias=True):
+        super().__init__()
+        inner_dim = dim_head * heads
+        project_out = not (heads == 1 and dim_head == dim)
+
+        self.heads = heads
+        self.scale = dim_head ** -0.5
+
+        self.norm = nn.LayerNorm(dim)
+        self.attend = nn.Softmax(dim=-1)
+        self.dropout = nn.Dropout(dropout)
+
+        self.to_qkv = nn.Linear(dim, inner_dim * 3, bias=False)
+
+        self.to_out = nn.Sequential(
+            nn.Linear(inner_dim, dim),
+            nn.Dropout(dropout)
+        ) if project_out else nn.Identity()
+
+        # T5-style relative position bias
+        self.max_rel_dist = max_rel_dist
+        self.use_relative_bias = use_relative_bias
+        
+        if self.use_relative_bias:
+            self.rel_pos_bias = nn.Embedding(2 * max_rel_dist - 1, 1)
+      
+    def forward(self, x, temporal_mask=None):
+        x = self.norm(x)
+        qkv = self.to_qkv(x).chunk(3, dim=-1)
+        q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h=self.heads), qkv)
+
+        dots = torch.matmul(q, k.transpose(-1, -2)) * self.scale  # (b, h, n, n)
+
+        # Add relative positional bias if enabled
+        if self.use_relative_bias:
+            seq_len = x.size(1)
+            i = torch.arange(seq_len, device=x.device).unsqueeze(1)
+            j = torch.arange(seq_len, device=x.device).unsqueeze(0)
+            rel_pos = (i - j).clamp(-self.max_rel_dist + 1, self.max_rel_dist - 1) + self.max_rel_dist - 1
+            rel_bias = self.rel_pos_bias(rel_pos).squeeze(-1).unsqueeze(0).unsqueeze(0) # shap seq_len x seq_len
+            dots = dots + rel_bias
+
+        if temporal_mask is not None:
+            dots = dots.masked_fill(temporal_mask == 0, float('-inf'))
+            
+        attn = self.attend(dots)
+        attn = self.dropout(attn)
+
+        out = torch.matmul(attn, v)
+        out = rearrange(out, 'b h n d -> b n (h d)')
+
+        return self.to_out(out)
+
+class Transformer(nn.Module):
+    def __init__(self, dim, depth, heads, dim_head, mlp_dim_ratio, nClasses, inter_ctc_per_layers,
+                 dropout=0., use_relative_bias=True):
+        
+        super().__init__()
+        self.dim = dim
+        self.n_classes = nClasses
+        self.norm = nn.LayerNorm(self.dim)
+        self.layers = nn.ModuleList([])
+        mlp_dim = mlp_dim_ratio * self.dim
+        for _ in range(depth):
+            self.layers.append(nn.ModuleList([
+                Attention(dim=dim, heads=heads, dim_head=dim_head, 
+                          dropout=dropout, use_relative_bias=use_relative_bias),
+                FFN(dim=dim, hidden_dim=mlp_dim, dropout=dropout)
+            ]))
+        self.inter_ctc_proj = nn.Linear(self.dim, self.n_classes + 1)
+        self.inter_restore_proj = nn.Linear(self.n_classes + 1, self.dim)
+        
+        # 2. Store which layers to use
+        self.inter_ctc_per_layers = inter_ctc_per_layers
+        self.inter_logits = []
+
+    def forward(self, x, mask=None):
+        for i, (attn, ffn) in enumerate(self.layers):
+            x = attn(x, temporal_mask=mask) + x
+            x = ffn(x) + x
+
+            if i % self.inter_ctc_per_layers == 0:
+                x = self.norm(x)
+                logits = self.inter_ctc_proj(x)
+                # Store the logits for the loss calculation
+                self.inter_logits.append(logits)
+                # Apply conditioning: project back and add to hidden state 
+                z_softmax = nn.Softmax(dim=-1)(logits)
+                x = x + self.inter_restore_proj(z_softmax)
+
+            x = self.norm(x)
+
+        return x, self.inter_logits
+    
+
+class TransformerModel(BaseTimeMaskedModel):
+    
+    def __init__(self, *, samples_per_patch, features_list, dim, depth, heads, mlp_dim_ratio,
+                 dim_head, dropout, input_dropout,
+                 nClasses, max_mask_pct, num_masks, num_participants, 
+                 return_final_layer, bidirectional, inter_ctc_per_layers):
+   
+        super().__init__(max_mask_pct=max_mask_pct, num_masks=num_masks)
+
+        self.samples_per_patch = samples_per_patch
+        self.features_list = features_list
+        self.dim = dim
+        self.depth = depth
+        self.heads = heads
+        self.mlp_dim_ratio = mlp_dim_ratio
+        self.dim_head = dim_head
+        self.dropout = dropout
+        self.input_dropout = input_dropout
+        self.nClasses = nClasses
+        self.num_participants = num_participants
+        self.return_final_layer = return_final_layer
+        self.bidirectional = bidirectional
+        self.inter_ctc_per_layers = inter_ctc_per_layers
+        
+        # self.mask_token = nn.Parameter(torch.randn(self.patch_dim))  
+        self.patch_embedders = nn.ModuleList([])
+        
+        for pid in range(self.num_participants):
+        
+            feature_size = self.features_list[pid]
+                    
+            patch_dim = self.samples_per_patch*feature_size
+            
+            self.patch_embedders.append(
+            nn.Sequential(
+                Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', 
+                        p1=self.samples_per_patch, p2=feature_size),
+                nn.LayerNorm(patch_dim),
+                nn.Linear(patch_dim, self.dim),
+                nn.LayerNorm(self.dim)
+            ))
+            
+            
+        self.dropout_layer = nn.Dropout(self.input_dropout)
+  
+        self.transformer = Transformer(self.dim, self.depth, self.heads, self.dim_head, self.mlp_dim_ratio, self.nClasses,
+                                       self.inter_ctc_per_layers, self.dropout, use_relative_bias=True)
+    
+        self.projection = nn.Linear(self.dim, nClasses+1)
+
+        
+    def forward(self, neuralInput, X_len, participant_idx=None, day_idx=None):
+        """
+        Args:
+            neuralInput: Tensor of shape (B, T, F)
+            X_len: Tensor of shape (B, )
+            participant_idx: integer ID, all data for a given batch must come from the same participant 
+            dayIdx: Not used for Transformer 
+        Returns:
+            Tensor: (B, num_patches, dim)
+        """
+        
+        neuralInput = pad_to_multiple(neuralInput, multiple=self.samples_per_patch)
+        
+        neuralInput = neuralInput.unsqueeze(1)
+        
+        # add time masking
+        if self.training and self.max_mask_pct > 0:
+            patchify = self.patch_embedders[participant_idx][0]
+            post_patchify = self.patch_embedders[participant_idx][1:]
+
+            x = patchify(neuralInput)
+            x, _ = self.apply_time_masking(x, X_len, mask_value=0)    
+            x = post_patchify(x)
+
+        else:
+            x = self.patch_embedders[participant_idx](neuralInput)
+
+        # apply input level dropout. 
+        x = self.dropout_layer(x)
+        
+        b, seq_len, _ = x.shape
+
+        # Create temporal mask
+        if self.bidirectional:
+            temporal_mask = None
+        else:
+            temporal_mask = create_temporal_mask(seq_len, device=x.device)
+
+        x, inter_logits = self.transformer(x, mask=temporal_mask)
+        
+        out = self.projection(x)
+        
+        if self.return_final_layer:
+            return out, x
+        
+        return out, inter_logits
+    
+    def compute_length(self, X_len):
+        
+        # computing ceiling because X is padded to be divisible by path_height
+        return torch.ceil(X_len / self.samples_per_patch).to(dtype=torch.int32)
+    
