@@ -74,15 +74,15 @@ def trainModel(args, model, label="phoneme"):
     testCER = []
     startTime = time.time()
     train_loss = []
-    enable_interctc = args["interctc"]["enable_interctc"]
-    alpha = args["interctc"]["alpha"] if enable_interctc else None
+    #enable_interctc = args["interctc"]["enable_interctc"]
+    #alpha = args["interctc"]["alpha"] if enable_interctc else None
         
 
         
     max_dataset_train_length = max(len(loader) for loader in trainLoaders)
     
     if args["evaluate_wer"]:
-        language_model_path = "/data2/brain2text/lm/languageModel/"
+        language_model_path = "/data2/brain2text/lm/"
         units_txt_file_pytorch = f"{language_model_path}units_pytorch.txt"
         imagineville_vocab_phoneme = "/data2/brain2text/lm/vocab_lower_100k_pytorch_phoneme.txt"
         decoder = ctc_decoder(tokens=units_txt_file_pytorch, lexicon=imagineville_vocab_phoneme, 
@@ -146,20 +146,20 @@ def trainModel(args, model, label="phoneme"):
                     X = gauss_smooth(inputs=X, device=args['device'], smooth_kernel_size=args['smooth_kernel_size'], smooth_kernel_std=args['gaussianSmoothWidth'])
                     
                     adjustedLens = model.compute_length(X_len)
-                    if enable_interctc:
-                        pred, inter_pred = model.forward(X, X_len, participant_id, dayIdx)
+                    #if enable_interctc:
+                    #    pred, inter_pred = model.forward(X, X_len, participant_id, dayIdx)
 
-                        main_loss =  forward_ctc(pred, adjustedLens, y, y_len)
+                    #   main_loss =  forward_ctc(pred, adjustedLens, y, y_len)
 
-                        aux_losses = []
-                        for inter_logits in inter_pred:
-                            aux_losses.append(forward_ctc(inter_logits, adjustedLens, y, y_len))
-                        aux_loss = torch.mean(torch.stack(aux_losses))
+                    #    aux_losses = []
+                    #    for inter_logits in inter_pred:
+                    #        aux_losses.append(forward_ctc(inter_logits, adjustedLens, y, y_len))
+                    #    aux_loss = torch.mean(torch.stack(aux_losses))
 
-                        loss = (1 - alpha) * main_loss + alpha * aux_loss
-                    else:
-                        pred, _ = model.forward(X, X_len, participant_id, dayIdx)
-                        loss = forward_ctc(pred, adjustedLens, y, y_len)
+                    #    loss = (1 - alpha) * main_loss + alpha * aux_loss
+                    #else:
+                    pred = model.forward(X, X_len, participant_id, dayIdx)
+                    loss = forward_ctc(pred, adjustedLens, y, y_len)
 
                     # chunk_cfg = getattr(model, "last_chunk_config", None)
                     # if chunk_cfg is not None:

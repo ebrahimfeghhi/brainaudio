@@ -15,11 +15,6 @@ Code adapted from Francois Porcher: https://github.com/FrancoisPorcher/vit-pytor
 Dynamic Chunking credits to SpeechBrain
 '''
 
-
-
-
-
-
 def pad_to_multiple(tensor, multiple, dim=1, value=0):
     
     """
@@ -35,32 +30,6 @@ def pad_to_multiple(tensor, multiple, dim=1, value=0):
     return F.pad(tensor, pad_dims, value=value)
 
 
-class FFN(nn.Module):
-    def __init__(self, dim, hidden_dim, dropout = 0.):
-        super().__init__()
-        self.net = nn.Sequential(
-            nn.LayerNorm(dim),
-            nn.Linear(dim, hidden_dim),
-            nn.GELU(),
-            nn.Dropout(dropout),
-            nn.Linear(hidden_dim, dim),
-            nn.Dropout(dropout)
-        )
-
-    def forward(self, x):
-        return self.net(x)
-    
-def pair(t):
-    return t if isinstance(t, tuple) else (t, t)
-
-def get_sinusoidal_pos_emb(seq_len, dim, device=None):
-    position = torch.arange(seq_len, device=device).unsqueeze(1)
-    div_term = torch.exp(torch.arange(0, dim, 2, device=device) * -(math.log(10000.0) / dim))
-    pe = torch.zeros(seq_len, dim, device=device)
-    pe[:, 0::2] = torch.sin(position * div_term)
-    pe[:, 1::2] = torch.cos(position * div_term)
-    return pe
-
 @dataclass
 class ChunkConfig:
     """Configuration for chunked attention.
@@ -69,7 +38,7 @@ class ChunkConfig:
     context_chunks: the number of left context chunks to attend to. If None, attend to all previous chunks.
     
     """
-    chunk_size: Optional[int]
+    chunk_size: Optional[Union[int, float]]
     context_chunks: Optional[int] 
 
     def is_full_context(self) -> bool:
@@ -79,7 +48,7 @@ class ChunkConfigSampler:
     def __init__(
         self,
         *,
-        chunk_size_range: Tuple[int, int],
+        chunk_size_range: Tuple[Union[int, float], Union[int, float]],
         context_chunks_range: Tuple[int, int],
         chunkwise_prob: float = 1.0,
         left_constrain_prob: float = 1.0,
@@ -93,6 +62,7 @@ class ChunkConfigSampler:
         left_constrain_prob: Probability of using left-constrained context. (0.0 = no left constraint, 1.0 = always left constraint)
         seed: Optional random seed for reproducibility.
         """
+        
         
         chunk_size_min, chunk_size_max = chunk_size_range
         if chunk_size_max < chunk_size_min:
@@ -109,7 +79,7 @@ class ChunkConfigSampler:
         self.chunkwise_prob = max(0.0, min(1.0, float(chunkwise_prob)))
         self._rng = random.Random(seed)
 
-    def _sample_range(self, range_values: Optional[Tuple[int, int]]) -> Optional[int]:
+    def _sample_range(self, range_values: Optional[Tuple[Union[int, float], Union[int, float]]]) -> Optional[int]:
         if range_values is None:
             return None
         low, high = range_values
@@ -174,10 +144,53 @@ def create_dynamic_chunk_mask(seq_len: int, config: ChunkConfig, device=None):
     mask = (key_chunk_ids >= lower_bound) & (key_chunk_ids <= upper_bound)
     return mask.unsqueeze(0).unsqueeze(0)
 
+class FFN(nn.Module):
+    def __init__(self, dim, hidden_dim, dropout = 0.):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.LayerNorm(dim),
+            nn.Linear(dim, hidden_dim),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim, dim),
+            nn.Dropout(dropout)
+        )
+
+    def forward(self, x):
+        return self.net(x)
+    
+def pair(t):
+    return t if isinstance(t, tuple) else (t, t)
+
+def get_sinusoidal_pos_emb(seq_len, dim, device=None):
+    position = torch.arange(seq_len, device=device).unsqueeze(1)
+    div_term = torch.exp(torch.arange(0, dim, 2, device=device) * -(math.log(10000.0) / dim))
+    pe = torch.zeros(seq_len, dim, device=device)
+    pe[:, 0::2] = torch.sin(position * div_term)
+    pe[:, 1::2] = torch.cos(position * div_term)
+    return pe
+
+
+def create_temporal_mask(seq_len, device=None):
+    """
+    Build a boolean mask of shape [1, 1, seq_len, seq_len] that allows each
+    timestep t to attend to positions ≤ t
+
+    Args:
+        seq_len (int): sequence length T
+
+
+    Returns:
+        torch.Tensor: Boolean mask of shape [1, 1, T, T]
+    """
+    i = torch.arange(seq_len, device=device).unsqueeze(1)  # [T, 1] (query index)
+    j = torch.arange(seq_len, device=device).unsqueeze(0)  # [1, T] (key index)
+    mask = j <= i                           # [T, T], True = allowed
+    return mask.unsqueeze(0).unsqueeze(0)                  # [1, 1, T, T]
 
 class Attention(nn.Module):
     
-    def __init__(self, dim, heads, dim_head, dropout, max_rel_dist=200, use_relative_bias=True):
+    def __init__(self, dim, heads, dim_head, dropout, max_rel_dist=200, use_relative_bias=True, cache_trimming=False):
         super().__init__()
         inner_dim = dim_head * heads
         project_out = not (heads == 1 and dim_head == dim)
@@ -199,14 +212,34 @@ class Attention(nn.Module):
         # T5-style relative position bias
         self.max_rel_dist = max_rel_dist
         self.use_relative_bias = use_relative_bias
-        
         if self.use_relative_bias:
             self.rel_pos_bias = nn.Embedding(2 * max_rel_dist - 1, 1)
+
+        self.cache_trimming = cache_trimming 
       
-    def forward(self, x, temporal_mask=None):
+    def forward(self, x, temporal_mask=None, past_key_value=None, use_cache:bool=False, max_cache_len:Optional[int]=None):
+        """
+        Args:
+            past_key_value: optional tuple (past_keys, past_values) with shape [B, H, T_past, D]
+            use_cache: if True, return updated (keys, values) alongside the output
+            max_cache_len: keep only the most recent this-many time steps from the cache
+        """
         x = self.norm(x)
         qkv = self.to_qkv(x).chunk(3, dim=-1)
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h=self.heads), qkv)
+
+        if past_key_value is not None:
+            past_k, past_v = past_key_value
+            if past_k is not None and past_v is not None:
+                k = torch.cat([past_k, k], dim=2)
+                v = torch.cat([past_v, v], dim=2)
+        if use_cache:
+            cached_k, cached_v = k, v
+            if max_cache_len is not None and self.cache_trimming:
+                cached_k = cached_k[:, :, -max_cache_len:, :]
+                cached_v = cached_v[:, :, -max_cache_len:, :]
+        else:
+            cached_k = cached_v = None
 
         dots = torch.matmul(q, k.transpose(-1, -2)) * self.scale  # (b, h, n, n)
 
@@ -228,7 +261,7 @@ class Attention(nn.Module):
         out = torch.matmul(attn, v)
         out = rearrange(out, 'b h n d -> b n (h d)')
 
-        return self.to_out(out)
+        return self.to_out(out), (cached_k, cached_v)
 
 class Transformer(nn.Module):
     def __init__(self, dim, depth, heads, dim_head, mlp_dim_ratio, 
@@ -245,12 +278,26 @@ class Transformer(nn.Module):
                 FFN(dim=dim, hidden_dim=mlp_dim, dropout=dropout)
             ]))
 
-    def forward(self, x, mask=None):
-        for attn, ffn in self.layers:
-            x = attn(x, temporal_mask=mask) + x
+    def forward(self, x, mask=None, past_key_values: Optional[List[Optional[Tuple[Tensor, Tensor]]]] = None,
+                use_cache:bool=False, max_cache_len:Optional[int]=None):
+
+        next_key_values = [] if use_cache else None
+
+        for layer_idx, (attn, ffn) in enumerate(self.layers):
+            pkv = None
+            if past_key_values is not None and len(past_key_values) > layer_idx:
+                pkv = past_key_values[layer_idx]
+            attn_out, new_pkv = attn(x, temporal_mask=mask, past_key_value=pkv, use_cache=use_cache, max_cache_len=max_cache_len)
+            x = attn_out + x
             x = ffn(x) + x
-        return self.norm(x)
+
+            if use_cache:
+                next_key_values.append(new_pkv)
+
+        x = self.norm(x)
+        return x, next_key_values
     
+
 class TransformerModel(BaseTimeMaskedModel):
     
     def __init__(self, *, samples_per_patch, features_list, dim, depth, heads, mlp_dim_ratio,
@@ -392,23 +439,42 @@ class TransformerModel(BaseTimeMaskedModel):
         
         b, seq_len, _ = x.shape
 
+        temporal_mask = None
+
         chunk_config = self._sample_chunk_config()
 
+        max_cache_len = None
+
+        applied_config: Optional[ChunkConfig] = None
+    
+    
+        # --- Case 2b: Chunked Unidirectional (Streaming) ---
+        # (chunk_size is a finite int < seq_len)
+        
         temporal_mask = create_dynamic_chunk_mask(
             seq_len, chunk_config, device=x.device
         )
         
-        
-        transformer_out = self.transformer(
+        # Setup KV cache trimming (safe to cast to int now)
+        chunk_len = int(chunk_config.chunk_size)
+        context_chunks = int(chunk_config.context_chunks or 0)
+        max_cache_len = chunk_len * (context_chunks + 1)
+
+        transformer_out, next_key_values = self.transformer(
             x,
-            mask=temporal_mask
+            mask=temporal_mask,
+            past_key_values=past_key_values,
+            use_cache=use_cache,
+            max_cache_len=max_cache_len,
         )
         
         out = self.projection(transformer_out)
         
         if self.return_final_layer:
             return out, transformer_out
-        
+
+        if use_cache:
+            return out, next_key_values
         return out
     
     

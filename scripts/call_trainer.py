@@ -3,9 +3,8 @@ from brainaudio.models.gru_b2t_25 import GRU_25
 from brainaudio.models.transformer_chunking import TransformerModel
 from brainaudio.training.trainer import trainModel
 
-mode = 'train_ctc'
 
-config_path = "tm_transformer_b2t24_log_dynchunk.yaml"
+config_path = "tm_transformer_b2t25_chunking_test_run.yaml"
 config_file = f"../src/brainaudio/training/utils/custom_configs/{config_path}"
 
 with open(config_file, 'r') as f:
@@ -18,11 +17,7 @@ model_args = config['model'][model_type]
 return_final_layer = False
 
 if model_type == 'transformer':
-    
-    # model = TransformerModel(features_list=model_args['features_list'], samples_per_patch=model_args['samples_per_patch'], dim=model_args['d_model'], depth=model_args['depth'], heads=model_args['n_heads'], mlp_dim_ratio=model_args['mlp_dim_ratio'],  dim_head=model_args['dim_head'], 
-    #                  dropout=config['dropout'], input_dropout=config['input_dropout'], nClasses=config['nClasses'], 
-    #                  max_mask_pct=config['max_mask_pct'], num_masks=config['num_masks'], num_participants=len(model_args['features_list']), return_final_layer=return_final_layer, 
-    #                  bidirectional=model_args["bidirectional"], inter_ctc_per_layers=args["interctc"]["inter_ctc_per_layers"])
+
     model = TransformerModel(features_list=model_args['features_list'], samples_per_patch=model_args['samples_per_patch'], dim=model_args['d_model'], depth=model_args['depth'], heads=model_args['n_heads'], mlp_dim_ratio=model_args['mlp_dim_ratio'],  dim_head=model_args['dim_head'], 
                      dropout=config['dropout'], input_dropout=config['input_dropout'], nClasses=config['nClasses'], 
                      max_mask_pct=config['max_mask_pct'], num_masks=config['num_masks'], num_participants=len(model_args['features_list']), return_final_layer=return_final_layer, 
