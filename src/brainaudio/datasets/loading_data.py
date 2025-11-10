@@ -194,7 +194,7 @@ def getDatasetLoaders(
             train_ds,
             batch_size=batch_size,
             shuffle=shuffle_train,
-            num_workers=8,
+            num_workers=4,
             pin_memory=True,
             collate_fn=_padding,
         )
@@ -203,7 +203,7 @@ def getDatasetLoaders(
             val_ds,
             batch_size=1,
             shuffle=False,
-            num_workers=0,
+            num_workers=4,
             pin_memory=True,
             collate_fn=_padding,
         )

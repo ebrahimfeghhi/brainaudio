@@ -1,10 +1,10 @@
 outputDir: /data2/brain2text/b2t_25/outputs/
 datasetPath:
 - /data2/brain2text/b2t_25/brain2text25.pkl
-device: cuda:0
+device: cuda:1
 evaluate_wer: true
 evaluate_every_n_epochs: 5
-modelName: tm_transformer_b2t25_chunking_test_run
+modelName: tm_transformer_b2t25_test_run_2
 modelType: transformer
 optimizer: AdamW
 learning_rate: 0.001
@@ -56,18 +56,18 @@ model:
     features_list:
     - 512
     samples_per_patch: 4
-    d_model: 512
-    n_heads: 8
+    d_model: 384
+    n_heads: 6
     mlp_dim_ratio: 4
     dim_head: 64
-    depth: 7
+    depth: 5
     chunked_attention:
-      chunkwise_prob: 0.6
+      chunkwise_prob: 0
       chunk_size_min: 1
       chunk_size_max: 10
       left_constrain_prob: 0.75
       context_chunks_min: 50
-      context_chunks_max: 200
+      context_chunks_max: 50
       eval:
         chunk_size: null
         context_chunks: null

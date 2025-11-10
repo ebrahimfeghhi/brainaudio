@@ -74,11 +74,11 @@ model:
     name: 'Transformer'
     features_list: [512] # For multiple dataset, order the feature list aligning with corresponding dataset
     samples_per_patch: 4 # 100ms
-    d_model: 384       
-    n_heads: 6      
+    d_model: 512
+    n_heads: 8    
     mlp_dim_ratio: 4 
     dim_head: 64 
-    depth: 5
+    depth: 7
     chunked_attention:
       chunkwise_prob: 0.6 # 1.0 = always chunk, 0.0 = never chunk
       # chunk size in terms of how many patches. 
@@ -87,7 +87,7 @@ model:
       left_constrain_prob: 0.75 # 1.0 = always restric left context, 0.0 = never restrict
       # context size in terms of how many chunks.
       context_chunks_min: 50
-      context_chunks_max: 50
+      context_chunks_max: 200
       # Context Range: 2000 ms - 20000 ms
       eval:
         chunk_size: null 

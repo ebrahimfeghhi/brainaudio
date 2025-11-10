@@ -11,13 +11,15 @@ import pickle
 
 
 # ----------------------- USER-SPECIFIC INFORMATION -----------------------
-dataDir = "/data/willett_data/competitionData/" # directory where data is stored at 
-output_type = "char"
-dataSave = "/data2/brain2text/b2t_24/brain2text24_log_char.pkl" # directory where processed data is saved
-logBoth = True # if True, log both spike band power and tx crossings before normalization
+dataDir = "/data2/brain2text/b2t_24/competitionData/" # directory where data is stored at 
+output_type = "phonemes"
+dataSave = "/data2/brain2text/b2t_24/brain2text24.pkl" # directory where processed data is saved
+logBoth = False # if True, log both spike band power and tx crossings before normalization
 # -------------------------------------------------------------------------
 
- 
+import nltk
+nltk.download('averaged_perceptron_tagger_eng')
+
 g2p = G2p()
 PHONE_DEF = [
     'AA', 'AE', 'AH', 'AO', 'AW',

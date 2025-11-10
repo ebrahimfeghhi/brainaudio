@@ -5,8 +5,8 @@ from brainaudio.inference.inference_utils import save_transcripts
 import os
 
 # --- Configuration ---
-DATASET_PATHS = ['/data2/brain2text/b2t_25/brain2text25.pkl', '/data2/brain2text/b2t_24/brain2text24.pkl']
-SAVE_PATHS = ['/data2/brain2text/b2t_25/', '/data2/brain2text/b2t_24/']
+DATASET_PATHS = ['/data2/brain2text/b2t_25/brain2text25.pkl']
+SAVE_PATHS = ['/data2/brain2text/b2t_25/']
 PARTICIPANT_IDS = [0, 1]
 PARTITION = 'val'
 
