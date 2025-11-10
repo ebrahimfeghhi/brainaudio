@@ -184,7 +184,7 @@ def getDatasetLoaders(
             test_ds,
             batch_size=1,
             shuffle=False,
-            num_workers=8,
+            num_workers=4,
             pin_memory=True,
             collate_fn=_padding,
         )

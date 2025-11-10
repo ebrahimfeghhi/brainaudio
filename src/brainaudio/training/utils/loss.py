@@ -165,7 +165,7 @@ def evaluate_wer(val_loader, model, participant_id, forward_ctc, args, beam_sear
             X = gauss_smooth(X, device=device, smooth_kernel_size=args['smooth_kernel_size'], smooth_kernel_std=args['gaussianSmoothWidth'])
             adjusted_lens = model.compute_length(X_len)
 
-            pred, _ = model.forward(X, X_len, participant_id, testDayIdx)
+            pred = model.forward(X, X_len, participant_id, testDayIdx)
             loss = forward_ctc(pred, adjusted_lens, y, y_len)
             
             # Use .item() to get the scalar value of the loss
