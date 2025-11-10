@@ -144,27 +144,26 @@ class Transformer(nn.Module):
         self.inter_ctc_proj = nn.Linear(self.dim, self.n_classes + 1)
         self.inter_restore_proj = nn.Linear(self.n_classes + 1, self.dim)
         
-        # 2. Store which layers to use
         self.inter_ctc_per_layers = inter_ctc_per_layers
-        self.inter_logits = []
 
     def forward(self, x, mask=None):
+        inter_logits = []
         for i, (attn, ffn) in enumerate(self.layers):
             x = attn(x, temporal_mask=mask) + x
             x = ffn(x) + x
 
-            if i % self.inter_ctc_per_layers == 0:
+            if (i+1) % self.inter_ctc_per_layers == 0:
                 x = self.norm(x)
                 logits = self.inter_ctc_proj(x)
                 # Store the logits for the loss calculation
-                self.inter_logits.append(logits)
+                inter_logits.append(logits)
                 # Apply conditioning: project back and add to hidden state 
                 z_softmax = nn.Softmax(dim=-1)(logits)
                 x = x + self.inter_restore_proj(z_softmax)
 
             x = self.norm(x)
 
-        return x, self.inter_logits
+        return x, inter_logits
     
 
 class TransformerModel(BaseTimeMaskedModel):
