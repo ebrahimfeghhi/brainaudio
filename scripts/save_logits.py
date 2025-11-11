@@ -4,8 +4,8 @@ from brainaudio.inference.inference_utils import load_model, generate_and_save_l
 import os
 
 # --- Configuration ---
-MODEL_NAME = "tm_transformer_b2t25_chunking_test_run"
-LOAD_MODEL_FOLDER = f"/data2/brain2text/b2t_25/outputs/{MODEL_NAME}"  
+MODEL_NAME = "tm_transformer_combined_chunking_seed_0"
+LOAD_MODEL_FOLDER = f"/data2/brain2text/b2t_combined/outputs/{MODEL_NAME}"  
 DEVICE = "cuda:0"   
 DATASET_PATHS = ["/data2/brain2text/b2t_25/brain2text25.pkl"]
 SAVE_PATHS = {0:'/data2/brain2text/b2t_25/logits/'}

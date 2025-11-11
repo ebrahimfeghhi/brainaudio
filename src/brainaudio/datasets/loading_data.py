@@ -168,13 +168,13 @@ def getDatasetLoaders(
     val_data_loaders = []
     test_data_loaders = []
     test_data_loaders = []
-    loadedData = []
+    #loadedData = []
     for i in range(len(data_paths)):
         
         datasetName = data_paths[i]
         with open(datasetName, "rb") as handle:
             ds = pickle.load(handle)
-        loadedData.append(ds)
+        #loadedData.append(ds)
         
         test_ds = SpeechDataset(ds['test'], pid=i, return_transcript=return_transcript, return_alignments=return_alignments, char_label=char_label,test_mode=True)
         train_ds = SpeechDataset(ds['train'], transform=None, pid=i, return_transcript=return_transcript, return_alignments=return_alignments, char_label=char_label)
@@ -185,7 +185,7 @@ def getDatasetLoaders(
             batch_size=1,
             shuffle=False,
             num_workers=4,
-            pin_memory=True,
+            pin_memory=False,
             collate_fn=_padding,
         )
 
@@ -195,7 +195,7 @@ def getDatasetLoaders(
             batch_size=batch_size,
             shuffle=shuffle_train,
             num_workers=4,
-            pin_memory=True,
+            pin_memory=False,
             collate_fn=_padding,
         )
 
@@ -204,7 +204,7 @@ def getDatasetLoaders(
             batch_size=1,
             shuffle=False,
             num_workers=4,
-            pin_memory=True,
+            pin_memory=False,
             collate_fn=_padding,
         )
         
@@ -213,4 +213,4 @@ def getDatasetLoaders(
         val_data_loaders.append(val_loader)
         test_data_loaders.append(test_loader)
 
-    return train_data_loaders, val_data_loaders, test_data_loaders, loadedData
+    return train_data_loaders, val_data_loaders, test_data_loaders

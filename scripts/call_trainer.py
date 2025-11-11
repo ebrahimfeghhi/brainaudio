@@ -6,7 +6,7 @@ from brainaudio.models.transformer_chunking import TransformerModel
 from brainaudio.training.trainer import trainModel
 
 
-config_path = "tm_transformer_combined_chunking.yaml"
+config_path = "scratch.yaml"
 config_file = f"../src/brainaudio/training/utils/custom_configs/{config_path}"
 
 with open(config_file, 'r') as f:

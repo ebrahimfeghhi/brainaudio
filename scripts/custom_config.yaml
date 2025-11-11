@@ -4,11 +4,11 @@
 # ===================================================================
 outputDir: '/data2/brain2text/b2t_combined/outputs/' # where to save trained model
 datasetPath: ['/data2/brain2text/b2t_25/brain2text25.pkl', '/data2/brain2text/b2t_24/brain2text24.pkl'] # neural dataset
-seeds: [0,1,2,3]
+seeds: [0]
 device: 'cuda:0'
-evaluate_wer: True
+evaluate_wer: False
 evaluate_every_n_epochs: 5
-modelName: "tm_transformer_combined_chunking"
+modelName: "scratch"
 modelType: 'transformer'
 optimizer: 'AdamW'
 learning_rate: 0.001

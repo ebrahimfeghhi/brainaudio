@@ -1,0 +1,83 @@
+outputDir: /data2/brain2text/b2t_combined/outputs/
+datasetPath:
+- /data2/brain2text/b2t_25/brain2text25.pkl
+- /data2/brain2text/b2t_24/brain2text24.pkl
+seeds:
+- 0
+device: cuda:0
+evaluate_wer: false
+evaluate_every_n_epochs: 5
+modelName: scratch
+modelType: transformer
+optimizer: AdamW
+learning_rate: 0.001
+beta1: 0.9
+beta2: 0.999
+eps: 1.0e-08
+learning_scheduler: cosine
+n_epochs: 951
+milestones:
+- None
+gamma: None
+learning_rate_min: 0.0001
+learning_rate_decay_steps: 120000
+learning_rate_warmup_steps: 1000
+batchSize: 64
+nClasses: 40
+load_pretrained_model: ''
+grad_norm_clip_value: 10
+num_masks: 20
+max_mask_pct: 0.075
+whiteNoiseSD: 0.2
+constantOffsetSD: 0.05
+gaussianSmoothWidth: 2.0
+smooth_kernel_size: 20
+random_cut: 0
+use_amp: true
+l2_decay: 1.0e-05
+input_dropout: 0.2
+dropout: 0.35
+acoustic_scale: 0.6
+lm_weight: 2.0
+word_score: 0.1
+beam_size: 30
+interctc:
+  enable_interctc: false
+  alpha: 0.25
+  inter_ctc_per_layers: 3
+model:
+  gru:
+    name: GRU
+    year: '2024'
+    nInputFeatures: 256
+    nClasses: 40
+    nUnits: 1024
+    nLayers: 5
+    bidirectional: true
+    strideLen: 4
+    kernelLen: 4
+    nDays: 24
+  transformer:
+    name: Transformer
+    features_list:
+    - 512
+    - 256
+    samples_per_patch: 4
+    d_model: 512
+    n_heads: 8
+    mlp_dim_ratio: 4
+    dim_head: 64
+    depth: 7
+    chunked_attention:
+      chunkwise_prob: 0.6
+      chunk_size_min: 1
+      chunk_size_max: 10
+      left_constrain_prob: 0.75
+      context_chunks_min: 50
+      context_chunks_max: 200
+      eval:
+        chunk_size: null
+        context_chunks: null
+wandb:
+  project: nejm-brain-to-text
+  entity: lionelhu926-ucla

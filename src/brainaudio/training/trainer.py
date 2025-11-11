@@ -31,13 +31,17 @@ def trainModel(args, model, label="phoneme"):
         pickle.dump(args, file)
 
     char_label = False if label == "phoneme" else True
+    
 
-    trainLoaders, valLoaders, testLoaders, loadedData = getDatasetLoaders(
+    breakpoint()
+    trainLoaders, valLoaders, testLoaders = getDatasetLoaders(
         args["datasetPath"],
         args["batchSize"],
         char_label=char_label, 
         return_transcript=True
     )
+    breakpoint()
+    
     
     # Watch the model
     wandb.watch(model, log="all")  # Logs gradients, parameters, and gradients histograms
@@ -101,7 +105,6 @@ def trainModel(args, model, label="phoneme"):
             total=max_dataset_train_length, 
             desc=f"Training Epoch {epoch+1} / {args['n_epochs']}"
         )
-        
         # batches is a list containing batched data for each participant
         for batch_idx, batches in enumerate(train_loop):
             
@@ -115,9 +118,11 @@ def trainModel(args, model, label="phoneme"):
                     continue
                         
                 optimizer.zero_grad()    
-                                    
                 # Base case: always unpack the first 5
                 X, y, X_len, y_len, dayIdx = batch[:5]
+                
+                breakpoint()
+                
 
                 # Send to device
                 X      = X.to(args["device"])
