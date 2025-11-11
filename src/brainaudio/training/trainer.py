@@ -13,7 +13,7 @@ from torchaudio.models.decoder import ctc_decoder
 # brainaudio internal package imports
 from brainaudio.training.utils.augmentations import gauss_smooth
 from brainaudio.training.utils.loss import forward_ctc, evaluate, evaluate_wer
-from brainaudio.datasets.loading_data import getDatasetLoaders
+from brainaudio.datasets.lazy_data_loading import getDatasetLoaders
 from brainaudio.training.utils.learning_scheduler import create_learning_rate_scheduler
 
 def trainModel(args, model, label="phoneme"):
@@ -32,16 +32,11 @@ def trainModel(args, model, label="phoneme"):
 
     char_label = False if label == "phoneme" else True
     
-
-    breakpoint()
     trainLoaders, valLoaders, testLoaders = getDatasetLoaders(
-        args["datasetPath"],
+        ["/data2/brain2text/b2t_25/trial_level_data/manifest.json", "/data2/brain2text/b2t_24/trial_level_data/manifest.json"],
         args["batchSize"],
-        char_label=char_label, 
-        return_transcript=True
+        return_transcript=False
     )
-    breakpoint()
-    
     
     # Watch the model
     wandb.watch(model, log="all")  # Logs gradients, parameters, and gradients histograms
@@ -80,9 +75,7 @@ def trainModel(args, model, label="phoneme"):
     train_loss = []
     #enable_interctc = args["interctc"]["enable_interctc"]
     #alpha = args["interctc"]["alpha"] if enable_interctc else None
-        
-
-        
+    
     max_dataset_train_length = max(len(loader) for loader in trainLoaders)
     
     if args["evaluate_wer"]:
@@ -120,10 +113,7 @@ def trainModel(args, model, label="phoneme"):
                 optimizer.zero_grad()    
                 # Base case: always unpack the first 5
                 X, y, X_len, y_len, dayIdx = batch[:5]
-                
-                breakpoint()
-                
-
+            
                 # Send to device
                 X      = X.to(args["device"])
                 y      = y.to(args["device"])

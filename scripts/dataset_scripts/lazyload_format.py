@@ -10,9 +10,12 @@ output_dirs = ['/data2/brain2text/b2t_25/trial_level_data/', '/data2/brain2text/
 # ---------------------
 
 print("Starting preprocessing...")
-file_manifest = {'train': [], 'val': [], 'test': []} # To save paths
+
 
 for p_id, pkl_path in enumerate(data_paths):
+    
+    file_manifest = {'train': [], 'val': [], 'test': []} # To save paths
+    
     print(f"Processing participant {p_id} from {pkl_path}...")
     
     output_dir = output_dirs[p_id]
@@ -21,6 +24,9 @@ for p_id, pkl_path in enumerate(data_paths):
         participant_data = pickle.load(handle)
 
     for split in ['train', 'val', 'test']:
+        
+        print(f"Processing split: {split}")
+        
         if split not in participant_data:
             continue
             
@@ -32,6 +38,7 @@ for p_id, pkl_path in enumerate(data_paths):
             is_test = False
         
         for day in range(len(split_data)):
+            
             if split_data[day] is None:
                 continue
             
@@ -41,8 +48,9 @@ for p_id, pkl_path in enumerate(data_paths):
             for trial in range(n_trials):
                 # Define where to save this single trial
                 trial_dir = f"{output_dir}/{split}"
-                os.makedirs(trial_dir, exist_ok=True)
+                # os.makedirs(trial_dir, exist_ok=True)
                 trial_path = f"{trial_dir}/day_{day}_trial_{trial}.npz"
+            
                 
                 # --- Get the data for this trial ---
                 sentenceDat = split_data[day]["sentenceDat"][trial]
@@ -50,26 +58,35 @@ for p_id, pkl_path in enumerate(data_paths):
                 transcript = (split_data[day]['transcriptions'][trial] 
                               if not is_test else "FILLER")
                 
-                text = (split_data[day]["text"][trial] 
-                        if not is_test else np.array([0], dtype=np.int32))
-
+                if not is_test:
+                    # Get the true length
+                    text_len = split_data[day]["textLens"][trial]
+                    # Get the padded 500D array
+                    padded_text = split_data[day]["text"][trial]
+                    # Slice it to get the *true* data
+                    trimmed_text = padded_text[:text_len]
+                else:
+                    # Use a dummy array for test mode
+                    trimmed_text = np.array([0], dtype=np.int32)
+                    
+                    
                 # Save all trial data to a single compressed .npz file
                 # We also save 'pid', 'day', and 'trial' as metadata
                 np.savez_compressed(
                     trial_path,
                     sentenceDat=sentenceDat,
                     transcription=np.array(transcript, dtype=object), # Save string as 0-D object array
-                    text=text,
+                    text=trimmed_text,
                     pid=p_id,
                     day=day
                 )
-                
+  
                 # Add the new file path to our manifest
                 file_manifest[split].append(str(trial_path))
 
-print("Done preprocessing.")
+    print("Done preprocessing.")
 
-# Optionally, save the manifest of all file paths for easy loading
-with open(output_dir / "manifest.json", "w") as f:
-    import json
-    json.dump(file_manifest, f)
+    # Optionally, save the manifest of all file paths for easy loading
+    with open(f"{output_dir}/manifest.json", "w") as f:
+        import json
+        json.dump(file_manifest, f)
