@@ -48,7 +48,7 @@ for p_id, pkl_path in enumerate(data_paths):
             for trial in range(n_trials):
                 # Define where to save this single trial
                 trial_dir = f"{output_dir}/{split}"
-                # os.makedirs(trial_dir, exist_ok=True)
+                os.makedirs(trial_dir, exist_ok=True)
                 trial_path = f"{trial_dir}/day_{day}_trial_{trial}.npz"
             
                 

@@ -3,12 +3,13 @@
 # This section contains parameters common to all models and experiments.
 # ===================================================================
 outputDir: '/data2/brain2text/b2t_combined/outputs/' # where to save trained model
-datasetPath: ['/data2/brain2text/b2t_25/brain2text25.pkl', '/data2/brain2text/b2t_24/brain2text24.pkl'] # neural dataset
-seeds: [0]
-device: 'cuda:0'
+manifest_paths: ["/data2/brain2text/b2t_25/trial_level_data/manifest.json", 
+                  "/data2/brain2text/b2t_24/trial_level_data/manifest.json"] # neural dataset
+seeds: [0,1,2,3]
+device: 'cuda:1'
 evaluate_wer: False
 evaluate_every_n_epochs: 5
-modelName: "tm_transformer_combined"
+modelName: "tm_transformer_combined_chunking_bigger"
 modelType: 'transformer'
 optimizer: 'AdamW'
 learning_rate: 0.001
@@ -83,13 +84,13 @@ model:
     n_heads: 8    
     mlp_dim_ratio: 4 
     dim_head: 64 
-    depth: 7
+    depth: 8
     chunked_attention:
-      chunkwise_prob: 0 # 1.0 = always chunk, 0.0 = never chunk
+      chunkwise_prob: 0.6 # 1.0 = always chunk, 0.0 = never chunk
       # chunk size in terms of how many patches. 
       chunk_size_min: 1 # 100 ms
       chunk_size_max: 10 # 1000 ms
-      left_constrain_prob: 0.75 # 1.0 = always restric left context, 0.0 = never restrict
+      left_constrain_prob: 0.75 # 1.0 = always restrict left context, 0.0 = never restrict
       # context size in terms of how many chunks.
       context_chunks_min: 50
       context_chunks_max: 200
