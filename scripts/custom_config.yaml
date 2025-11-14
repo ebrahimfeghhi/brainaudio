@@ -33,8 +33,8 @@ num_masks: 20
 max_mask_pct: 0.05
 
 # original augs
-whiteNoiseSD: 0.2
-constantOffsetSD: 0.05
+whiteNoiseSD: 0
+constantOffsetSD: 0
 gaussianSmoothWidth: 2.0
 smooth_kernel_size: 20
 random_cut: 0
@@ -42,7 +42,7 @@ use_amp: true
 
 # standard regularization techniques
 l2_decay: 1.0e-5
-input_dropout: 0.1
+input_dropout: 0
 dropout: 0.25
 
 # LM-related parameters
@@ -86,18 +86,17 @@ model:
     dim_head: 64 
     depth: 6
     chunked_attention:
-      chunkwise_prob: 0.6 # 1.0 = always chunk, 0.0 = never chunk
+      chunkwise_prob: 1.0 # 1.0 = always chunk, 0.0 = never chunk
       # chunk size in terms of how many patches. 
       chunk_size_min: 1 # 100 ms
-      chunk_size_max: 10 # 1000 ms
-      left_constrain_prob: 0.75 # 1.0 = always restrict left context, 0.0 = never restrict
-      # context size in terms of how many chunks.
-      context_chunks_min: 50
-      context_chunks_max: 200
-      # Context Range: 2000 ms - 20000 ms
+      chunk_size_max: 20 # 1.6 sec
+      left_constrain_prob: 1.0 # 1.0 = always restrict left context, 0.0 = never restrict
+      context_sec_min: 3
+      context_sec_max: 20
+      timestep_duration_sec: 0.08 # length of each patch (in sec)
       eval:
-        chunk_size: null 
-        context_chunks: null
+        chunk_size: 4 # 320 ms of look ahead. 
+        context_chunks: 50 # 16 seconds of left context
         # If causal masking eval, set to null for both chunk_size and context_chunks
         # If non-causal masking eval, set chunk size to .inf
 

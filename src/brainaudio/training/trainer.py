@@ -33,7 +33,7 @@ def trainModel(args, model, label="phoneme"):
     trainLoaders, valLoaders, _ = getDatasetLoaders(
         args["manifest_paths"],
         args["batchSize"],
-        return_transcript=False
+        return_transcript=True
     )
     
     # Watch the model
