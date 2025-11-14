@@ -34,11 +34,6 @@ for seed in config['seeds']:
                                 max_mask_pct=config['max_mask_pct'], num_masks=config['num_masks'], num_participants=len(model_args['features_list']), return_final_layer=False, 
                                  chunked_attention=model_args["chunked_attention"])
 
-        #model = TransformerModel(features_list=model_args['features_list'], samples_per_patch=model_args['samples_per_patch'], dim=model_args['d_model'], depth=model_args['depth'], heads=model_args['n_heads'], mlp_dim_ratio=model_args['mlp_dim_ratio'],  dim_head=model_args['dim_head'], 
-        #                 dropout=config['dropout'], input_dropout=config['input_dropout'], nClasses=config['nClasses'], 
-        #                 max_mask_pct=config['max_mask_pct'], num_masks=config['num_masks'], num_participants=len(model_args['features_list']), return_final_layer=return_final_layer, 
-        #                 bidirectional=model_args['bidirectional'], inter_ctc_per_layers=config['interctc']['inter_ctc_per_layers'])
-        
     if model_type == 'gru':
         
         model = GRU_25(neural_dim=model_args['nInputFeatures'], n_classes=config['nClasses'], hidden_dim=model_args['nUnits'], 

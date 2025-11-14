@@ -170,6 +170,8 @@ def create_dynamic_chunk_mask(seq_len: int, config: ChunkConfig, device=None):
     return mask.unsqueeze(0).unsqueeze(0)
 
 
+
+
 class Attention(nn.Module):
     
     def __init__(self, dim, heads, dim_head, dropout, max_rel_dist=200, use_relative_bias=True):
