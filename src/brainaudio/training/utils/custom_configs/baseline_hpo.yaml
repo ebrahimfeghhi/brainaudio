@@ -10,7 +10,7 @@ seeds:
 device: cuda:0
 evaluate_wer: true
 evaluate_every_n_epochs: 5
-modelName: tm_transformer_combined_chunking_reduced_reg_smaller
+modelName: baseline_hpo
 modelType: transformer
 optimizer: AdamW
 learning_rate: 0.001
@@ -18,27 +18,31 @@ beta1: 0.9
 beta2: 0.999
 eps: 1.0e-08
 learning_scheduler: cosine
-n_epochs: 951
+n_epochs: 500
 milestones:
 - None
 gamma: None
-learning_rate_min: 0.0001
+lr_scaling_factor: 0.1
 learning_rate_decay_steps: 120000
 learning_rate_warmup_steps: 1000
 batchSize: 64
 nClasses: 40
 load_pretrained_model: ''
 grad_norm_clip_value: 10
+early_stopping_enabled: true
+early_stopping_checkpoint: 100
+early_stopping_wer_threshold: 0.2
+early_stopping_no_improvement: 10
 num_masks: 20
 max_mask_pct: 0.05
-whiteNoiseSD: 0.0
-constantOffsetSD: 0.0
+whiteNoiseSD: 0
+constantOffsetSD: 0
 gaussianSmoothWidth: 2.0
 smooth_kernel_size: 20
 random_cut: 0
 use_amp: true
 l2_decay: 1.0e-05
-input_dropout: 0.0
+input_dropout: 0
 dropout: 0.25
 acoustic_scale: 0.6
 lm_weight: 2.0
@@ -56,7 +60,7 @@ model:
     nClasses: 40
     nUnits: 1024
     nLayers: 5
-    bidirectional: False
+    bidirectional: true
     strideLen: 4
     kernelLen: 4
     nDays: 24
@@ -73,13 +77,14 @@ model:
     chunked_attention:
       chunkwise_prob: 1.0
       chunk_size_min: 1
-      chunk_size_max: 10
-      left_constrain_prob: 0.75
-      context_chunks_min: 50
-      context_chunks_max: 200
+      chunk_size_max: 20
+      left_constrain_prob: 1.0
+      context_sec_min: 3
+      context_sec_max: 20
+      timestep_duration_sec: 0.08
       eval:
-        chunk_size: null
-        context_chunks: null
+        chunk_size: 4
+        context_chunks: 50
 wandb:
   project: nejm-brain-to-text
   entity: lionelhu926-ucla

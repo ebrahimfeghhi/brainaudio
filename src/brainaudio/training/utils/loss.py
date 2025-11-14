@@ -63,6 +63,8 @@ def evaluate(val_loader, model, participant_id, forward_ctc, args, beam_search_d
     all_losses = []
     pred_arr = []
     val_transcripts = []
+    total_edit_distance = 0
+    total_seq_length = 0
 
     device = args["device"]
 
@@ -73,9 +75,10 @@ def evaluate(val_loader, model, participant_id, forward_ctc, args, beam_search_d
         
         for batch in tqdm.tqdm(val_loader, desc=f"Evaluating Participant {participant_id}"):
           
+            # Unpack batch - may have 5 or 6 elements
             X, y, X_len, y_len, testDayIdx, val_transcript = batch
-            
             val_transcripts.append(clean_string(val_transcript[0]))
+
 
             # Move data to the specified device
             X = X.to(device)

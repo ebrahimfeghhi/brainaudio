@@ -9,7 +9,7 @@ seeds: [0,1,2,3]
 device: 'cuda:0'
 evaluate_wer: True 
 evaluate_every_n_epochs: 5
-modelName: "tm_transformer_combined_chunking_reduced_reg_smaller"
+modelName: "baseline_hpo"
 modelType: 'transformer'
 optimizer: 'AdamW'
 learning_rate: 0.001
@@ -17,16 +17,22 @@ beta1: 0.9
 beta2: 0.999
 eps: 1.0e-8
 learning_scheduler: 'cosine'
-n_epochs: 951
+n_epochs: 500
 milestones: [None] # need to convert to batches
 gamma: None # multiply learning rate by this factor at milestones
-learning_rate_min_scaling_factor: 0.1
+lr_scaling_factor: 0.1
 learning_rate_decay_steps: 120000 # in batches
 learning_rate_warmup_steps: 1000 # in batches
 batchSize: 64
 nClasses: 40 
 load_pretrained_model: ''
 grad_norm_clip_value: 10
+
+# Early stopping parameters
+early_stopping_enabled: True
+early_stopping_checkpoint: 100 # epoch at which to check WER threshold
+early_stopping_wer_threshold: 0.2 # if WER hasn't reached this by checkpoint, stop training
+early_stopping_no_improvement: 10 # number of val checks with no improvement to wait before stopping
 
 # time masking aug
 num_masks: 20
@@ -80,7 +86,6 @@ model:
     name: 'Transformer'
     features_list: [512, 256] # For multiple dataset, order the feature list aligning with corresponding dataset
     samples_per_patch: 4 # 100ms
-    d_model: 512
     n_heads: 8    
     mlp_dim_ratio: 4 
     dim_head: 64 
@@ -97,8 +102,6 @@ model:
       eval:
         chunk_size: 4 # 320 ms of look ahead. 
         context_chunks: 50 # 16 seconds of left context
-        # If causal masking eval, set to null for both chunk_size and context_chunks
-        # If non-causal masking eval, set chunk size to .inf
 
 wandb:
   project: "nejm-brain-to-text" 

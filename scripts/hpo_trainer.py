@@ -2,7 +2,7 @@
 
 import yaml
 from brainaudio.models.gru_b2t_25 import GRU_25
-from brainaudio.models.transformer_chunking import TransformerModel
+from brainaudio.models.transformer_chunking_lc_time import TransformerModel
 from brainaudio.training.trainer import trainModel
 
 def run_single_trial(config):
@@ -12,10 +12,14 @@ def run_single_trial(config):
     """
     
     model_type = config['modelType']
+    model_args = config['model'][model_type]
+    
+    
+    model_args["d_model"] = model_args["n_heads"]*model_args['dim_head']
+    config['learning_rate_min'] = config['learning_rate']*config['lr_scaling_factor']
     
     # We only care about the Transformer, but this makes the code robust
     if model_type == 'transformer':
-        model_args = config['model'][model_type]
         model = TransformerModel(
             features_list=model_args['features_list'], 
             samples_per_patch=model_args['samples_per_patch'], 
@@ -35,7 +39,6 @@ def run_single_trial(config):
         )
 
     elif model_type == 'gru':
-        model_args = config['model'][model_type]
         model = GRU_25(
             neural_dim=model_args['nInputFeatures'], 
             n_classes=config['nClasses'], 
@@ -57,6 +60,7 @@ def run_single_trial(config):
     model.to(config['device'])
 
     # This function MUST return the validation metric you want to optimize
-    wer, per = trainModel(config, model)
+    best_mean_wer, best_mean_per, best_wer_by_participant, best_per_by_participant = trainModel(config, model)
     
-    return wer, per
+    # Return mean WER (for Optuna to optimize), and attach per-participant metrics
+    return best_mean_wer, best_mean_per, best_wer_by_participant, best_per_by_participant

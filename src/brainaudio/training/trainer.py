@@ -42,7 +42,8 @@ def trainModel(args, model):
 
     if args['optimizer'] == 'AdamW':
         
-         optimizer = torch.optim.AdamW(model.parameters(), lr=args['learning_rate'], weight_decay=args['l2_decay'], eps=args['eps'], 
+         optimizer = torch.optim.AdamW(model.parameters(), lr=args['learning_rate'], 
+                                       weight_decay=args['l2_decay'], eps=args['eps'], 
                                        betas=(args['beta1'], args['beta2']), fused=True)
          
     if args['optimizer'] == 'Adam':
@@ -70,6 +71,11 @@ def trainModel(args, model):
     valLoss = []
     valWER = []
     valPER = []
+    
+    # Track best metrics by participant
+    best_wer_by_participant = {}
+    best_per_by_participant = {}
+    
     startTime = time.time()
     train_loss = []
 
@@ -87,9 +93,11 @@ def trainModel(args, model):
     
     for epoch in range(args['n_epochs']):
         
-        if no_improvement_count >= 10: # if no improvement for 10 consecutive validations, terminate run
+        if no_improvement_count >= args["early_stopping_no_improvement"]: 
+            wandb.log({"early_stopping_triggered": True, "early_stopping_reason": "no_improvement", "early_stopping_epoch": epoch})
             break
         
+    
         train_loss = []
         grad_norm_store = []
         model.train()
@@ -171,7 +179,7 @@ def trainModel(args, model):
         current_lr = optimizer.param_groups[0]['lr']
         
         if epoch % args["evaluate_every_n_epochs"] == 0:
-        
+            
             for participant_id, valLoader in enumerate(valLoaders):
                 
                 loss, wer, per = evaluate(valLoader, model, participant_id, forward_ctc, args, decoder)
@@ -194,7 +202,7 @@ def trainModel(args, model):
             
             if len(loss_array) > 0:
                 
-                for pid, (avgDayLoss, wer. per) in enumerate(zip(loss_array[1:], wer_array[1:], per_array[1:])):
+                for pid, (avgDayLoss, wer, per) in enumerate(zip(loss_array[1:], wer_array[1:], per_array[1:])):
                     
                     log_dict[f"ctc_loss_{pid}"] = avgDayLoss
                     log_dict[f"wer_{pid}"] = wer
@@ -203,23 +211,53 @@ def trainModel(args, model):
 
             wandb.log(log_dict)
             
+            # Save best models for mean across participants
             if len(valWER) > 0 and np.mean(wer_array) < np.min(valWER):
                 torch.save(model.state_dict(), outputDir + "/modelWeights_WER")
                 
             if len(valPER) > 0 and np.mean(per_array) < np.min(valPER):
                 torch.save(model.state_dict(), outputDir + "/modelWeights_PER")
+            
+            # Save best models per participant
+            participant_suffix = {0: "_25", 1: "_24"}
+            for pid in range(len(wer_array)):
+                suffix = participant_suffix.get(pid, f"_{pid}")
+                
+                if pid not in best_wer_by_participant or wer_array[pid] < best_wer_by_participant[pid]:
+                    best_wer_by_participant[pid] = wer_array[pid]
+                    torch.save(model.state_dict(), outputDir + f"/modelWeights_WER{suffix}")
+                
+                if pid not in best_per_by_participant or per_array[pid] < best_per_by_participant[pid]:
+                    best_per_by_participant[pid] = per_array[pid]
+                    torch.save(model.state_dict(), outputDir + f"/modelWeights_PER{suffix}")
                 
             valLoss.append(np.mean(loss_array))
             valWER.append(np.mean(wer_array))
             valPER.append(np.mean(per_array))
             
-            # add early stopping flag here based on valWER
-            if len(valWER) > 5:  # wait for at least 5 validation reports to consider early stopping
-                if np.mean(wer_array) > np.min(valWER):
-                    no_improvement_count += 1
-                else:
-                    no_improvement_count = 0
+        
+            if np.mean(wer_array) > np.min(valWER):
+                no_improvement_count += 1
+            else:
+                no_improvement_count = 0
+                    
+                    
+            if args["early_stopping_enabled"]:
+                if epoch == args["early_stopping_checkpoint"]:
+                    if wer > args["early_stopping_wer_threshold"]:
+                        wandb.log({"early_stopping_triggered": True, "early_stopping_reason": "wer_threshold", "early_stopping_epoch": epoch})
+                        break
                 
     wandb.finish()
     
-    return np.min(valWER), np.min(valPER)
+    # Log and print results
+    best_mean_wer = np.min(valWER)
+    best_mean_per = np.min(valPER)
+    
+    for pid in best_wer_by_participant.keys():
+        suffix = {0: "_25", 1: "_24"}.get(pid, f"_{pid}")
+        print(f"Participant {pid}{suffix} - Best WER: {best_wer_by_participant[pid]:.4f}, Best PER: {best_per_by_participant[pid]:.4f}")
+    
+    print(f"Mean - Best WER: {best_mean_wer:.4f}, Best PER: {best_mean_per:.4f}")
+    
+    return best_mean_wer, best_mean_per, best_wer_by_participant, best_per_by_participant

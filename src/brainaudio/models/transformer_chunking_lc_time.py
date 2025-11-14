@@ -56,7 +56,6 @@ def get_sinusoidal_pos_emb(seq_len, dim, device=None):
     pe[:, 1::2] = torch.cos(position * div_term)
     return pe
 
-
 @dataclass
 class ChunkConfig:
     """Configuration for chunked attention.
