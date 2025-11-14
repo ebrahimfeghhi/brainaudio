@@ -13,7 +13,7 @@ from torchaudio.models.decoder import ctc_decoder
 # brainaudio internal package imports
 from brainaudio.training.utils.augmentations import gauss_smooth
 from brainaudio.training.utils.loss import forward_ctc, evaluate, evaluate_wer
-from brainaudio.datasets.loading_data import getDatasetLoaders
+from brainaudio.datasets.lazy_data_loading import getDatasetLoaders
 from brainaudio.training.utils.learning_scheduler import create_learning_rate_scheduler
 
 def trainModel(args, model, label="phoneme"):
@@ -225,7 +225,7 @@ def trainModel(args, model, label="phoneme"):
                     if args["evaluate_wer"]:
                         log_dict[f"wer_{pid}"] = cer
                     else:
-                        log_dict[f"cer_{pid}"] = cer
+                        log_dict[f"per_{pid}"] = cer
 
             wandb.log(log_dict)
             

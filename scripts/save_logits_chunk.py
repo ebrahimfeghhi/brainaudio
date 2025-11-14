@@ -7,25 +7,24 @@ import torch
 from tqdm import tqdm
 
 from brainaudio.models.transformer_chunking import TransformerModel
-from brainaudio.datasets.loading_data import getDatasetLoaders
+from brainaudio.datasets.lazy_data_loading import getDatasetLoaders
 from brainaudio.training.utils.augmentations import gauss_smooth
 from brainaudio.inference.inference_utils import compute_per
 
 
 # --- Configuration ---
-MODEL_NAME = "tm_transformer_b2t25_chunking_test_run"
-LOAD_MODEL_FOLDER = f"/data2/brain2text/b2t_25/outputs/{MODEL_NAME}"  
+MODEL_NAME = "tm_transformer_combined_reduced_reg_seed_0"
+LOAD_MODEL_FOLDER = f"/data2/brain2text/b2t_combined/outputs/{MODEL_NAME}"  
 DEVICE = "cuda:0"   
-#DATASET_PATHS = ['/data2/brain2text/b2t_25/brain2text25_with_fa', "/data2/brain2text/b2t_24/brain2text24_with_fa"]
-#SAVE_PATHS = {0:'/data2/brain2text/b2t_25/logits/', 1:'/data2/brain2text/b2t_24/logits/'}
-DATASET_PATHS = ["/data2/brain2text/b2t_25/brain2text25.pkl"]
-SAVE_PATHS = {0:'/data2/brain2text/b2t_25/logits/'}
+# Lazy loading data, so pointing to manifest json file.
+DATASET_PATHS = ["/data2/brain2text/b2t_25/trial_level_data/manifest.json", "/data2/brain2text/b2t_24/trial_level_data/manifest.json"]
+SAVE_PATHS = {0:'/data2/brain2text/b2t_25/logits/', 1:'/data2/brain2text/b2t_24/logits/'}
 PARTITION = 'val'
-PARTICIPANT_IDS = [0]
-char_label = False
+PARTICIPANT_IDS = [0, 1]
 
 # For evaluation on different chunk configs for same model
-CHUNK_SIZES = [1, 5, 10, 30, 50, None]
+CHUNK_SIZES = [None]
+# CHUNK_SIZES = [1, 5, 10, 30, 50, None]
 CONTEXT_SIZES = [None]
 CHUNK_CONFIGS = [{"chunk_size": chk, "context_chunks": ctx} for chk in CHUNK_SIZES for ctx in CONTEXT_SIZES]
 
@@ -34,6 +33,8 @@ def main():
         idx: os.path.join(path, MODEL_NAME)
         for idx, path in SAVE_PATHS.items()
     }
+    for path in resolved_save_paths.values():
+        os.makedirs(path, exist_ok=True)
     
     for eval_cfg in CHUNK_CONFIGS:
         tag = _format_eval_tag(eval_cfg)
@@ -49,7 +50,6 @@ def main():
             dataset_paths=DATASET_PATHS,
             save_paths=resolved_save_paths, 
             participant_ids=PARTICIPANT_IDS, 
-            char_label=char_label,
             chunk_config=eval_cfg,
         )
 
@@ -117,7 +117,7 @@ def load_model(
     return model, config
 
 def generate_and_save_logits(model, config, partition, device, 
-                             dataset_paths, save_paths, participant_ids, char_label, chunk_config=None):
+                             dataset_paths, save_paths, participant_ids, chunk_config=None):
     
     """
     Runs the model forward pass and saves the output logits to a file.
@@ -130,7 +130,6 @@ def generate_and_save_logits(model, config, partition, device,
         dataset_paths (list): List of paths to the dataset files.
         save_paths (list): List of paths to save the output files.
         participant_ids (list): List of integer participant ids.
-        char_label (bool): use characters if True, else phonemes.
         chunk_config (dict) Dictionary that records the chunk configuration used in evaluation.
     """
     
@@ -141,12 +140,11 @@ def generate_and_save_logits(model, config, partition, device,
         chunk_size = chunk_config["chunk_size"]
         context_chunks = chunk_config["context_chunks"]
 
-    trainLoaders, valLoaders, testLoaders, _ = getDatasetLoaders(
+    trainLoaders, valLoaders, testLoaders = getDatasetLoaders(
         dataset_paths,
         config["batchSize"], 
         return_transcript=True, 
         shuffle_train=False, 
-        char_label=char_label
     )
     
     if partition == "train":
