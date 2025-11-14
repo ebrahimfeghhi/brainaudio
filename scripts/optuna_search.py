@@ -3,7 +3,7 @@
 
 import yaml
 import optuna
-from optuna.samplers import RandomSampler # Random sampler
+from optuna.samplers import TPESampler # Tree-structured Parzen Estimator sampler
 from hpo_trainer import run_single_trial # Our new function
 from brainaudio.training.utils import track_best_models, save_best_hparams, print_hpo_summary
 import copy
@@ -62,16 +62,20 @@ def objective(trial):
             hparams[name] = trial.suggest_categorical(name, prange)
 
     # --- Decompose total_mask_intensity into max_mask_pct and num_masks ---
-    # Constraints: 0.02 <= max_mask_pct <= 0.15, 5 <= num_masks <= 40
+    # New approach: sample num_masks as an integer, then derive max_mask_pct from total_intensity
+    # Constraints: 5 <= num_masks <= 30, 0.02 <= max_mask_pct <= 0.15
     total_intensity = hparams['total_mask_intensity']
     
-    min_max_pct, max_max_pct = 0.02, 0.15
-    min_num_masks, max_num_masks = 5, 40
+    min_num_masks, max_num_masks = 5, 30
     
-    # Pick max_mask_pct as a random value in valid range, then compute num_masks
-    max_mask_pct = random.uniform(min_max_pct, max_max_pct)
-    num_masks = int(total_intensity / max_mask_pct)
-    num_masks = max(min_num_masks, min(max_num_masks, num_masks))
+    # Sample num_masks uniformly from the valid range
+    num_masks = random.randint(min_num_masks, max_num_masks)
+    
+    # Derive max_mask_pct from total_intensity: max_mask_pct = total_intensity / num_masks
+    max_mask_pct = total_intensity / num_masks
+    
+    # Round max_mask_pct to 2 significant digits
+    max_mask_pct = float(f"{max_mask_pct:.2g}")
     
     hparams['max_mask_pct'] = max_mask_pct
     hparams['num_masks'] = num_masks
@@ -138,10 +142,10 @@ def objective(trial):
 #                       3. RUN THE HPO STUDY
 # ===================================================================
 if __name__ == "__main__":
-    print("Starting Optuna Random Search...")
+    print("Starting Optuna TPE Search...")
 
-    # We use RandomSampler for random search
-    sampler = RandomSampler()
+    # We use TPESampler (Tree-structured Parzen Estimator) for Bayesian optimization
+    sampler = TPESampler()
     
     # We want to MINIMIZE the metric (e.G., WER or loss)
     study = optuna.create_study(
