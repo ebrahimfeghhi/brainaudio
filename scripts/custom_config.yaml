@@ -9,7 +9,7 @@ seeds: [0,1,2,3]
 device: 'cuda:1'
 evaluate_wer: True 
 evaluate_every_n_epochs: 5
-modelName: "baseline_hpo_test"
+modelName: "baseline_hpo"
 modelType: 'transformer'
 optimizer: 'AdamW'
 learning_rate: 0.001

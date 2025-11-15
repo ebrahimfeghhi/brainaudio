@@ -3,127 +3,47 @@
 
 import yaml
 import optuna
-from optuna.samplers import QMCSampler # Quasi-Monte Carlo sampler
-from hpo_trainer import run_single_trial # Our new function
+from optuna.samplers import QMCSampler
+from hpo_trainer import run_single_trial
 from brainaudio.training.utils import track_best_models, save_best_hparams, print_hpo_summary
 import copy
 import random
 import os
+import glob
 
 
 # ===================================================================
-#                       1. DEFINE HPO RANGES
+#                       1. CONFIGURATION
 # ===================================================================
-# Format: "param_name": (type, [range_low, range_high], {kwargs})
-# All parameters are continuous (float or int) for smoother search
-HPO_RANGES = {
-    # Optimizer params (log scale)
-    "learning_rate": ("float", [1e-4, 1e-2], {"log": True}),
-    "l2_decay": ("float", [1e-7, 1e-3], {"log": True}),
-    
-    # Regularization (time masking provides augmentation; input_dropout, white noise, baseline shift removed)
-    "dropout": ("float", [0.1, 0.4], {}),
-        
-    # Transformer Architecture
-    "dim_head": ("int", [48,64], {}),  # Model dimension (will derive n_heads from this)
-    "n_heads": ("int", [6, 10], {}),
-    "depth": ("int", [5, 8], {}),
-    
-    # Time Masking (core augmentation strategy)
-    "total_mask_intensity": ("float", [0.5, 2.0], {})
-}
 
+CONFIGS_DIR = "/data2/brain2text/hpo/hpo_configs/baseline_hpo"  # Pre-saved HPO configs
+HPO_PROJECT_NAME = "transformer-qmc-search"
+MODEL_NAME = None  # Will be extracted from first config
 
-BASE_CONFIG_PATH = "../src/brainaudio/training/utils/custom_configs/baseline_hpo.yaml"
-N_TRIALS = 2 # Total number of HPO runs
-HPO_PROJECT_NAME = "transformer-qmc-search" # W&B project name for this search
 
 # ===================================================================
 #                       2. DEFINE OPTUNA OBJECTIVE
 # ===================================================================
 
-def objective(trial):
+def objective(trial, config_file):
     """
-    This function is called by Optuna for each trial.
+    Run a trial using a pre-saved config file.
     """
-    # Load the base config file every time
-    with open(BASE_CONFIG_PATH, 'r') as f:
-        # Use deepcopy to avoid modifying the base config in memory
+    # Load the config from file
+    with open(config_file, 'r') as f:
         config = yaml.safe_load(f)
-
-    # --- 1. Get new hyperparameters from the trial ---
-    hparams = {}
-    for name, (ptype, prange, kwargs) in HPO_RANGES.items():
-        if ptype == "float":
-            hparams[name] = trial.suggest_float(name, prange[0], prange[1], **kwargs)
-        elif ptype == "int":
-            hparams[name] = trial.suggest_int(name, prange[0], prange[1], **kwargs)
-        elif ptype == "categorical":
-            hparams[name] = trial.suggest_categorical(name, prange)
-
-    # --- Derive n_heads from d_model ---
-
-    # --- Decompose total_mask_intensity into max_mask_pct and num_masks ---
-    # New approach: sample num_masks as an integer, then derive max_mask_pct from total_intensity
-    # Constraints: 5 <= num_masks <= 30, 0.02 <= max_mask_pct <= 0.15
-    total_intensity = hparams['total_mask_intensity']
     
-    min_num_masks, max_num_masks = 5, 30
-    
-    # Sample num_masks uniformly from the valid range
-    num_masks = random.randint(min_num_masks, max_num_masks)
-    
-    # Derive max_mask_pct from total_intensity: max_mask_pct = total_intensity / num_masks
-    max_mask_pct = total_intensity / num_masks
-    
-    # Round max_mask_pct to 2 significant digits
-    max_mask_pct = float(f"{max_mask_pct:.2g}")
-    
-    hparams['max_mask_pct'] = max_mask_pct
-    hparams['num_masks'] = num_masks
-
-    # --- 2. Mutate the config dict with new hparams ---
-    
-    # Shared params
-    config['learning_rate'] = hparams['learning_rate']
-    config['l2_decay'] = hparams['l2_decay']
-    config['dropout'] = hparams['dropout']
-    
-    # Transformer-specific params
-    if 'model' not in config or 'transformer' not in config.get('model', {}):
-        print(f"ERROR: Config structure missing 'model' or 'model.transformer'. Config keys: {config.keys()}")
-        raise ValueError("Config missing required model.transformer section")
-    
-    model_args = config['model']['transformer']
-    model_args['n_heads'] = hparams['n_heads']
-    model_args['dim_head'] = hparams['dim_head']
-    model_args['depth'] = hparams['depth']
-    # Note: d_model is computed in hpo_trainer from n_heads * dim_head, so we don't set it here
-
-    # Time masking (augmentation) params
-    config['max_mask_pct'] = hparams['max_mask_pct']
-    config['num_masks'] = hparams['num_masks']
-
-    # --- 3. Set up trial-specific info ---
-    
-    # Use only the first seed for HPO. 
-    # (You can run the best config on all seeds *after* the search)
-    config['seed'] = config['seeds'][0] 
-    
-    # Set a unique model name
-    trial_name = f"trial_{trial.number}"
-    config['modelName'] = f"{config['modelName']}_{trial_name}"
-    
-    # Set W&B info
-    config['wandb']['project'] = HPO_PROJECT_NAME
-    config['wandb']['group'] = "QMC_Search"
-    config['wandb']['name'] = trial_name
+    # Extract model name (used for results directory)
+    global MODEL_NAME
+    if MODEL_NAME is None:
+        MODEL_NAME = config['modelName'].split('_trial_')[0]
     
     print(f"\n--- Starting Trial {trial.number} ---")
-    print(f"Params: {trial.params}")
+    print(f"Config file: {config_file}")
+    print(f"Model name: {config['modelName']}")
     
     try:
-        # --- 4. Run the trial ---
+        # --- Run the trial ---
         final_mean_wer, final_mean_per, best_wer_by_participant, best_per_by_participant = run_single_trial(config)
         
         trial.set_user_attr("final_per", final_mean_per)
@@ -144,31 +64,51 @@ def objective(trial):
         traceback.print_exc()
         # Prune the trial so Optuna doesn't count it as a success
         raise optuna.exceptions.TrialPruned()
+
 # ===================================================================
-#                       3. RUN THE HPO STUDY
+#                       3. RUN HPO WITH PRESAVED CONFIGS
 # ===================================================================
 if __name__ == "__main__":
-    print("Starting Optuna Quasi-Random (QMC) Search...")
-
-    # We use QMCSampler (Quasi-Monte Carlo) for quasi-random search with low-discrepancy sequences
+    # Find all presaved config files (can be in subdirectories or directly in CONFIGS_DIR)
+    config_files = sorted(glob.glob(os.path.join(CONFIGS_DIR, "trial_*_config.yaml")))
+    
+    # If not found, look in subdirectories
+    if not config_files:
+        config_files = sorted(glob.glob(os.path.join(CONFIGS_DIR, "*", "trial_*_config.yaml")))
+    
+    if not config_files:
+        print(f"ERROR: No config files found in {CONFIGS_DIR} or {CONFIGS_DIR}/*/")
+        exit(1)
+    
+    n_trials = len(config_files)
+    print(f"Found {n_trials} presaved configs in {CONFIGS_DIR}")
+    
+    # Create study
     sampler = QMCSampler()
+    study = optuna.create_study(sampler=sampler, direction='minimize')
     
-    # We want to MINIMIZE the metric (e.G., WER or loss)
-    study = optuna.create_study(
-        sampler=sampler, 
-        direction='minimize'
-    )
+    # Extract model name from first config
+    with open(config_files[0], 'r') as f:
+        first_config = yaml.safe_load(f)
+        MODEL_NAME = first_config['modelName'].split('_trial_')[0]
     
-    # Track best models across all trials
-    best_metrics = None
-    hpo_output_dir = "./hpo_results"
+    # Create results directory
+    hpo_output_dir = f"/data2/brain2text/hpo/{MODEL_NAME}"
     os.makedirs(hpo_output_dir, exist_ok=True)
     
-    # Run the search
-    study.optimize(objective, n_trials=N_TRIALS, callbacks=[
-        lambda study, trial: _update_best_hparams(study, trial, best_metrics, hpo_output_dir)
-    ] if False else None)  # Callback approach (optional; we'll use post-processing instead)
-
+    print(f"Results will be saved to: {hpo_output_dir}")
+    print(f"Starting Optuna with {n_trials} presaved configs...\n")
+    
+    # Create wrapper that uses config files
+    def objective_with_config(trial):
+        config_idx = trial.number
+        if config_idx >= len(config_files):
+            raise ValueError(f"Trial {config_idx} but only {len(config_files)} configs available")
+        return objective(trial, config_files[config_idx])
+    
+    # Run the study
+    study.optimize(objective_with_config, n_trials=n_trials)
+    
     # --- Post-process: Track best hparams ---
     print("\n--- HPO Search Complete ---")
     best_metrics = None
