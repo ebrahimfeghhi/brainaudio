@@ -3,7 +3,7 @@
 
 import yaml
 import optuna
-from optuna.samplers import TPESampler # Tree-structured Parzen Estimator sampler
+from optuna.samplers import QMCSampler # Quasi-Monte Carlo sampler
 from hpo_trainer import run_single_trial # Our new function
 from brainaudio.training.utils import track_best_models, save_best_hparams, print_hpo_summary
 import copy
@@ -14,28 +14,28 @@ import os
 # ===================================================================
 #                       1. DEFINE HPO RANGES
 # ===================================================================
-# Format: "param_name": (type, [list_of_values], {kwargs})
-# All parameters are now categorical for more controlled search
-# Learning rate and l2_decay use log spacing (geometric progression)
+# Format: "param_name": (type, [range_low, range_high], {kwargs})
+# All parameters are continuous (float or int) for smoother search
 HPO_RANGES = {
-    # Optimizer params (log scale categorical)
-    "learning_rate": ("categorical", [1e-4, 5e-4, 1e-3, 3e-3, 5e-3, 1e-2], {}),
-    "l2_decay": ("categorical", [1e-7, 1e-6, 1e-5, 1e-4, 1e-3], {}),
+    # Optimizer params (log scale)
+    "learning_rate": ("float", [1e-4, 1e-2], {"log": True}),
+    "l2_decay": ("float", [1e-7, 1e-3], {"log": True}),
     
     # Regularization (time masking provides augmentation; input_dropout, white noise, baseline shift removed)
-    "dropout": ("categorical", [0.1, 0.15, 0.20, 0.25, 0.3, 0.35, 0.40], {}),
+    "dropout": ("float", [0.1, 0.4], {}),
         
     # Transformer Architecture
-    "n_heads": ("categorical", [6, 7, 8, 9], {}),
-    "depth": ("categorical", [5, 6, 7, 8], {}),
+    "dim_head": ("int", [48,64], {}),  # Model dimension (will derive n_heads from this)
+    "n_heads": ("int", [6, 10], {}),
+    "depth": ("int", [5, 8], {}),
     
     # Time Masking (core augmentation strategy)
-    "total_mask_intensity": ("categorical", [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0], {})
+    "total_mask_intensity": ("float", [0.5, 2.0], {})
 }
 
 
 BASE_CONFIG_PATH = "../src/brainaudio/training/utils/custom_configs/baseline_hpo.yaml"
-N_TRIALS = 1 # Total number of HPO runs
+N_TRIALS = 2 # Total number of HPO runs
 HPO_PROJECT_NAME = "transformer-qmc-search" # W&B project name for this search
 
 # ===================================================================
@@ -60,6 +60,8 @@ def objective(trial):
             hparams[name] = trial.suggest_int(name, prange[0], prange[1], **kwargs)
         elif ptype == "categorical":
             hparams[name] = trial.suggest_categorical(name, prange)
+
+    # --- Derive n_heads from d_model ---
 
     # --- Decompose total_mask_intensity into max_mask_pct and num_masks ---
     # New approach: sample num_masks as an integer, then derive max_mask_pct from total_intensity
@@ -94,7 +96,9 @@ def objective(trial):
     
     model_args = config['model']['transformer']
     model_args['n_heads'] = hparams['n_heads']
+    model_args['dim_head'] = hparams['dim_head']
     model_args['depth'] = hparams['depth']
+    # Note: d_model is computed in hpo_trainer from n_heads * dim_head, so we don't set it here
 
     # Time masking (augmentation) params
     config['max_mask_pct'] = hparams['max_mask_pct']
@@ -127,7 +131,7 @@ def objective(trial):
         trial.set_user_attr("by_participant_per", best_per_by_participant)
         
         # Check for bad results (e.g., model diverged)
-        if final_mean_wer is None or final_mean_wer > 0.5:
+        if final_mean_wer is None or final_mean_wer > 1:
             print(f"Trial {trial.number} pruned due to bad metric: {final_mean_wer}")
             raise optuna.exceptions.TrialPruned()
             
@@ -135,17 +139,19 @@ def objective(trial):
         
     except Exception as e:
         # Handle crashes (e.g., OOM) gracefully
-        print(f"Trial {trial.number} failed with exception: {e}")
+        print(f"Trial {trial.number} failed with exception: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
         # Prune the trial so Optuna doesn't count it as a success
         raise optuna.exceptions.TrialPruned()
 # ===================================================================
 #                       3. RUN THE HPO STUDY
 # ===================================================================
 if __name__ == "__main__":
-    print("Starting Optuna TPE Search...")
+    print("Starting Optuna Quasi-Random (QMC) Search...")
 
-    # We use TPESampler (Tree-structured Parzen Estimator) for Bayesian optimization
-    sampler = TPESampler()
+    # We use QMCSampler (Quasi-Monte Carlo) for quasi-random search with low-discrepancy sequences
+    sampler = QMCSampler()
     
     # We want to MINIMIZE the metric (e.G., WER or loss)
     study = optuna.create_study(
@@ -208,12 +214,13 @@ if __name__ == "__main__":
     # === Print Best Trial for Mean WER ===
     best_wer_trial = study.best_trial
     
-    print("\n--- Best Mean WER Trial ---")
-    print(f"Trial Number: {best_wer_trial.number}")
-    print(f"  WER: {best_wer_trial.value:.4f}")
-    print(f"  PER: {best_wer_trial.user_attrs['final_per']:.4f}")
-    print("  Params:")
-    for key, value in best_wer_trial.params.items():
-        print(f"    {key}: {value}")
+    if best_wer_trial is not None:
+        print("\n--- Best Mean WER Trial ---")
+        print(f"Trial Number: {best_wer_trial.number}")
+        print(f"  WER: {best_wer_trial.value:.4f}")
+        print(f"  PER: {best_wer_trial.user_attrs['final_per']:.4f}")
+        print("  Params:")
+        for key, value in best_wer_trial.params.items():
+            print(f"    {key}: {value}")
     else:
         print("Could not find best PER trial (were any trials completed?).")

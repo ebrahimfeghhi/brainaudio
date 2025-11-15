@@ -1,0 +1,9 @@
+{
+  "learning_rate": 0.00014830715006610774,
+  "l2_decay": 1.019493906861792e-05,
+  "dropout": 0.2899541998786511,
+  "dim_head": 53,
+  "n_heads": 8,
+  "depth": 6,
+  "total_mask_intensity": 1.9044535254051238
+}
