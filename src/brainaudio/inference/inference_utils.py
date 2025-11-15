@@ -19,7 +19,7 @@ import re
 from brainaudio.models.transformer import TransformerModel
 from brainaudio.models.gru_b2t_25 import GRU_25
 from brainaudio.models.gru_b2t_24 import GRU_24
-from brainaudio.datasets.loading_data import getDatasetLoaders
+from brainaudio.datasets.lazy_data_loading import getDatasetLoaders
 from brainaudio.training.utils.augmentations import gauss_smooth
 
 

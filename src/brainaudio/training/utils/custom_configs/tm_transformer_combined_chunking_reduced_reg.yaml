@@ -8,7 +8,7 @@ seeds:
 - 2
 - 3
 device: cuda:1
-evaluate_wer: false
+evaluate_wer: true
 evaluate_every_n_epochs: 5
 modelName: tm_transformer_combined_chunking_reduced_reg
 modelType: transformer
@@ -47,7 +47,7 @@ beam_size: 30
 interctc:
   enable_interctc: false
   alpha: 0.25
-  inter_ctc_per_layers: 3
+  inter_ctc_per_layers: 2
 model:
   gru:
     name: GRU
