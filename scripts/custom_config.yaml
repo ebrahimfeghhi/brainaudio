@@ -6,10 +6,10 @@ outputDir: '/data2/brain2text/b2t_combined/outputs/' # where to save trained mod
 manifest_paths: ["/data2/brain2text/b2t_25/trial_level_data/manifest.json", 
                   "/data2/brain2text/b2t_24/trial_level_data/manifest.json"] # neural dataset
 seeds: [0,1,2,3]
-device: 'cuda:1'
+device: 'cuda:0'
 evaluate_wer: True 
 evaluate_every_n_epochs: 5
-modelName: "baseline_hpo"
+modelName: "baseline_hpo_combined"
 modelType: 'transformer'
 optimizer: 'AdamW'
 learning_rate: 0.001
@@ -17,7 +17,7 @@ beta1: 0.9
 beta2: 0.999
 eps: 1.0e-8
 learning_scheduler: 'cosine'
-n_epochs: 1
+n_epochs: 500
 milestones: [None] # need to convert to batches
 gamma: None # multiply learning rate by this factor at milestones
 lr_scaling_factor: 0.1

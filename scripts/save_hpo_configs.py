@@ -30,7 +30,7 @@ HPO_RANGES = {
     "total_mask_intensity": ("float", [0.5, 2], {})
 }
 
-BASE_CONFIG_PATH = "../src/brainaudio/training/utils/custom_configs/baseline_hpo.yaml"
+BASE_CONFIG_PATH = "../src/brainaudio/training/utils/custom_configs/baseline_hpo_combined.yaml"
 N_TRIALS = 50
 HPO_PROJECT_NAME = "transformer-qmc-search"
 

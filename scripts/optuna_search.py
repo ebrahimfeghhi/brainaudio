@@ -16,7 +16,7 @@ import glob
 #                       1. CONFIGURATION
 # ===================================================================
 
-CONFIGS_DIR = "/data2/brain2text/hpo/hpo_configs/baseline_hpo"  # Pre-saved HPO configs
+CONFIGS_DIR = "/data2/brain2text/hpo/hpo_configs/baseline_hpo_b2t25"  # Pre-saved HPO configs
 HPO_PROJECT_NAME = "transformer-qmc-search"
 MODEL_NAME = None  # Will be extracted from first config
 
