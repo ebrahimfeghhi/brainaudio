@@ -22,7 +22,7 @@ HPO_RANGES = {
     "dropout": ("float", [0.1, 0.4], {}),
         
     # Transformer Architecture
-    "dim_head": ("int", [48,64], {}),  # Model dimension (will derive n_heads from this)
+    "dim_head": ("int", [48,64], {}),  # Model dimension (ßwill derive n_heads from this)
     "n_heads": ("int", [6, 10], {}),
     "depth": ("int", [5, 8], {}),
     
@@ -37,7 +37,7 @@ HPO_PROJECT_NAME = "transformer-qmc-search"
 
 # ===================================================================
 #                       2. GENERATE CONFIGS
-# ===================================================================
+# =======================ß============================================
 
 def generate_configs(n_trials=N_TRIALS):
     """Generate and save HPO configs without training."""

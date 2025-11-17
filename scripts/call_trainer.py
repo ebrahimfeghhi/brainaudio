@@ -1,12 +1,12 @@
 import yaml
 from brainaudio.models.gru_b2t_25 import GRU_25
 #from brainaudio.models.transformer_interctc import TransformerModel 
-from brainaudio.models.transformer_chunking import TransformerModel
+from brainaudio.models.transformer_chunking_lc_time import TransformerModel
 #from brainaudio.training.trainer_interctc import trainModel
 from brainaudio.training.trainer import trainModel
 
 
-config_path = "baseline_hpo.yaml"
+config_path = "fully_chunking_combined.yaml"
 config_file = f"../src/brainaudio/training/utils/custom_configs/{config_path}"
 
 with open(config_file, 'r') as f:
@@ -27,6 +27,10 @@ for seed in config['seeds']:
     config["modelName"] = f"{model_name}_seed_{seed}"
 
     if model_type == 'transformer':
+        
+                
+        model_args["d_model"] = model_args["n_heads"]*model_args['dim_head']
+        config['learning_rate_min'] = config['learning_rate']*config['lr_scaling_factor']
 
         model = TransformerModel(features_list=model_args['features_list'], samples_per_patch=model_args['samples_per_patch'], dim=model_args['d_model'], 
                                  depth=model_args['depth'], heads=model_args['n_heads'], mlp_dim_ratio=model_args['mlp_dim_ratio'],  dim_head=model_args['dim_head'], 

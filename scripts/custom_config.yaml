@@ -9,7 +9,7 @@ seeds: [0,1,2,3]
 device: 'cuda:0'
 evaluate_wer: True 
 evaluate_every_n_epochs: 5
-modelName: "baseline_hpo_combined"
+modelName: "no_WN_BS_inpdrop"
 modelType: 'transformer'
 optimizer: 'AdamW'
 learning_rate: 0.001
@@ -29,10 +29,10 @@ load_pretrained_model: ''
 grad_norm_clip_value: 10
 
 # Early stopping parameters
-early_stopping_enabled: True
+early_stopping_enabled: False
 early_stopping_checkpoint: 100 # epoch at which to check WER threshold
-early_stopping_wer_threshold: 0.2 # if WER hasn't reached this by checkpoint, stop training
-early_stopping_no_improvement: 10 # number of val checks with no improvement to wait before stopping
+early_stopping_wer_threshold: 1 # if WER hasn't reached this by checkpoint, stop training
+early_stopping_no_improvement: 1000 # number of val checks with no improvement to wait before stopping
 
 # time masking aug
 num_masks: 20
