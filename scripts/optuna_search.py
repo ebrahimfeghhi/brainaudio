@@ -42,6 +42,13 @@ def objective(trial, config_file):
     print(f"Config file: {config_file}")
     print(f"Model name: {config['modelName']}")
     
+    # Hard-coded for b2t25' single dataset case
+    config["outputDir"] = "/data2/brain2text/b2t_25/outputs/"
+    config["manifest_paths"] = ["/data2/brain2text/b2t_25/trial_level_data/manifest.json"]
+    config["modelName"] = "baseline_hpo_b2t25"
+
+
+
     try:
         # --- Run the trial ---
         final_mean_wer, final_mean_per, best_wer_by_participant, best_per_by_participant = run_single_trial(config)

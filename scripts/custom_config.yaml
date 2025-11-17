@@ -84,7 +84,7 @@ model:
   # --- Transformer Model Arguments ---
   transformer:
     name: 'Transformer'
-    features_list: [512, 256] # For multiple dataset, order the feature list aligning with corresponding dataset
+    features_list: [512] # For multiple dataset, order the feature list aligning with corresponding dataset
     samples_per_patch: 4 # 100ms
     n_heads: 8    
     mlp_dim_ratio: 4 
