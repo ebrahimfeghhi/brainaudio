@@ -2,9 +2,9 @@
 #                       Shared Configuration
 # This section contains parameters common to all models and experiments.
 # ===================================================================
-outputDir: '/data2/brain2text/b2t_combined/outputs/' # where to save trained model
-manifest_paths: ["/data2/brain2text/b2t_25/trial_level_data/manifest.json", 
-                  "/data2/brain2text/b2t_24/trial_level_data/manifest.json"] # neural dataset
+outputDir: '/data2/brain2text/b2t_25/outputs/' # where to save trained model
+manifest_paths: ["/data2/brain2text/b2t_25/trial_level_data/manifest.json"] # neural dataset
+patient_map: {0: "_25"} # {x: "_{name}"}
 seeds: [0,1,2,3]
 device: 'cuda:0'
 evaluate_wer: True 
@@ -84,7 +84,7 @@ model:
   # --- Transformer Model Arguments ---
   transformer:
     name: 'Transformer'
-    features_list: [512, 256] # For multiple dataset, order the feature list aligning with corresponding dataset
+    features_list: [512] # For multiple dataset, order the feature list aligning with corresponding dataset
     samples_per_patch: 4 # 100ms
     n_heads: 8    
     mlp_dim_ratio: 4 

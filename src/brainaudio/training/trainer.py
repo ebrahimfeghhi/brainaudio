@@ -255,7 +255,7 @@ def trainModel(args, model):
     best_mean_per = np.min(valPER)
     
     for pid in best_wer_by_participant.keys():
-        suffix = {0: "_25", 1: "_24"}.get(pid, f"_{pid}")
+        suffix = args['patient_map'].get(pid, f"_{pid}")
         print(f"Participant {pid}{suffix} - Best WER: {best_wer_by_participant[pid]:.4f}, Best PER: {best_per_by_participant[pid]:.4f}")
     
     print(f"Mean - Best WER: {best_mean_wer:.4f}, Best PER: {best_mean_per:.4f}")
