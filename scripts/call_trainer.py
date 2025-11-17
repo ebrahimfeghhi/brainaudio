@@ -6,11 +6,14 @@ from brainaudio.models.transformer_chunking_lc_time import TransformerModel
 from brainaudio.training.trainer import trainModel
 
 
-config_path = "fully_chunking_combined.yaml"
+config_path = "chunking_test_run_20sec_context_b2t_25_24.yaml"
 config_file = f"../src/brainaudio/training/utils/custom_configs/{config_path}"
+device = "cuda:1"
 
 with open(config_file, 'r') as f:
     config = yaml.safe_load(f)
+    
+config["device"] = device
     
 model_type = config['modelType']
 
@@ -47,6 +50,6 @@ for seed in config['seeds']:
         
     model.to(config['device'])
 
-    trainModel(config, model)
+    _ = trainModel(config, model)
 
 

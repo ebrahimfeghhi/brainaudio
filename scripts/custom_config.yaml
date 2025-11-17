@@ -4,12 +4,12 @@
 # ===================================================================
 outputDir: '/data2/brain2text/b2t_combined/outputs/' # where to save trained model
 manifest_paths: ["/data2/brain2text/b2t_25/trial_level_data/manifest.json", 
-                  "/data2/brain2text/b2t_24/trial_level_data/manifest.json"] # neural dataset
-seeds: [0,1,2,3]
-device: 'cuda:0'
+                "/data2/brain2text/b2t_24/trial_level_data/manifest.json"] # neural dataset
+participant_suffixes: ["_25", "_24"] # REQUIRED: aligns with manifest_paths (provide one entry per participant)
+seeds: [0]
 evaluate_wer: True 
 evaluate_every_n_epochs: 5
-modelName: "no_WN_BS_inpdrop"
+modelName: "chunking_test_run_20sec_context_b2t_25_24"
 modelType: 'transformer'
 optimizer: 'AdamW'
 learning_rate: 0.001
@@ -39,8 +39,8 @@ num_masks: 20
 max_mask_pct: 0.05
 
 # original augs
-whiteNoiseSD: 0
-constantOffsetSD: 0
+whiteNoiseSD: 0.2
+constantOffsetSD: 0.05
 gaussianSmoothWidth: 2.0
 smooth_kernel_size: 20
 random_cut: 0
@@ -48,7 +48,7 @@ use_amp: true
 
 # standard regularization techniques
 l2_decay: 1.0e-5
-input_dropout: 0
+input_dropout: 0.1
 dropout: 0.25
 
 # LM-related parameters
@@ -89,19 +89,19 @@ model:
     n_heads: 8    
     mlp_dim_ratio: 4 
     dim_head: 64 
-    depth: 6
+    depth: 7
     chunked_attention:
       chunkwise_prob: 1.0 # 1.0 = always chunk, 0.0 = never chunk
       # chunk size in terms of how many patches. 
       chunk_size_min: 1 # 100 ms
       chunk_size_max: 20 # 1.6 sec
       left_constrain_prob: 1.0 # 1.0 = always restrict left context, 0.0 = never restrict
-      context_sec_min: 3
-      context_sec_max: 20
+      context_sec_min: 20 # 10 seconds of left context
+      context_sec_max: 20 # 10 seconds of left context
       timestep_duration_sec: 0.08 # length of each patch (in sec)
       eval:
-        chunk_size: 4 # 320 ms of look ahead. 
-        context_chunks: 50 # 16 seconds of left context
+        chunk_size: 5 # 400 ms of look ahead. 
+        context_chunks: 50 
 
 wandb:
   project: "nejm-brain-to-text" 

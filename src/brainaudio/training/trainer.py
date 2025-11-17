@@ -38,6 +38,27 @@ def trainModel(args, model):
     
     # Watch the model
     wandb.watch(model, log="all")  # Logs gradients, parameters, and gradients histograms
+
+    def get_participant_suffix(pid: int) -> str:
+        """Return a suffix for saving/logging per-participant artifacts."""
+        suffix_cfg = args.get("participant_suffixes")
+
+        if isinstance(suffix_cfg, dict):
+            # YAML may convert int keys to strings, so check both
+            if str(pid) in suffix_cfg:
+                return suffix_cfg[str(pid)]
+            if pid in suffix_cfg:
+                return suffix_cfg[pid]
+        elif isinstance(suffix_cfg, (list, tuple)):
+            if 0 <= pid < len(suffix_cfg):
+                return suffix_cfg[pid]
+        elif suffix_cfg is not None:
+            raise ValueError("participant_suffixes must be a list, tuple, or dict")
+
+        raise ValueError(
+            "participant_suffixes must provide an entry for each participant. "
+            f"Missing suffix for participant id {pid}."
+        )
     
 
     if args['optimizer'] == 'AdamW':
@@ -219,9 +240,8 @@ def trainModel(args, model):
                 torch.save(model.state_dict(), outputDir + "/modelWeights_PER")
             
             # Save best models per participant
-            participant_suffix = {0: "_25", 1: "_24"}
             for pid in range(len(wer_array)):
-                suffix = participant_suffix.get(pid, f"_{pid}")
+                suffix = get_participant_suffix(pid)
                 
                 if pid not in best_wer_by_participant or wer_array[pid] < best_wer_by_participant[pid]:
                     best_wer_by_participant[pid] = wer_array[pid]
@@ -255,7 +275,7 @@ def trainModel(args, model):
     best_mean_per = np.min(valPER)
     
     for pid in best_wer_by_participant.keys():
-        suffix = {0: "_25", 1: "_24"}.get(pid, f"_{pid}")
+        suffix = get_participant_suffix(pid)
         print(f"Participant {pid}{suffix} - Best WER: {best_wer_by_participant[pid]:.4f}, Best PER: {best_per_by_participant[pid]:.4f}")
     
     print(f"Mean - Best WER: {best_mean_wer:.4f}, Best PER: {best_mean_per:.4f}")
