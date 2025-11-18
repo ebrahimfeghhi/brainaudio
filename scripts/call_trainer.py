@@ -8,7 +8,7 @@ from brainaudio.training.trainer import trainModel
 
 config_path = "chunking_test_run_20sec_context_b2t_25_24.yaml"
 config_file = f"../src/brainaudio/training/utils/custom_configs/{config_path}"
-device = "cuda:1"
+device = "cuda:0"
 
 with open(config_file, 'r') as f:
     config = yaml.safe_load(f)

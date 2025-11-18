@@ -16,7 +16,7 @@ import glob
 #                       1. CONFIGURATION
 # ===================================================================
 
-CONFIGS_DIR = "/data2/brain2text/hpo/hpo_configs/baseline_hpo_b2t25"  # Pre-saved HPO configs
+CONFIGS_DIR = "/data2/brain2text/hpo/hpo_configs/baseline_hpo_combined"  # Pre-saved HPO configs
 HPO_PROJECT_NAME = "transformer-qmc-search"
 MODEL_NAME = None  # Will be extracted from first config
 
@@ -42,10 +42,10 @@ def objective(trial, config_file):
     print(f"Config file: {config_file}")
     print(f"Model name: {config['modelName']}")
     
-    # Hard-coded for b2t25' single dataset case
-    config["outputDir"] = "/data2/brain2text/b2t_25/outputs/"
-    config["manifest_paths"] = ["/data2/brain2text/b2t_25/trial_level_data/manifest.json"]
-    config["modelName"] = "baseline_hpo_b2t25"
+    # # Hard-coded for b2t25' single dataset case
+    # config["outputDir"] = "/data2/brain2text/b2t_25/outputs/"
+    # config["manifest_paths"] = ["/data2/brain2text/b2t_25/trial_level_data/manifest.json"]
+    # config["modelName"] = "baseline_hpo_b2t25"
 
 
 

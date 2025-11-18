@@ -264,7 +264,8 @@ def trainModel(args, model):
                     
             if args["early_stopping_enabled"]:
                 if epoch == args["early_stopping_checkpoint"]:
-                    if wer > args["early_stopping_wer_threshold"]:
+                    # ! Stopping based upon b2t25' <HARD CODED>
+                    if wer_array[0] > args["early_stopping_wer_threshold"]:
                         wandb.log({"early_stopping_triggered": True, "early_stopping_reason": "wer_threshold", "early_stopping_epoch": epoch})
                         break
                 

@@ -16,15 +16,22 @@ import random
 HPO_RANGES = {
     # Optimizer params (log scale)
     "learning_rate": ("float", [5e-4, 3e-3], {"log": False}),
-    "l2_decay": ("float", [1e-7, 1e-3], {"log": True}),
+    "l2_decay": ("float", [1e-6, 1e-4], {"log": True}),
     
     # Regularization (time masking provides augmentation; input_dropout, white noise, baseline shift removed)
     "dropout": ("float", [0.1, 0.4], {}),
-        
+    
+    # White Noise
+    "whiteNoiseSD": ("float", [0.1, 0.3], {}),
+    "constantOffsetSD": ("float", [0.0, 0.1], {}),
+
     # Transformer Architecture
-    "dim_head": ("int", [48,64], {}),  # Model dimension (ßwill derive n_heads from this)
-    "n_heads": ("int", [6, 10], {}),
+    "dim_head": ("int", [48,64], {}),  # Model dimension (will derive n_heads from this)
+    "n_heads": ("int", [6, 9], {}),
     "depth": ("int", [5, 8], {}),
+
+    # Chunked attention:
+    "chunkwise_prob": ("float", [0.4, 0.8], {}),
     
     # Time Masking (core augmentation strategy)
     "total_mask_intensity": ("float", [0.5, 2], {})
@@ -87,6 +94,9 @@ def generate_configs(n_trials=N_TRIALS):
         n_heads = hparams['n_heads']
         dim_head = hparams['dim_head']
         depth = hparams['depth']
+        chunkwise_prob = hparams['chunkwise_prob']
+        whiteNoiseSD = hparams['whiteNoiseSD']
+        constantOffsetSD = hparams['constantOffsetSD']
 
         # Sample num_masks and derive max_mask_pct
         min_num_masks, max_num_masks = 5, 30
@@ -101,12 +111,16 @@ def generate_configs(n_trials=N_TRIALS):
         config['max_mask_pct'] = max_mask_pct
         config['num_masks'] = num_masks
         config['seed'] = config['seeds'][0]
+        config['whiteNoiseSD'] = whiteNoiseSD
+        config['constantOffsetSD'] = constantOffsetSD
+
 
         # Update model args
         model_args = config['model']['transformer']
         model_args['n_heads'] = n_heads
         model_args['dim_head'] = dim_head
         model_args['depth'] = depth
+        model_args["chunked_attention"]["chunkwise_prob"] = chunkwise_prob
 
         # Set trial-specific info
         trial_name = f"trial_{trial_number}"

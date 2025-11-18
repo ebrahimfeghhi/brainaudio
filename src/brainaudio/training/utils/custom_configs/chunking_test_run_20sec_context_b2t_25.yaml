@@ -38,8 +38,8 @@ gaussianSmoothWidth: 2.0
 smooth_kernel_size: 20
 random_cut: 0
 use_amp: true
-l2_decay: 1.0e-05
-input_dropout: 0.1
+l2_decay: 1.0e-06
+input_dropout: 0
 dropout: 0.25
 acoustic_scale: 0.6
 lm_weight: 2.0

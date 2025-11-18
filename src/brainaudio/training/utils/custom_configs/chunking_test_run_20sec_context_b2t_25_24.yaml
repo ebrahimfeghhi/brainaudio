@@ -9,7 +9,7 @@ seeds:
 - 0
 evaluate_wer: true
 evaluate_every_n_epochs: 5
-modelName: chunking_test_run_20sec_context_b2t_25_24
+modelName: chunking_test_run_20sec_context_b2t_25_24_constrained_eval
 modelType: transformer
 optimizer: AdamW
 learning_rate: 0.001
@@ -74,10 +74,10 @@ model:
     dim_head: 64
     depth: 7
     chunked_attention:
-      chunkwise_prob: 1.0
+      chunkwise_prob: 0.6
       chunk_size_min: 1
       chunk_size_max: 20
-      left_constrain_prob: 1.0
+      left_constrain_prob: 0.75
       context_sec_min: 20
       context_sec_max: 20
       timestep_duration_sec: 0.08
