@@ -5,7 +5,7 @@ from brainaudio.models.gru_b2t_25 import GRU_25
 from brainaudio.models.transformer_chunking_lc_time import TransformerModel
 from brainaudio.training.trainer import trainModel
 
-def run_single_trial(config):
+def run_single_trial(config, device):
     """
     Runs a single training trial with the given config.
     Returns the final validation metric (e.g., WER or loss).
@@ -13,6 +13,7 @@ def run_single_trial(config):
     
     model_type = config['modelType']
     model_args = config['model'][model_type]
+    config['device'] = device
     
     
     model_args["d_model"] = model_args["n_heads"]*model_args['dim_head']

@@ -16,9 +16,10 @@ import glob
 #                       1. CONFIGURATION
 # ===================================================================
 
-CONFIGS_DIR = "/data2/brain2text/hpo/hpo_configs/baseline_hpo_combined"  # Pre-saved HPO configs
+CONFIGS_DIR = "/data2/brain2text/hpo/hpo_configs/baseline_hpo_b2t_25"  # Pre-saved HPO configs
 HPO_PROJECT_NAME = "transformer-qmc-search"
 MODEL_NAME = None  # Will be extracted from first config
+device = "cuda:1"
 
 
 # ===================================================================
@@ -51,7 +52,7 @@ def objective(trial, config_file):
 
     try:
         # --- Run the trial ---
-        final_mean_wer, final_mean_per, best_wer_by_participant, best_per_by_participant = run_single_trial(config)
+        final_mean_wer, final_mean_per, best_wer_by_participant, best_per_by_participant = run_single_trial(config, device)
         
         trial.set_user_attr("final_per", final_mean_per)
         trial.set_user_attr("by_participant_wer", best_wer_by_participant)

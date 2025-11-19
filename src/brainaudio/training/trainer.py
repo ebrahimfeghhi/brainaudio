@@ -128,6 +128,7 @@ def trainModel(args, model):
             total=max_dataset_train_length, 
             desc=f"Training Epoch {epoch+1} / {args['n_epochs']}"
         )
+        
         # batches is a list containing batched data for each participant
         for batch_idx, batches in enumerate(train_loop):
             
@@ -188,7 +189,6 @@ def trainModel(args, model):
                                                 foreach = True
                                                 )
                 optimizer.step()            
-                scheduler.step()
         
         avgTrainLoss = np.mean(train_loss)
         
@@ -196,8 +196,9 @@ def trainModel(args, model):
         wer_array = []
         per_array = []
         
-
         current_lr = optimizer.param_groups[0]['lr']
+        scheduler.step()
+        
         
         if epoch % args["evaluate_every_n_epochs"] == 0:
             

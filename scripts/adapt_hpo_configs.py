@@ -56,10 +56,6 @@ def adapt_configs_for_dataset(
         # Modify dataset-related settings
         config['manifest_paths'] = manifest_paths
         
-        # Modify device if specified
-        if device is not None:
-            config['device'] = device
-        
         # Apply any additional modifications
         for key, value in config_modifications.items():
             if isinstance(key, str) and '.' in key:
@@ -74,16 +70,17 @@ def adapt_configs_for_dataset(
         
         # Update model name to reflect dataset
         original_name = config['modelName']
-        config['modelName'] = original_name.replace('combined', 'b2t25').replace('_25_24', '_25')
+        config['modelName'] = original_name.replace('combined', 'b2t_25')
         
-        # Save adapted config
+        # Save adapted con
+        # fig
         trial_name = os.path.basename(config_file)
         output_file = os.path.join(output_configs_dir, trial_name)
         
         with open(output_file, 'w') as f:
             yaml.dump(config, f, default_flow_style=False)
         
-        print(f"  Adapted {trial_name} → {config['modelName']} (device: {config['device']})")
+        print(f"  Adapted {trial_name} → {config['modelName']}")
     
     print(f"\nSaved {len(config_files)} adapted configs to {output_configs_dir}")
     return config_files
@@ -92,15 +89,11 @@ def adapt_configs_for_dataset(
 if __name__ == "__main__":
     # Example: Adapt configs for B2T 25 only
     source_dir = "/data2/brain2text/hpo/hpo_configs/baseline_hpo_combined"
-    output_dir = "/data2/brain2text/hpo/hpo_configs/baseline_hpo_b2t25"
+    output_dir = "/data2/brain2text/hpo/hpo_configs/baseline_hpo_b2t_25"
     
     adapt_configs_for_dataset(
         source_configs_dir=source_dir,
         output_configs_dir=output_dir,
         manifest_paths=["/data2/brain2text/b2t_25/trial_level_data/manifest.json"],
-        config_modifications={
-            # Add any other config changes here if needed
-            # 'n_epochs': 500,  # Example: change number of epochs
-        },
-        device="cuda:1"
+        config_modifications={}
     )

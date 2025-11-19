@@ -9,7 +9,7 @@ participant_suffixes: ["_25", "_24"] # REQUIRED: aligns with manifest_paths (pro
 seeds: [0]
 evaluate_wer: True 
 evaluate_every_n_epochs: 5
-modelName: "chunking_test_run_20sec_context_b2t_25_24"
+modelName: "baseline_hpo_combined"
 modelType: 'transformer'
 optimizer: 'AdamW'
 learning_rate: 0.001
@@ -17,22 +17,22 @@ beta1: 0.9
 beta2: 0.999
 eps: 1.0e-8
 learning_scheduler: 'cosine'
-n_epochs: 500
-milestones: [None] # need to convert to batches
-gamma: None # multiply learning rate by this factor at milestones
+n_epochs: 350
+learning_rate_decay_steps: 340 # in epochs
+learning_rate_warmup_steps: 10 # in epochs
+milestones: [None] 
+gamma: None 
 lr_scaling_factor: 0.1
-learning_rate_decay_steps: 120000 # in batches
-learning_rate_warmup_steps: 1000 # in batches
 batchSize: 64
 nClasses: 40 
 load_pretrained_model: ''
 grad_norm_clip_value: 10
 
 # Early stopping parameters
-early_stopping_enabled: False
+early_stopping_enabled: True
 early_stopping_checkpoint: 100 # epoch at which to check WER threshold
-early_stopping_wer_threshold: 1 # if WER hasn't reached this by checkpoint, stop training
-early_stopping_no_improvement: 1000 # number of val checks with no improvement to wait before stopping
+early_stopping_wer_threshold: 0.16 # if WER hasn't reached this by checkpoint, stop training
+early_stopping_no_improvement: 15 # number of val checks with no improvement to wait before stopping (val_checks occurs based on evaluate_every_n_epochs)
 
 # time masking aug
 num_masks: 20
@@ -84,7 +84,7 @@ model:
   # --- Transformer Model Arguments ---
   transformer:
     name: 'Transformer'
-    features_list: [512] # For multiple dataset, order the feature list aligning with corresponding dataset
+    features_list: [512, 256] # For multiple dataset, order the feature list aligning with corresponding dataset
     samples_per_patch: 4 # 100ms
     n_heads: 8    
     mlp_dim_ratio: 4 

@@ -1,0 +1,5 @@
+CAT c a t
+DOG d o g
+BAT b a t
+CAR c a r
+BAR b a r
