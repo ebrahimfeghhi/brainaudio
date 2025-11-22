@@ -83,6 +83,7 @@ class GPUCTCDecoder:
         self.lexicon = VectorizedLexicon(lexicon_path, tokens)
         
     def __call__(self, emissions: torch.Tensor) -> List[List[CTCHypothesis]]:
+        
         device = emissions.device
         if self.lexicon.transitions.device != device:
             self.lexicon.to(device)
@@ -105,18 +106,33 @@ class GPUCTCDecoder:
         # --- DECODING LOOP ---
         for t in range(T):
             # 1. Expand
-            log_probs = torch.nn.functional.log_softmax(emissions[:, t, :], dim=-1)
-            next_scores = beam_scores.unsqueeze(-1) + log_probs.unsqueeze(1)
-            next_scores = next_scores.view(B, -1) 
+            log_probs = torch.nn.functional.log_softmax(emissions[:, t, :], dim=-1) # B x V
+            next_scores = beam_scores.unsqueeze(-1) + log_probs.unsqueeze(1) # B x Beam x V
+            next_scores = next_scores.view(B, -1) # B x (Beam * V)
             
             # 2. Transition Logic
             # [B, Beam * V]
+            """
+            beam_trie_nodes: [B, Beam]
+            current_nodes_expanded: [B, Beam * V]
+            last_tokens_expanded: [B, Beam * V]
+            candidate_tokens: [B, Beam * V]
+            """
             current_nodes_expanded = beam_trie_nodes.unsqueeze(-1).expand(-1, -1, V).reshape(B, -1)
             last_tokens_expanded = beam_last_tokens.unsqueeze(-1).expand(-1, -1, V).reshape(B, -1)
             candidate_tokens = torch.arange(V, device=device).reshape(1, 1, -1).expand(B, self.beam_size, -1).reshape(B, -1)
             
-            # A. Standard Trie Lookup
+            """
+            A. Standard Trie Lookup
+            
+            Returns next trie nodes for each (current_node, candidate_token) pair.
+            If no valid transition, returns -1.
+            """
+        
+            breakpoint()
             next_trie_nodes_lookup = self.lexicon.transitions[current_nodes_expanded, candidate_tokens]
+            breakpoint()
+            
 
             # B. Space / Word Boundary Logic
             # If token is Space AND current node is a valid word -> Reset to Root (0)

@@ -120,7 +120,8 @@ def _cer_and_wer(decodedSentences, trueSentences, outputType='speech',
 
 def load_model(
     folder: str,
-    device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu"),
+    modelWeightsFile: Optional[str] = "modelWeights"
 ):
     """
     Load a pre-trained model from a folder.
@@ -145,9 +146,7 @@ def load_model(
     # Load config                
     modelType = config['modelType']
     model_config = config['model'][modelType]
-
     
-
     if modelType == 'transformer':
         
         if 'return_final_layer' not in config:
@@ -175,7 +174,7 @@ def load_model(
             strideLen=model_config['strideLen'], kernelLen=model_config['kernelLen'], bidirectional=model_config['bidirectional'], max_mask_pct=config['max_mask_pct'], num_masks=config['num_masks'])
 
     # Load weights
-    ckpt_path = os.path.join(folder, "modelWeights")
+    ckpt_path = os.path.join(folder, modelWeightsFile)
     state_dict = torch.load(ckpt_path, map_location=device)
     model.load_state_dict(state_dict, strict=True)
 
@@ -306,7 +305,7 @@ def save_transcripts(dataset_paths, partition, save_paths):
             
         
 def generate_and_save_logits(model, config, partition, device, 
-                             dataset_paths, save_paths, participant_ids, char_label):
+                             dataset_paths, save_paths, participant_ids):
     
     """
     Runs the model forward pass and saves the output logits to a file.
@@ -319,7 +318,6 @@ def generate_and_save_logits(model, config, partition, device,
         dataset_paths (list): List of paths to the dataset files.
         save_paths (list): List of paths to save the output files.
         participant_ids (list): List of integer participant ids 
-        char_label (bool): use characters if True, else phonemes
     """
     
     print(f"--- Starting: Generating logits for '{partition}' partition ---")
@@ -328,8 +326,7 @@ def generate_and_save_logits(model, config, partition, device,
         dataset_paths,
         config["batchSize"], 
         return_transcript=True, 
-        shuffle_train=False, 
-        char_label=char_label
+        shuffle_train=False
     )
     
     if partition == "train":
