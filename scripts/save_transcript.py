@@ -1,7 +1,7 @@
 # File: generate_logits.py
 # Purpose: Run the model inference and save the resulting logits to a file.
 # Environment: .wfst
-from brainaudio.inference.inference_utils import save_transcripts
+from brainaudio.inference.load_model_generate_logits import save_transcripts
 import os
 
 # --- Configuration ---

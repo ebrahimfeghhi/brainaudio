@@ -1,18 +1,18 @@
 # File: generate_logits.py
 # Purpose: Run the model inference and save the resulting logits to a file.
-from brainaudio.inference.inference_utils import load_model, generate_and_save_logits
+from brainaudio.inference.load_model_generate_logits import load_model, generate_and_save_logits
 import os
 from typing import Optional, Dict
 
 # --- Configuration ---
 MODEL_NAME = "baseline_hpo_combined_trial_12"
-LOAD_MODEL_FOLDER = f"/data2/brain2text/b2t_combined/outputs/{MODEL_NAME}"  
+local_model_folder = "b2t_combined"
+modelWeightsFiles = ["modelWeights_WER_25", "modelWeights_WER_24"]
+
+
+LOAD_MODEL_FOLDER = f"/data2/brain2text/{local_model_folder}/outputs/{MODEL_NAME}"  
 DEVICE = "cuda:1"   
-MANIFEST_PATHS = ["/data2/brain2text/b2t_25/trial_level_data/manifest.json"]
-SAVE_PATHS = {0:'/data2/brain2text/b2t_25/logits/'}
 PARTITION = 'val'
-PARTICIPANT_IDS = [0]
-modelWeightsFiles = ["modelWeights_WER_25"]
 
 # Optionally evaluate multiple chunk configs per run. Use None to keep the
 # checkpoint's stored eval config. Add dicts like {"chunk_size": 5, "context_chunks": 50}.
@@ -24,6 +24,28 @@ EVAL_CONFIGS = [
 ]
 
 
+if local_model_folder == "b2t_25":
+    
+    MANIFEST_PATHS = ["/data2/brain2text/b2t_25/trial_level_data/manifest.json"]
+    SAVE_PATHS = {0:'/data2/brain2text/b2t_25/logits/'}
+    PARTICIPANT_IDS = [0]
+    
+    
+if local_model_folder == "b2t_24":
+    
+    MANIFEST_PATHS = ["/data2/brain2text/b2t_24/trial_level_data/manifest.json"]
+    SAVE_PATHS = {0:'/data2/brain2text/b2t_24/logits/'}
+    PARTICIPANT_IDS = [0]
+    
+    
+if local_model_folder == "b2t_combined":
+    
+    MANIFEST_PATHS = ["/data2/brain2text/b2t_25/trial_level_data/manifest.json", 
+                      "/data2/brain2text/b2t_24/trial_level_data/manifest.json"]
+    SAVE_PATHS = { 0:'/data2/brain2text/b2t_25/logits/',
+                    1:'/data2/brain2text/b2t_24/logits/'}
+    PARTICIPANT_IDS = [0, 1]
+    
 def _format_eval_tag(cfg: Optional[Dict[str, Optional[int]]]) -> str:
     if cfg is None:
         return "default"
@@ -32,7 +54,6 @@ def _format_eval_tag(cfg: Optional[Dict[str, Optional[int]]]) -> str:
     chunk_str = "full" if chunk is None else str(chunk)
     context_str = "full" if context is None else str(context)
     return f"chunk_{chunk_str}_context_{context_str}"
-
 
 def main():
 

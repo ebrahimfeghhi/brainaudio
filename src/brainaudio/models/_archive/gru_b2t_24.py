@@ -1,7 +1,7 @@
 import torch
 from torch import nn
-from .base_model import BaseTimeMaskedModel
-from ..training.utils.augmentations import GaussianSmoothing
+from ..base_model import BaseTimeMaskedModel
+from ...training.utils.augmentations import GaussianSmoothing
 
 class GRU_24(BaseTimeMaskedModel):
     

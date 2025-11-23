@@ -1,8 +1,0 @@
-{
-  "learning_rate": 0.0005,
-  "l2_decay": 1e-05,
-  "dropout": 0.3,
-  "n_heads": 8,
-  "depth": 6,
-  "total_mask_intensity": 1.2
-}

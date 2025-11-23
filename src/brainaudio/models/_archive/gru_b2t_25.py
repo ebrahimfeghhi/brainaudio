@@ -1,6 +1,6 @@
 import torch 
 from torch import nn
-from .base_model import BaseTimeMaskedModel
+from ..base_model import BaseTimeMaskedModel
 
 class GRU_25(BaseTimeMaskedModel):
     '''

@@ -17,7 +17,7 @@ import sys
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
-from brainaudio.models.transformer_chunking_lc_time import (
+from brainaudio.models.transformer_chunking import (
     ChunkConfig, 
     ChunkConfigSampler, 
     create_dynamic_chunk_mask,

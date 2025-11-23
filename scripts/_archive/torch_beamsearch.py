@@ -1,9 +1,8 @@
 from torchaudio.models.decoder import ctc_decoder, cuda_ctc_decoder
 import numpy as np 
 import torch
-from torch.nn.functional import softmax, log_softmax
-from brainaudio.inference.inference_utils import _cer_and_wer, normalize_shorthand
-import torch.distributions as dist
+from brainaudio.inference.eval_metrics import _cer_and_wer
+from brainaudio.inference.load_model_generate_logits import normalize_shorthand
 import pandas as pd
 from argparse import ArgumentParser
 
@@ -20,6 +19,7 @@ model_logits_path = "tm_transformer_combined_reduced_reg_seed_0/logits_val_None_
 
 
 def main(args):
+    
     year = args.year
     # Loading datasets, models, and LMs
     if year == "25":
@@ -30,9 +30,6 @@ def main(args):
         full_model_logits_path ="/data2/brain2text/b2t_24/logits/" + model_logits_path
     else:
         raise ValueError("Specified year does not have existing validation transcripts")
-
-    # with open("/data2/brain2text/b2t_24/wfst_txt/tm_transformer_b2t_24+25_large_wide_bidir_grad_clip_cosine_decay.txt") as file:
-    #     wfst_txt =  [line.strip() for line in file]
 
     model_logits = np.load(full_model_logits_path)
 

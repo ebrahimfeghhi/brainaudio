@@ -6,7 +6,7 @@ import numpy as np
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
 from torch.nn import functional as F
-from .base_model import BaseTimeMaskedModel
+from ..base_model import BaseTimeMaskedModel
 
 '''
 Code adapted from Francois Porcher: https://github.com/FrancoisPorcher/vit-pytorch

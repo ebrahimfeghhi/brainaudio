@@ -1,8 +1,8 @@
 # Save this file as hpo_trainer.py
 
 import yaml
-from brainaudio.models.gru_b2t_25 import GRU_25
-from brainaudio.models.transformer_chunking_lc_time import TransformerModel
+from brainaudio.models._archive.gru_b2t_25 import GRU_25
+from brainaudio.models.transformer_chunking import TransformerModel
 from brainaudio.training.trainer import trainModel
 
 def run_single_trial(config, device):

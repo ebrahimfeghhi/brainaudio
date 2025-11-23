@@ -4,7 +4,7 @@
 import yaml
 import optuna
 from optuna.samplers import QMCSampler
-from hpo_trainer import run_single_trial
+from scripts.hparam_search.hpo_trainer import run_single_trial
 from brainaudio.training.utils import track_best_models, save_best_hparams, print_hpo_summary
 import copy
 import random

@@ -2,7 +2,7 @@
 # Purpose: Load pre-computed logits and generate forced alignments.
 # Environment: brainaudio_env (or any env with the necessary alignment tools)
 
-from brainaudio.inference.inference_utils import compute_forced_alignments
+from brainaudio.inference.load_model_generate_logits import compute_forced_alignments
 
 # --- Configuration ---
 SAVE_PATHS = ['/data2/brain2text/b2t_25/', '/data2/brain2text/b2t_24/']

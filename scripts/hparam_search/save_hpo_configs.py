@@ -41,7 +41,6 @@ BASE_CONFIG_PATH = "../src/brainaudio/training/utils/custom_configs/baseline_hpo
 N_TRIALS = 50
 HPO_PROJECT_NAME = "transformer-qmc-search"
 
-
 # ===================================================================
 #                       2. GENERATE CONFIGS
 # =======================ß============================================
