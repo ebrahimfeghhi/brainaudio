@@ -16,7 +16,7 @@ from typing import Optional
 import yaml
 import re
 
-from brainaudio.models.transformer import TransformerModel
+from brainaudio.models.transformer_chunking_lc_time import TransformerModel
 from brainaudio.models.gru_b2t_25 import GRU_25
 from brainaudio.models.gru_b2t_24 import GRU_24
 from brainaudio.datasets.lazy_data_loading import getDatasetLoaders
@@ -121,7 +121,8 @@ def _cer_and_wer(decodedSentences, trueSentences, outputType='speech',
 def load_model(
     folder: str,
     device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu"),
-    modelWeightsFile: Optional[str] = "modelWeights"
+    modelWeightsFile: Optional[str] = "modelWeights",
+    eval_chunk_config: Optional[Dict[str, Optional[int]]] = None,
 ):
     """
     Load a pre-trained model from a folder.
@@ -148,15 +149,32 @@ def load_model(
     model_config = config['model'][modelType]
     
     if modelType == 'transformer':
-        
+
         if 'return_final_layer' not in config:
             config['return_final_layer'] = False
-        
-        model = TransformerModel(features_list=model_config['features_list'], samples_per_patch=model_config['samples_per_patch'], dim=model_config['d_model'], depth=model_config['depth'], 
-                        heads=model_config['n_heads'], mlp_dim_ratio=model_config['mlp_dim_ratio'],  dim_head=model_config['dim_head'], 
-                        dropout=config['dropout'], input_dropout=config['input_dropout'], nClasses=config['nClasses'], 
-                        max_mask_pct=config['max_mask_pct'], num_masks=config['num_masks'], num_participants=len(model_config['features_list']), return_final_layer=config['return_final_layer'],
-                        bidirectional=model_config.get('bidirectional', True))
+
+        chunked_attention_cfg = model_config.get('chunked_attention')
+        if eval_chunk_config is not None and isinstance(chunked_attention_cfg, dict):
+            chunked_attention_cfg['eval'] = eval_chunk_config
+            print(f"Overriding eval chunk config with: {eval_chunk_config}")
+
+        model = TransformerModel(
+            features_list=model_config['features_list'],
+            samples_per_patch=model_config['samples_per_patch'],
+            dim=model_config['d_model'],
+            depth=model_config['depth'],
+            heads=model_config['n_heads'],
+            mlp_dim_ratio=model_config['mlp_dim_ratio'],
+            dim_head=model_config['dim_head'],
+            dropout=config['dropout'],
+            input_dropout=config['input_dropout'],
+            nClasses=config['nClasses'],
+            max_mask_pct=config['max_mask_pct'],
+            num_masks=config['num_masks'],
+            num_participants=len(model_config['features_list']),
+            return_final_layer=config['return_final_layer'],
+            chunked_attention=chunked_attention_cfg,
+        )
 
     
     elif modelType == 'gru' and model_config['year'] == '2024':
@@ -269,17 +287,17 @@ def obtain_word_level_timespans(alignments, scores, ground_truth_sequence, trans
     return word_span_information
 
 
-def save_transcripts(dataset_paths, partition, save_paths):
+def save_transcripts(manifest_paths, partition, save_paths):
     '''
     Saves the transcripts for each participant in the dataset.
 
     Args:
-        dataset_paths (list): List of paths to the dataset files.
+        manifest_paths (list): List of manifest.json paths for each participant.
         partition (str): The data partition to process ('train' or 'val').
         save_paths (list): List of paths to save the transcripts.
     '''
-    trainLoaders, valLoaders, _, _ = getDatasetLoaders(
-        dataset_paths,
+    trainLoaders, valLoaders, _ = getDatasetLoaders(
+        manifest_paths,
         1, 
         return_transcript=True, 
         shuffle_train=False
@@ -305,7 +323,8 @@ def save_transcripts(dataset_paths, partition, save_paths):
             
         
 def generate_and_save_logits(model, config, partition, device, 
-                             dataset_paths, save_paths, participant_ids):
+                             manifest_paths, save_paths, participant_ids,
+                             chunk_config: Optional[Dict[str, Optional[int]]] = None):
     
     """
     Runs the model forward pass and saves the output logits to a file.
@@ -315,15 +334,29 @@ def generate_and_save_logits(model, config, partition, device,
         config (dict): Dictionary of arguments.
         partition (str): The data partition to process ('train' or 'val').
         device (torch.device): The device to run the model on.
-        dataset_paths (list): List of paths to the dataset files.
+        manifest_paths (list): List of manifest.json paths per participant.
         save_paths (list): List of paths to save the output files.
-        participant_ids (list): List of integer participant ids 
+        participant_ids (list): List of integer participant ids.
+        chunk_config (dict|None): Optional chunking overrides for evaluation.
     """
     
     print(f"--- Starting: Generating logits for '{partition}' partition ---")
 
-    trainLoaders, valLoaders, testLoaders, _ = getDatasetLoaders(
-        dataset_paths,
+    def _format_chunk_tag(cfg: Optional[Dict[str, Optional[int]]]) -> Optional[str]:
+        if not cfg:
+            return None
+        chunk = cfg.get("chunk_size")
+        context = cfg.get("context_chunks")
+        chunk_str = "full" if chunk is None else str(chunk)
+        context_str = "full" if context is None else str(context)
+        return f"chunk_{chunk_str}_context_{context_str}"
+
+    chunk_tag = _format_chunk_tag(chunk_config)
+    if chunk_tag:
+        print(f"Using eval chunk config: {chunk_config}")
+
+    trainLoaders, valLoaders, testLoaders = getDatasetLoaders(
+        manifest_paths,
         config["batchSize"], 
         return_transcript=True, 
         shuffle_train=False
@@ -372,7 +405,10 @@ def generate_and_save_logits(model, config, partition, device,
                     total_edit_distance, total_seq_length = compute_per(logits[i, :ali].cpu(), 
                     y[i, :yli].cpu(), total_edit_distance, total_seq_length)
             
-            save_path = f"{save_paths[participant_id]}/logits_{partition}.npz"
+            if chunk_tag:
+                save_path = f"{save_paths[participant_id]}/logits_{partition}_{chunk_tag}.npz"
+            else:
+                save_path = f"{save_paths[participant_id]}/logits_{partition}.npz"
             print(f"Saving logits for participant {participant_id} to {save_path}")
             np.savez_compressed(save_path, *logits_data)
             print(f"Error Rate for participant {participant_id}: {total_edit_distance/total_seq_length}")

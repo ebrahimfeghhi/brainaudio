@@ -5,7 +5,7 @@ from brainaudio.inference.inference_utils import save_transcripts
 import os
 
 # --- Configuration ---
-DATASET_PATHS = ['/data2/brain2text/b2t_25/brain2text25.pkl']
+MANIFEST_PATHS = ['/data2/brain2text/b2t_25/trial_level_data/manifest.json']
 SAVE_PATHS = ['/data2/brain2text/b2t_25/']
 PARTICIPANT_IDS = [0, 1]
 PARTITION = 'val'
@@ -14,7 +14,7 @@ def main():
     
     save_transcripts(
         partition=PARTITION,
-        dataset_paths=DATASET_PATHS,
+        manifest_paths=MANIFEST_PATHS,
         save_paths=SAVE_PATHS
     )
 

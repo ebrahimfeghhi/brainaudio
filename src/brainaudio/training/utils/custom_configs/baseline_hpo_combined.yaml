@@ -83,7 +83,7 @@ model:
       timestep_duration_sec: 0.08
       eval:
         chunk_size: 5
-        context_chunks: 50
+        context_sec: 20
 wandb:
   project: nejm-brain-to-text
   entity: lionelhu926-ucla

@@ -367,6 +367,7 @@ class TransformerModel(BaseTimeMaskedModel):
         if isinstance(chunked_attention, dict):
             self._setup_chunked_attention(chunked_attention)
         
+        print(f"EVAL CONFIG: {self._eval_config}")
         # self.mask_token = nn.Parameter(torch.randn(self.patch_dim))  
         self.patch_embedders = nn.ModuleList([])
         
@@ -400,23 +401,29 @@ class TransformerModel(BaseTimeMaskedModel):
         
     # --- MODIFICATION: Updated to use time-based config ---
     def _build_chunk_config(self, data, timestep_duration_sec: float) -> Optional[ChunkConfig]:
-        """Builds a deterministic ChunkConfig for evaluation from a config dict."""
+        
+        """Build a deterministic ChunkConfig for evaluation from a config dict."""
         if not data:
-            return ChunkConfig(None, None) # Default to full context
-
-        chunk_size = data.get("chunk_size")
-        context_sec = data.get("context_sec") # <-- Read context_sec
-
-        # If either is missing, use full context
-        if chunk_size is None or context_sec is None:
             return ChunkConfig(None, None)
 
-        # --- This is the key calculation, same as in the sampler ---
+        chunk_size = data.get("chunk_size")
+        context_sec = data.get("context_sec")
+        context_chunks_cfg = data.get("context_chunks")
+
+        if chunk_size is None:
+            return ChunkConfig(None, None)
+
         chunk_size = max(1, int(chunk_size))
-        total_context_timesteps = context_sec / timestep_duration_sec
-        context_chunks = math.ceil(total_context_timesteps / chunk_size)
-        # ---
-        
+        context_chunks: Optional[int]
+
+        if context_sec is not None:
+            total_context_timesteps = context_sec / timestep_duration_sec
+            context_chunks = math.ceil(total_context_timesteps / chunk_size)
+        elif context_chunks_cfg is not None:
+            context_chunks = max(0, int(context_chunks_cfg))
+        else:
+            return ChunkConfig(None, None)
+
         return ChunkConfig(
             chunk_size=chunk_size,
             context_chunks=context_chunks,
