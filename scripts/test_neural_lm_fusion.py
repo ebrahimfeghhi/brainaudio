@@ -104,15 +104,28 @@ def decode_results(result, lexicon, token_to_symbol, phoneme_to_word):
         seq_filtered = seq[seq >= 0]
         score = result.scores[b, 0].item()
         
-        if score > float('-inf'):
+        print(f"\n   DEBUG Utterance {b}:")
+        print(f"     Raw sequence length: {len(seq_filtered)}")
+        print(f"     First 10 tokens: {seq_filtered[:10].tolist()}")
+        
+        if score > float('-inf') and len(seq_filtered) > 0:
             # Apply CTC rules and decode
             ids_no_blanks = apply_ctc_rules(seq_filtered)
+            print(f"     After CTC rules: {len(ids_no_blanks)} tokens")
+            print(f"     Tokens after CTC: {ids_no_blanks[:10]}")
+            
+            # Convert to symbols
+            symbols = [token_to_symbol.get(t, f"UNK{t}") for t in ids_no_blanks]
+            print(f"     Symbols: {symbols[:20]}")
+            
+            # Try to decode with lexicon
             word_alts = lexicon.decode_sequence_to_words(
                 ids_no_blanks, 
                 token_to_symbol, 
                 phoneme_to_word,
                 return_alternatives=False
             )
+            print(f"     Decoded: '{word_alts}'")
             decoded_texts.append(word_alts)
         else:
             decoded_texts.append("<NO_DECODE>")
@@ -202,15 +215,26 @@ def main():
     )
     decoded_baseline = decode_results(result_baseline, lexicon, token_to_symbol, phoneme_to_word)
     
-    print("\n   Baseline results:")
+    print("\n   Baseline results (detailed):")
     for i, (decoded, gt) in enumerate(zip(decoded_baseline, ground_truth_transcript[:NUM_TRIALS])):
         wer = compute_wer(decoded, gt)
-        print(f"   Utterance {i}: WER={wer:.2%}")
+        print(f"\n   Utterance {i}:")
+        print(f"     Ground truth: {gt}")
+        print(f"     Decoded:      {decoded}")
+        print(f"     Score:        {result_baseline.scores[i, 0].item():.2f}")
+        print(f"     Seq length:   {(result_baseline.transcript_wb[i, 0] >= 0).sum().item()}")
+        print(f"     WER:          {wer:.2%}")
     
     # Compute average WER
     wers_baseline = [compute_wer(decoded, gt) for decoded, gt in zip(decoded_baseline, ground_truth_transcript[:NUM_TRIALS])]
     avg_wer_baseline = np.mean(wers_baseline)
     print(f"\n   Average Baseline WER: {avg_wer_baseline:.2%}")
+    print(f"   Min WER: {np.min(wers_baseline):.2%}, Max WER: {np.max(wers_baseline):.2%}")
+    
+    print("\n" + "=" * 80)
+    print("Baseline test complete!")
+    print("=" * 80)
+    return  # Exit early for debugging
     
     # Test 2: Dummy LM fusion (should be same as baseline)
     print("\n4. Running with dummy LM fusion (should match baseline)...")

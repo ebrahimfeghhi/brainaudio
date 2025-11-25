@@ -61,6 +61,29 @@ def load_token_to_phoneme_mapping(tokens_file):
     return token_to_symbol
 
 
+def compute_wer(hypothesis, reference):
+    """Simple WER computation using Levenshtein distance."""
+    hyp_words = hypothesis.lower().split()
+    ref_words = reference.lower().split()
+    
+    # Levenshtein distance on words
+    d = [[0] * (len(ref_words) + 1) for _ in range(len(hyp_words) + 1)]
+    
+    for i in range(len(hyp_words) + 1):
+        d[i][0] = i
+    for j in range(len(ref_words) + 1):
+        d[0][j] = j
+    
+    for i in range(1, len(hyp_words) + 1):
+        for j in range(1, len(ref_words) + 1):
+            if hyp_words[i-1] == ref_words[j-1]:
+                d[i][j] = d[i-1][j-1]
+            else:
+                d[i][j] = min(d[i-1][j], d[i][j-1], d[i-1][j-1]) + 1
+    
+    return d[len(hyp_words)][len(ref_words)] / max(len(ref_words), 1)
+
+
 # Load and prepare logits
 model_logits = np.load(LOGITS_PATH)
 logits_0 = model_logits["arr_0"]
@@ -134,7 +157,8 @@ for b in range(logits_batched.shape[0]):
     
     # Show ground truth
     if b < len(ground_truth_transcript):
-        print(f"Ground truth: {ground_truth_transcript[b]}")
+        gt = ground_truth_transcript[b]
+        print(f"Ground truth: {gt}")
     
     seq = result.transcript_wb[b, 0]
     seq_filtered = seq[seq >= 0]
@@ -152,13 +176,18 @@ for b in range(logits_batched.shape[0]):
         decoded_text = ' '.join([alt[0] if alt else word for word, alt in word_alts])
         print(f"Decoded:      {decoded_text}")
         
+        # Compute WER
+        if b < len(ground_truth_transcript):
+            wer = compute_wer(decoded_text, gt)
+            print(f"WER:          {wer:.2%}")
+        
         # Display words with homophones
-        print("\nDecoded words with alternatives:\n")
+        print("\nDecoded words with alternatives:")
         for i, (primary_word, alternatives) in enumerate(word_alts, 1):
             if alternatives:
-                print(f"{i}. {alternatives}")
+                print(f"  {i}. {alternatives}")
             else:
-                print(f"{i}. {primary_word}")
+                print(f"  {i}. {primary_word}")
     else:
         print("No valid decode (score is -inf)")
     print()
