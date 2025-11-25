@@ -16,30 +16,26 @@ import random
 HPO_RANGES = {
     # Optimizer params (log scale)
     "learning_rate": ("float", [5e-4, 3e-3], {"log": False}),
-    "l2_decay": ("float", [1e-6, 1e-4], {"log": True}),
     
     # Regularization (time masking provides augmentation; input_dropout, white noise, baseline shift removed)
     "dropout": ("float", [0.1, 0.4], {}),
     
     # White Noise
-    "whiteNoiseSD": ("float", [0.1, 0.3], {}),
+    "whiteNoiseSD": ("float", [0.0, 0.3], {}),
     "constantOffsetSD": ("float", [0.0, 0.1], {}),
 
     # Transformer Architecture
     "dim_head": ("int", [48,64], {}),  # Model dimension (will derive n_heads from this)
     "n_heads": ("int", [6, 9], {}),
-    "depth": ("int", [5, 8], {}),
+    "depth": ("int", [4,6], {}),
 
-    # Chunked attention:
-    "chunkwise_prob": ("float", [0.4, 0.8], {}),
-    
     # Time Masking (core augmentation strategy)
     "total_mask_intensity": ("float", [0.5, 2], {})
 }
 
-BASE_CONFIG_PATH = "../src/brainaudio/training/utils/custom_configs/baseline_hpo_combined.yaml"
+BASE_CONFIG_PATH = "../src/brainaudio/training/utils/custom_configs/baseline_hpo_tpe_b2t_25.yaml"
 N_TRIALS = 50
-HPO_PROJECT_NAME = "transformer-qmc-search"
+HPO_PROJECT_NAME = "transformer-tpe-search"
 
 # ===================================================================
 #                       2. GENERATE CONFIGS

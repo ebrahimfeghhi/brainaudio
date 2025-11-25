@@ -1,13 +1,13 @@
 # File: generate_logits.py
 # Purpose: Run the model inference and save the resulting logits to a file.
-from brainaudio.inference.load_model_generate_logits import load_model, generate_and_save_logits
+from brainaudio.inference.load_model_generate_logits import load_transformer_model, generate_and_save_logits
 import os
 from typing import Optional, Dict
 
 # --- Configuration ---
-MODEL_NAME = "baseline_hpo_combined_trial_12"
-local_model_folder = "b2t_combined"
-modelWeightsFiles = ["modelWeights_WER_25", "modelWeights_WER_24"]
+MODEL_NAME = "fully_chunked_25_trial_38_seed_0"
+local_model_folder = "b2t_25"
+modelWeightsFiles = ["modelWeights_WER_25"]
 
 
 LOAD_MODEL_FOLDER = f"/data2/brain2text/{local_model_folder}/outputs/{MODEL_NAME}"  
@@ -17,10 +17,9 @@ PARTITION = 'val'
 # Optionally evaluate multiple chunk configs per run. Use None to keep the
 # checkpoint's stored eval config. Add dicts like {"chunk_size": 5, "context_chunks": 50}.
 EVAL_CONFIGS = [
-    {"chunk_size": 1, "context_chunks": 250},
-    {"chunk_size": 5, "context_chunks": 50},
-    {"chunk_size": 10, "context_chunks": 25},
-    {"chunk_size": None, "context_chunks": None}
+    {"chunk_size": 5, "context_chunks": 30},
+    {"chunk_size": 5, "context_chunks": 25},
+    {"chunk_size": 5, "context_chunks": 20},
 ]
 
 
@@ -68,7 +67,7 @@ def main():
         tag = _format_eval_tag(eval_cfg)
         print(f"=== Running eval config: {tag} ===")
 
-        model, args = load_model(
+        model, args = load_transformer_model(
             LOAD_MODEL_FOLDER,
             DEVICE,
             modelWeightsFile=modelWeightsFiles[0],
