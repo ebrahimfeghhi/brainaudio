@@ -37,6 +37,7 @@ class LexiconConstraint:
         blank_index: int,
         device: torch.device = None,
         word_list: List[str] = None,
+        word_boundary_token: Optional[int] = None,
     ):
         """
         Initialize the lexicon constraint.
@@ -50,10 +51,12 @@ class LexiconConstraint:
             blank_index: The index of the blank token in the vocabulary.
             device: The device on which to store constraint data.
             word_list: Optional list of words corresponding to lexicon entries (for homophone tracking).
+            word_boundary_token: Optional token to indicate word boundaries.
         """
         self.blank_index = blank_index
         self.device = device
         self.word_list = word_list
+        self.word_boundary_token = word_boundary_token
         
         # Build the prefix tree with word tracking
         self.trie = self._build_trie(lexicon)
@@ -106,12 +109,19 @@ class LexiconConstraint:
         # Load lexicon with word tracking for homophones
         lexicon_sequences, word_list = cls._load_lexicon_file_with_words(lexicon_file, token_to_id)
         
-        return cls(
+        boundary_token = token_to_id.get('|')
+
+        instance = cls(
             lexicon=lexicon_sequences,
             blank_index=blank_index,
             device=device,
             word_list=word_list,
+            word_boundary_token=boundary_token,
         )
+        # Store helpful mappings for downstream debug / LM fusion
+        instance.token_to_symbol = {idx: token for token, idx in token_to_id.items()}
+        instance.word_boundary_token = boundary_token
+        return instance
     
     @staticmethod
     def _load_tokens_file(tokens_file: Path) -> tuple[Dict[str, int], int]:
@@ -159,7 +169,9 @@ class LexiconConstraint:
         word_list = []
         
         with open(lexicon_file, 'r', encoding='utf-8') as f:
+            
             for line_num, line in enumerate(f, 1):
+                
                 line = line.strip()
                 if not line or line.startswith('#'):
                     continue
@@ -244,6 +256,7 @@ class LexiconConstraint:
         return valid_tokens
     
     def get_valid_next_tokens_with_word_info(self, sequence: List[int]) -> Tuple[Set[int], bool, List[int]]:
+        
         """
         Get valid next tokens AND information about word boundaries for LM fusion.
         
@@ -256,6 +269,7 @@ class LexiconConstraint:
                 - Bool indicating if current position is at a word boundary (just completed a word)
                 - List of word indices that just completed (for homophones)
         """
+        
         # Check cache first to see if the next valid tokens for this sequence have been computed
         cache_key = tuple(sequence)
         if cache_key in self._cache:
@@ -269,16 +283,48 @@ class LexiconConstraint:
         word_indices = []
         at_word_boundary = False
         
+        boundary_token = self.word_boundary_token
+
         for token in sequence:
+            
             if token in node:
+                
                 node = node[token]
-                # Check if we completed a word
-                if '__end__' in node:
-                    at_word_boundary = True
-                    if isinstance(node['__end__'], list):
-                        word_indices = node['__end__'].copy()
-                    node = self.trie  # Reset for next word
+
+                if boundary_token is not None:
+                    
+                    if token == boundary_token:
+                        
+                        if '__end__' not in node:
+                            
+                            result = (set(), False, [])
+                            self._cache[cache_key] = result
+                            return result
+                        
+                        at_word_boundary = True
+                        
+                        if isinstance(node['__end__'], list):
+                            word_indices = node['__end__'].copy()
+                            
+                        node = self.trie
+                        
+                    else:
+                        
+                        at_word_boundary = False
+                        word_indices = []
+                        
+                else:
+                    
+                    if '__end__' in node:
+                        
+                        at_word_boundary = True
+                        if isinstance(node['__end__'], list):
+                            
+                            word_indices = node['__end__'].copy()
+                            
+                        node = self.trie  
             else:
+                
                 result = (set(), False, [])
                 self._cache[cache_key] = result
                 return result
@@ -291,6 +337,11 @@ class LexiconConstraint:
         for key in node:
             if key != '__end__':
                 valid_tokens.add(key)
+
+        # Allow optional extra boundary tokens once we're back at root. This lets the decoder
+        # emit multiple '|' (silence markers) between words without getting masked.
+        if self.word_boundary_token is not None and node is self.trie:
+            valid_tokens.add(self.word_boundary_token)
         
         result = (valid_tokens, at_word_boundary, word_indices)
         self._cache[cache_key] = result
@@ -435,7 +486,8 @@ class LexiconConstraint:
         mask = torch.zeros(B, beam_size, vocab_size, dtype=torch.bool, device=self.device)
         
         # Blank token is always allowed (vectorized)
-        mask[:, :, self.blank_index] = True
+        if self.blank_index < vocab_size:
+            mask[:, :, self.blank_index] = True
         
         # Flatten for vectorized processing
         sequences_flat = sequences.view(B * beam_size, seq_len)
@@ -445,10 +497,23 @@ class LexiconConstraint:
             seq = sequences_flat[idx]
             seq_filtered = seq[seq >= 0].tolist()
             
-            # Query trie with caching
-            valid_tokens = self.get_valid_next_tokens(seq_filtered)
+            # Apply CTC rules: remove blanks and consecutive repeats
+            # The lexicon trie expects collapsed sequences (what you'd get after CTC decoding)
+            seq_ctc_collapsed = []
+            prev_token = None
+            for token in seq_filtered:
+                if token == self.blank_index:  # Skip blanks
+                    prev_token = None
+                    continue
+                if token == prev_token:  # Skip consecutive repeats
+                    continue
+                seq_ctc_collapsed.append(token)
+                prev_token = token
             
-            if len(valid_tokens) == 0 and len(seq_filtered) == 0:
+            # Query trie with caching
+            valid_tokens = self.get_valid_next_tokens(seq_ctc_collapsed)
+            
+            if len(valid_tokens) == 0 and len(seq_ctc_collapsed) == 0:
                 valid_tokens = self.all_valid_tokens
             
             # Compute batch/beam indices
@@ -472,4 +537,158 @@ class LexiconConstraint:
         self._cache.clear()
         self._cache_hits = 0
         self._cache_misses = 0
+
+
+
+class VectorizedLexiconConstraint(LexiconConstraint):
+    """GPU-friendly lexicon constraint using a dense transition table."""
+
+    supports_state_tracking = True
+    _INVALID_STATE = -1
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.device = self.device or torch.device('cpu')
+        self._table_vocab_size = self._infer_vocab_ceiling()
+        self._root_state = 0
+        (
+            self.transition_table,
+            self._sink_state,
+            self._end_state_mask,
+        ) = self._build_dense_transition_table(self.device)
+        self._sink_state_tensor = torch.tensor(self._sink_state, device=self.device, dtype=torch.long)
+        self._root_state_tensor = torch.tensor(self._root_state, device=self.device, dtype=torch.long)
+
+    def _infer_vocab_ceiling(self) -> int:
+        max_token = self.blank_index
+        if self.all_valid_tokens:
+            max_token = max(max_token, max(self.all_valid_tokens))
+        if self.word_boundary_token is not None:
+            max_token = max(max_token, self.word_boundary_token)
+        return max_token + 1
+
+    def _ensure_table_device(self, device: torch.device) -> None:
+        if self.transition_table.device == device:
+            return
+        self.transition_table = self.transition_table.to(device)
+        self._sink_state_tensor = self._sink_state_tensor.to(device)
+        self._end_state_mask = self._end_state_mask.to(device)
+        self._root_state_tensor = self._root_state_tensor.to(device)
+        self.device = device
+
+    def _build_dense_transition_table(self, device: torch.device) -> tuple[torch.Tensor, int, torch.Tensor]:
+        
+        node_queue: List[Dict] = [self.trie]
+        node_to_idx = {id(self.trie): 0}
+        nodes: List[Dict] = [self.trie]
+        queue_idx = 0
+
+        while queue_idx < len(node_queue):
+            node = node_queue[queue_idx]
+            queue_idx += 1
+            for token, child in node.items():
+                if token == '__end__':
+                    continue
+                child_id = id(child)
+                if child_id not in node_to_idx:
+                    node_to_idx[child_id] = len(nodes)
+                    nodes.append(child)
+                    node_queue.append(child)
+
+        num_nodes = len(nodes)
+        sink_state = num_nodes
+        table = torch.full(
+            (num_nodes + 1, self._table_vocab_size),
+            fill_value=self._INVALID_STATE,
+            dtype=torch.long,
+            device=device,
+        )
+        end_state_mask = torch.zeros(num_nodes + 1, dtype=torch.bool, device=device)
+
+        for idx, node in enumerate(nodes):
+            if '__end__' in node:
+                end_state_mask[idx] = True
+            for token, child in node.items():
+                if token == '__end__':
+                    continue
+                if token >= self._table_vocab_size:
+                    continue
+                child_idx = node_to_idx[id(child)]
+                table[idx, token] = child_idx
+
+        # Allow multiple boundary tokens at root once we've returned to it
+        if self.word_boundary_token is not None and self.word_boundary_token < self._table_vocab_size:
+            table[self._root_state, self.word_boundary_token] = self._root_state
+
+        end_state_mask[sink_state] = False
+
+        return table, sink_state, end_state_mask
+
+    def initialize_state(
+        self,
+        batch_size: int,
+        beam_size: int,
+        device: Optional[torch.device] = None,
+    ) -> torch.Tensor:
+        device = device or self.device or torch.device('cpu')
+        self._ensure_table_device(device)
+        return torch.zeros((batch_size, beam_size), dtype=torch.long, device=device)
+
+    def get_constraint_mask_with_state(
+        self,
+        state: torch.Tensor,
+        vocab_size: int,
+        last_labels: torch.Tensor,
+    ) -> torch.Tensor:
+        self._ensure_table_device(state.device)
+        table_vocab = self.transition_table.shape[1]
+        state_clamped = torch.clamp(state, 0, self.transition_table.shape[0] - 1)
+        transitions = self.transition_table[state_clamped]
+
+        mask = torch.zeros((*state.shape, vocab_size), dtype=torch.bool, device=state.device)
+        copy_limit = min(vocab_size, table_vocab)
+        if copy_limit > 0:
+            mask[:, :, :copy_limit] = transitions[:, :, :copy_limit] != self._INVALID_STATE
+
+        mask[:, :, self.blank_index] = True
+
+        if last_labels is not None:
+            valid_last = (last_labels >= 0) & (last_labels < vocab_size)
+            if valid_last.any():
+                batch_idx, beam_idx = valid_last.nonzero(as_tuple=True)
+                token_idx = last_labels[batch_idx, beam_idx]
+                mask[batch_idx, beam_idx, token_idx] = True
+
+        return mask
+
+    def update_state(
+        self,
+        parent_state: torch.Tensor,
+        emitted_labels: torch.Tensor,
+        prev_last_labels: torch.Tensor,
+    ) -> torch.Tensor:
+        self._ensure_table_device(parent_state.device)
+        table_vocab = self.transition_table.shape[1]
+        parent_clamped = torch.clamp(parent_state, 0, self.transition_table.shape[0] - 1)
+
+        valid_token = emitted_labels >= 0
+        non_blank = emitted_labels != self.blank_index
+        repeats = emitted_labels == prev_last_labels
+        advance_mask = valid_token & non_blank & (~repeats)
+
+        safe_labels = emitted_labels.clamp(min=0, max=max(table_vocab - 1, 0))
+        next_nodes = self.transition_table[parent_clamped, safe_labels]
+
+        invalid_token = (emitted_labels < 0) | (emitted_labels >= table_vocab)
+        invalid_transition = next_nodes == self._INVALID_STATE
+        next_nodes = torch.where(invalid_token | invalid_transition, self._sink_state_tensor, next_nodes)
+
+        resettable = self._end_state_mask[next_nodes]
+        next_nodes = torch.where(resettable, self._root_state_tensor, next_nodes)
+
+        updated_state = torch.where(advance_mask, next_nodes, parent_clamped)
+        reset_mask = emitted_labels < 0
+        root = torch.zeros_like(parent_clamped)
+        updated_state = torch.where(reset_mask, root, updated_state)
+        return updated_state
 

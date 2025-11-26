@@ -308,6 +308,14 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
 
         curr_batch_size, curr_max_time, vocab_size = decoder_outputs.shape
 
+        lexicon_state = None
+        if self.lexicon is not None and getattr(self.lexicon, "supports_state_tracking", False):
+            lexicon_state = self.lexicon.initialize_state(
+                batch_size=curr_batch_size,
+                beam_size=self.beam_size,
+                device=decoder_outputs.device,
+            )
+
         # All tensors below stay on the same device/dtype as logits so we avoid syncs later.
 
         # Create vocabulary index tensor [0, 1, 2, ..., V] to use for vectorized operations
@@ -381,11 +389,19 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             # step 2.2.5: apply lexicon constraints if provided
             # This masks out tokens that would create invalid words according to the lexicon
             if self.lexicon is not None:
-                lexicon_mask = self.lexicon.get_constraint_mask(
-                    sequences=batched_beam_hyps.transcript_wb,
-                    last_labels=batched_beam_hyps.last_label,
-                    vocab_size=vocab_size,
-                )
+                if lexicon_state is not None:
+                    lexicon_mask = self.lexicon.get_constraint_mask_with_state(
+                        state=lexicon_state,
+                        vocab_size=vocab_size,
+                        last_labels=batched_beam_hyps.last_label,
+                    )
+                else:
+                    lexicon_mask = self.lexicon.get_constraint_mask(
+                        sequences=batched_beam_hyps.transcript_wb,
+                        last_labels=batched_beam_hyps.last_label,
+                        vocab_size=vocab_size,
+                    )
+                
                 # Set invalid tokens to -inf so they won't be selected by topk
                 log_probs = torch.where(lexicon_mask, log_probs, INACTIVE_SCORE)
                 
@@ -459,8 +475,18 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                         preserve_state_mask, fusion_states_prev, fusion_states
                     ).view(-1)
 
+            prev_last_labels = torch.gather(batched_beam_hyps.last_label, dim=-1, index=next_indices)
+
             # step 2.5: masking inactive hypotheses, updating + recombining batched beam hypoteses
             next_labels = torch.where(active_mask, next_labels, NON_EXISTENT_LABEL_VALUE)
+
+            if lexicon_state is not None:
+                parent_states = torch.gather(lexicon_state, dim=1, index=next_indices)
+                lexicon_state = self.lexicon.update_state(
+                    parent_state=parent_states,
+                    emitted_labels=next_labels,
+                    prev_last_labels=prev_last_labels,
+                )
             batched_beam_hyps.add_results_(next_indices, next_labels, next_scores)
             batched_beam_hyps.recombine_hyps_()
 
@@ -869,6 +895,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
 
         # step 2.2: updating non-blank and non-repeating token scores with `beam_beta`
         log_probs = torch.where(repeated_or_blank_mask, log_probs, log_probs + self.beam_beta)
+
 
         if self.fusion_models is not None:
             for fusion_idx, fusion_model in enumerate(self.fusion_models):
