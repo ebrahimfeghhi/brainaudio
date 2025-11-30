@@ -19,6 +19,7 @@ import torch
 
 
 class LexiconConstraint:
+    
     """
     Lexicon constraint for CTC beam search decoding.
     Constrains the beam search to only produce sequences that are valid according to a provided lexicon.
@@ -345,6 +346,7 @@ class LexiconConstraint:
         
         result = (valid_tokens, at_word_boundary, word_indices)
         self._cache[cache_key] = result
+        
         return result
     
     def get_word_alternatives(self, phoneme_sequence: List[int], token_to_symbol: Dict[int, str] = None) -> List[str]:
@@ -525,6 +527,11 @@ class LexiconConstraint:
                 valid_tokens_list = [t for t in valid_tokens if t < vocab_size]
                 if valid_tokens_list:
                     mask[b, k, valid_tokens_list] = True
+            
+            if last_labels is not None:
+                last_token = last_labels[b, k].item()
+                if 0 <= last_token < vocab_size:
+                    mask[b, k, last_token] = True
         
         return mask
     

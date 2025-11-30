@@ -17,21 +17,30 @@ import torch
 from torch.nn.utils.rnn import pad_sequence
 
 parser = argparse.ArgumentParser()
-parser.add_argument("start", type=int, help="Start Index")
-parser.add_argument("end", type=int, help="End Index")
+parser.add_argument("start", type=int, nargs="?", default=0, help="Start Index (default: 0)")
+parser.add_argument("end", type=int, nargs="?", default=1400, help="End Index (default: 1400)")
 parser.add_argument("--no-lexicon", action="store_true", help="Disable lexicon constraint")
 parser.add_argument("--beam-size", type=int, default=1, help="Beam size for CTC decoding (default: 1)")
 parser.add_argument(
     "--vectorized-lexicon",
+    dest="use_vectorized_lexicon",
     action="store_true",
-    help="Use the GPU vectorized lexicon constraint implementation",
+    help="Use the GPU vectorized lexicon constraint implementation (default)",
 )
+parser.add_argument(
+    "--no-vectorized-lexicon",
+    dest="use_vectorized_lexicon",
+    action="store_false",
+    help="Disable the vectorized lexicon and use the CPU implementation",
+)
+parser.set_defaults(use_vectorized_lexicon=True)
 
 args = parser.parse_args()
 start_idx = args.start
 end_idx = args.end
 beam_size = max(1, args.beam_size)
 use_lexicon = not args.no_lexicon
+use_vectorized = args.use_vectorized_lexicon
 # Configuration
 LANGUAGE_MODEL_PATH = "/data2/brain2text/lm/"
 TOKENS_TXT = f"{LANGUAGE_MODEL_PATH}units_pytorch.txt"
@@ -74,7 +83,7 @@ print(f"Logits lengths: {logits_lengths}")
 print(f"Device: {logits_batched.device}\n")
 
 # Load lexicon and mappings
-lexicon_cls = VectorizedLexiconConstraint if args.vectorized_lexicon else LexiconConstraint
+lexicon_cls = VectorizedLexiconConstraint if use_vectorized else LexiconConstraint
 
 if use_lexicon:
     lexicon = lexicon_cls.from_file_paths(
@@ -83,7 +92,7 @@ if use_lexicon:
         device=torch.device('cuda:0'),
     )
     phoneme_to_word = load_phoneme_to_word_mapping(WORDS_TXT)
-    lexicon_variant = "Vectorized" if args.vectorized_lexicon else "Standard"
+    lexicon_variant = "Vectorized" if use_vectorized else "Standard"
     print(f"{lexicon_variant} lexicon loaded: {len(phoneme_to_word)} words")
 else:
     lexicon = None
@@ -118,7 +127,7 @@ for b in range(logits_batched.shape[0]):
     
     # Show ground truth
     if b < len(ground_truth_transcript):
-        gt = ground_truth_transcript[b]
+        gt = ground_truth_transcript[b+start_idx]
         print(f"Ground truth: {gt}")
     
     seq = result.transcript_wb[b, 0]

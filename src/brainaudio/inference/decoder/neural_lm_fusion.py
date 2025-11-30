@@ -54,6 +54,7 @@ class NeuralLanguageModelFusion(ABC):
         self.weight = weight
         self.homophone_aggregation = homophone_aggregation
         self.device = device if device is not None else torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.log_homophone_scores = False
         
         if homophone_aggregation not in ['max', 'logsumexp']:
             raise ValueError(f"homophone_aggregation must be 'max' or 'logsumexp', got {homophone_aggregation}")
@@ -200,54 +201,92 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
             3. Extract log-prob of the candidate word tokens
             4. Sum to get total log-prob of the word
         """
-        all_scores = []
+        if not contexts:
+            return []
+
+        beam_scores: List[List[float]] = [[] for _ in candidate_words]
+
+        # Pre-tokenize contexts (used repeatedly per candidate word)
+        encoded_contexts = [
+            self.tokenizer.encode(ctx, add_special_tokens=False) if ctx else []
+            for ctx in contexts
+        ]
         
-        for context, words in zip(contexts, candidate_words):
-            word_scores = []
+        if len(encoded_contexts[0]) > 1:
             
-            for word in words:
-                # Create full prompt
+            breakpoint()
+        space_token = self.tokenizer.encode(" ", add_special_tokens=False)
+
+        flat_requests = []
+        for beam_idx, (context, words) in enumerate(zip(contexts, candidate_words)):
+            if not words:
+                continue
+
+            context_tokens = encoded_contexts[beam_idx]
+            context_space_tokens = (
+                self.tokenizer.encode(f"{context} ", add_special_tokens=False)
+                if context else []
+            )
+
+            for word_idx, word in enumerate(words):
                 full_text = f"{context} {word}" if context else word
-                
-                # Tokenize context and full text separately to isolate word tokens
-                context_tokens = self.tokenizer.encode(context, add_special_tokens=False) if context else []
                 full_tokens = self.tokenizer.encode(full_text, add_special_tokens=False)
-                
-                # Word tokens are the difference
+
                 word_token_start = len(context_tokens)
-                # Account for potential space token
-                if context and full_tokens[word_token_start:word_token_start+1] != self.tokenizer.encode(" ", add_special_tokens=False):
-                    # Space might be merged with word
-                    context_with_space = f"{context} "
-                    context_space_tokens = self.tokenizer.encode(context_with_space, add_special_tokens=False)
+                if context and full_tokens[word_token_start:word_token_start + 1] != space_token:
                     word_token_start = len(context_space_tokens)
-                
-                # Truncate context if too long
+
                 if len(full_tokens) > self.max_context_length:
                     offset = len(full_tokens) - self.max_context_length
                     full_tokens = full_tokens[offset:]
                     word_token_start = max(0, word_token_start - offset)
-                
-                # Get LM scores
-                input_ids = torch.tensor([full_tokens], device=self.device)
-                outputs = self.model(input_ids)
-                logits = outputs.logits[0]  # [seq_len, vocab_size]
-                
-                # Get log-probs and extract scores for word tokens
-                log_probs = torch.nn.functional.log_softmax(logits, dim=-1)
-                
-                # Sum log-probs of word tokens
-                word_log_prob = 0.0
-                for i in range(word_token_start, len(full_tokens)):
-                    if i > 0:  # Skip first token (no previous to predict from)
-                        token_id = full_tokens[i]
-                        word_log_prob += log_probs[i-1, token_id].item()
-                
-                word_scores.append(word_log_prob)
-            
-            all_scores.append(word_scores)
-        
-        return all_scores
+
+                flat_requests.append(
+                    {
+                        "beam_idx": beam_idx,
+                        "word_idx": word_idx,
+                        "tokens": full_tokens,
+                        "word_start": word_token_start,
+                    }
+                )
+
+        if not flat_requests:
+            return beam_scores
+
+        # Batch all context-word prompts into a single LM forward pass.
+        max_len = max(len(req["tokens"]) for req in flat_requests)
+        pad_id = self.tokenizer.pad_token_id
+        input_ids = torch.full(
+            (len(flat_requests), max_len),
+            pad_id,
+            dtype=torch.long,
+            device=self.device,
+        )
+        attention_mask = torch.zeros_like(input_ids, dtype=torch.bool)
+
+        for row, req in enumerate(flat_requests):
+            tokens = torch.tensor(req["tokens"], dtype=torch.long, device=self.device)
+            seq_len = tokens.size(0)
+            input_ids[row, :seq_len] = tokens
+            attention_mask[row, :seq_len] = True
+            req["seq_len"] = seq_len
+
+        outputs = self.model(input_ids, attention_mask=attention_mask)
+        log_probs = torch.nn.functional.log_softmax(outputs.logits, dim=-1)
+
+        for row, req in enumerate(flat_requests):
+            seq_len = req["seq_len"]
+            word_start = min(req["word_start"], seq_len)
+            tokens = req["tokens"]
+            score = 0.0
+            for pos in range(word_start, seq_len):
+                if pos == 0:
+                    continue
+                token_id = tokens[pos]
+                score += log_probs[row, pos - 1, token_id].item()
+            beam_scores[req["beam_idx"]].append(score)
+
+        return beam_scores
     
     def to(self, device: torch.device):
         """Move model to specified device."""

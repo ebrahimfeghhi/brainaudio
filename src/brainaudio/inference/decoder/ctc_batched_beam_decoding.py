@@ -538,46 +538,58 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         for b in range(curr_batch_size):
             # Collect beams at word boundaries for batched LM scoring
             boundary_beams = []
-            boundary_info = []  # (beam_idx, valid_tokens, word_indices, partial_text)
+            boundary_info = []  # (beam_idx, valid_tokens, word_indices, partial_text, candidate_words)
             
             for k in range(self.beam_size):
                 seq = beam_hyps.transcript_wb[b, k]
                 seq_filtered = seq[seq >= 0].tolist()
-                
-                if len(seq_filtered) == 0:
+                seq_ctc = self._collapse_ctc_sequence(seq_filtered)
+
+                if len(seq_ctc) == 0:
                     continue
                 
                 # Check if at word boundary
                 valid_tokens, at_boundary, word_indices = \
-                    self.lexicon.get_valid_next_tokens_with_word_info(seq_filtered)
+                    self.lexicon.get_valid_next_tokens_with_word_info(seq_ctc)
                 
                 if at_boundary and len(word_indices) > 0:
                     # Decode to text (exclude the just-completed word)
                     partial_text = self._decode_sequence_to_text(
-                        seq_filtered, 
+                        seq_ctc, 
                         token_to_symbol, 
                         exclude_last_word=True
                     )
+                    candidate_words = [self.lexicon.word_list[idx] for idx in word_indices]
                     
                     boundary_beams.append(k)
-                    boundary_info.append((k, valid_tokens, word_indices, partial_text))
+                    boundary_info.append((k, valid_tokens, word_indices, partial_text, candidate_words))
             
             # Score all boundary beams together
             if len(boundary_beams) > 0:
                 # Prepare contexts and candidates for batched scoring
                 contexts = [info[3] for info in boundary_info]
-                candidate_word_lists = [
-                    [self.lexicon.word_list[idx] for idx in info[2]]
-                    for info in boundary_info
-                ]
+                candidate_word_lists = [info[4] for info in boundary_info]
                 
                 # Get LM scores for all candidates
                 all_lm_scores = self.lm_fusion.score_continuations(contexts, candidate_word_lists)
                 
                 # Apply scores to each beam
-                for (k, valid_tokens, word_indices, _), lm_scores in zip(boundary_info, all_lm_scores):
-                    # Aggregate homophone scores
+                for (k, valid_tokens, word_indices, partial_text, candidate_words), lm_scores in zip(boundary_info, all_lm_scores):
+                    if getattr(self.lm_fusion, "log_homophone_scores", False):
+                        print("[LM Fusion] Candidate scores")
+                        print(f"  Context: '{partial_text}' | Beam {k}")
+                        for word, raw_score in zip(candidate_words, lm_scores):
+                            print(
+                                f"    {word:<20} raw={raw_score:.4f} scaled={self.lm_fusion.weight * raw_score:.4f}"
+                            )
+                    # Aggregate homophone scores AFTER scoring all candidates
                     combined_score = self.lm_fusion.aggregate_homophone_scores(lm_scores)
+
+                    if getattr(self.lm_fusion, "log_homophone_scores", False):
+                        print(
+                            f"  Aggregated ({self.lm_fusion.homophone_aggregation}) "
+                            f"raw={combined_score:.4f} scaled={self.lm_fusion.weight * combined_score:.4f}\n"
+                        )
                     
                     # Add LM score to all tokens that start the next word
                     for token in valid_tokens:
@@ -586,72 +598,51 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         
         return log_probs
     
+    def _collapse_ctc_sequence(self, sequence: List[int]) -> List[int]:
+        """Remove blanks and repeated tokens from a raw hypothesis."""
+        collapsed: List[int] = []
+        prev_token: Optional[int] = None
+        for token in sequence:
+            if token == self._blank_index:
+                prev_token = None
+                continue
+            if token == prev_token:
+                continue
+            collapsed.append(token)
+            prev_token = token
+        return collapsed
+
     def _decode_sequence_to_text(
         self,
         token_sequence: list,
         token_to_symbol: dict = None,
         exclude_last_word: bool = False,
     ) -> str:
-        """
-        Decode a token sequence to text for LM context.
-        
-        Args:
-            token_sequence: List of token IDs
-            token_to_symbol: Mapping from token ID to symbol
-            exclude_last_word: If True, exclude the last completed word from output
-            
-        Returns:
-            Decoded text string
-        """
-        if not token_sequence:
+        """Convert a collapsed token sequence into a plain word context for the LM."""
+        if not token_sequence or token_to_symbol is None:
             return ""
-        
-        if token_to_symbol is None:
-            # Return token IDs as fallback
-            return " ".join(str(t) for t in token_sequence)
-        
-        # Convert tokens to symbols
-        symbols = [token_to_symbol.get(t, f"<UNK{t}>") for t in token_sequence]
-        
-        # Split into words at word boundary markers (e.g., "|" or "SIL")
-        words = []
-        current_word_symbols = []
-        
-        for symbol in symbols:
-            if symbol in ['|', 'SIL', '<WORD_BOUNDARY>']:
-                if current_word_symbols:
-                    # Look up word in lexicon
-                    word_tokens = [token_to_symbol.get(t, t) for t in current_word_symbols]
-                    word_phonemes = tuple(s for s in word_tokens if s not in ['|', 'SIL'])
-                    
-                    # Try to get actual word from lexicon
-                    if hasattr(self.lexicon, 'word_list'):
-                        word_alts = self.lexicon.get_word_alternatives(current_word_symbols)
-                        if word_alts:
-                            words.append(word_alts[0])  # Use first alternative
-                        else:
-                            words.append(" ".join(current_word_symbols))
-                    else:
-                        words.append(" ".join(current_word_symbols))
-                    
-                    current_word_symbols = []
-            else:
-                current_word_symbols.append(symbol)
-        
-        # Handle remaining symbols
-        if current_word_symbols and not exclude_last_word:
-            if hasattr(self.lexicon, 'word_list'):
-                # Try to look up current partial word
-                word_tokens = [t for t in token_sequence if token_to_symbol.get(t, '') not in ['|', 'SIL']]
-                word_alts = self.lexicon.get_word_alternatives(word_tokens[-len(current_word_symbols):])
-                if word_alts:
-                    words.append(word_alts[0])
-                else:
-                    words.append(" ".join(current_word_symbols))
-            else:
-                words.append(" ".join(current_word_symbols))
-        
-        return " ".join(words)
+
+        if not hasattr(self.lexicon, "decode_sequence_to_words"):
+            return ""
+
+        words_with_alts = self.lexicon.decode_sequence_to_words(
+            token_ids=token_sequence,
+            token_to_symbol=token_to_symbol,
+            lexicon_word_map=None,
+            return_alternatives=True,
+        )
+
+        if not words_with_alts:
+            return ""
+
+        if exclude_last_word:
+            words_with_alts = words_with_alts[:-1]
+
+        def _is_real_word(word: str) -> bool:
+            return word and not word.startswith("<UNK") and not word.startswith("<PARTIAL")
+
+        context_words = [word for word, _ in words_with_alts if _is_real_word(word)]
+        return " ".join(context_words).strip()
 
     def batched_beam_search_cuda_graphs(
         self,

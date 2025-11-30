@@ -66,7 +66,7 @@ def compute_wer_from_logits(
     transcripts_base_dir: str = "/data2/brain2text",
     save_results: bool = True,
     output_filename: str = "wer_results.pkl"
-) -> Tuple[Dict[str, float], List[float]]:
+) -> Tuple[Dict[str, float], List[float], Dict[str, List[str]]]:
     """
     Compute WER for multiple models using beam search decoding.
     
@@ -81,15 +81,17 @@ def compute_wer_from_logits(
         output_filename: Name of output file (default: wer_results.pkl)
     
     Returns:
-        Tuple of (wer_dict, wer_list) where:
+        Tuple of (wer_dict, wer_list, decoded_sentences) where:
             - wer_dict: Dictionary mapping logits filename (without .npz) to WER value
             - wer_list: List of WER values in same order as logits_paths
+            - decoded_sentences: Dict mapping logits filename to list of decoded transcripts
     """
     if len(logits_paths) != len(dataset_ids):
         raise ValueError(f"Number of logits paths ({len(logits_paths)}) must match number of dataset IDs ({len(dataset_ids)})")
     
     wer_results = []
     wer_dict = {}
+    decoded_sentences: Dict[str, List[str]] = {}
     
     # Determine output directory from first logits path
     if logits_paths:
@@ -137,6 +139,7 @@ def compute_wer_from_logits(
         cer, wer, wer_sent = _cer_and_wer(pred_arr, ground_truth_arr)
         wer_results.append(wer)
         wer_dict[logits_key] = wer
+        decoded_sentences[logits_key] = pred_arr
         
         if verbose:
             print(f"  WER: {wer:.4f}")
@@ -149,4 +152,4 @@ def compute_wer_from_logits(
         if verbose:
             print(f"\nSaved WER results to: {output_path}")
     
-    return wer_dict, wer_results
+    return wer_dict, wer_results, decoded_sentences
