@@ -66,7 +66,7 @@ def compute_wer_from_logits(
     transcripts_base_dir: str = "/data2/brain2text",
     save_results: bool = True,
     output_filename: str = "wer_results.pkl"
-) -> Tuple[Dict[str, float], List[float], Dict[str, List[str]]]:
+) -> Tuple[Dict[str, float], List[float], Dict[str, List[List[str]]]]:
     """
     Compute WER for multiple models using beam search decoding.
     
@@ -84,14 +84,15 @@ def compute_wer_from_logits(
         Tuple of (wer_dict, wer_list, decoded_sentences) where:
             - wer_dict: Dictionary mapping logits filename (without .npz) to WER value
             - wer_list: List of WER values in same order as logits_paths
-            - decoded_sentences: Dict mapping logits filename to list of decoded transcripts
+                        - decoded_sentences: Dict mapping logits filename to list of per-trial beam transcripts
+                            (each element is a list of beam hypotheses ordered by rank)
     """
     if len(logits_paths) != len(dataset_ids):
         raise ValueError(f"Number of logits paths ({len(logits_paths)}) must match number of dataset IDs ({len(dataset_ids)})")
     
     wer_results = []
     wer_dict = {}
-    decoded_sentences: Dict[str, List[str]] = {}
+    decoded_sentences: Dict[str, List[List[str]]] = {}
     
     # Determine output directory from first logits path
     if logits_paths:
@@ -129,17 +130,27 @@ def compute_wer_from_logits(
                 print(f"  Trial {idx}/{len(model_logits)}")
             
             single_trial_logits = torch.as_tensor(model_logits[f'arr_{idx}']).float().unsqueeze(0)
-            beam_search_char = decoder(single_trial_logits * acoustic_scale)
-            beam_search_transcript_char = normalize_shorthand(" ".join(beam_search_char[0][0].words).strip())
+            beam_search_outs = decoder(single_trial_logits * acoustic_scale)
+
+            trial_beams: List[str] = []
+            for hypothesis in beam_search_outs[0]:
+                candidate = normalize_shorthand(" ".join(hypothesis.words).strip())
+                trial_beams.append(candidate)
+
+            if not trial_beams:
+                trial_beams.append("")
+
+            beam_search_transcript_char = trial_beams[0]
             ground_truth_sentence = val_transcripts[idx]
             ground_truth_arr.append(ground_truth_sentence)
             pred_arr.append(beam_search_transcript_char)
-        
+            decoded_sentences.setdefault(logits_key, []).append(trial_beams)
+            if idx == 1:
+                breakpoint()
         # Compute WER
         cer, wer, wer_sent = _cer_and_wer(pred_arr, ground_truth_arr)
         wer_results.append(wer)
         wer_dict[logits_key] = wer
-        decoded_sentences[logits_key] = pred_arr
         
         if verbose:
             print(f"  WER: {wer:.4f}")

@@ -487,6 +487,15 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                     emitted_labels=next_labels,
                     prev_last_labels=prev_last_labels,
                 )
+                sink_state = getattr(self.lexicon, "_sink_state", None)
+                if sink_state is not None:
+                    invalid_mask = lexicon_state == sink_state
+                    if invalid_mask.any():
+                        batched_beam_hyps.scores = torch.where(
+                            invalid_mask,
+                            batched_beam_hyps.scores.new_full((), INACTIVE_SCORE),
+                            batched_beam_hyps.scores,
+                        )
             batched_beam_hyps.add_results_(next_indices, next_labels, next_scores)
             batched_beam_hyps.recombine_hyps_()
 
@@ -540,6 +549,8 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             boundary_beams = []
             boundary_info = []  # (beam_idx, valid_tokens, word_indices, partial_text, candidate_words)
             
+            boundary_token = getattr(self.lexicon, "word_boundary_token", None)
+
             for k in range(self.beam_size):
                 seq = beam_hyps.transcript_wb[b, k]
                 seq_filtered = seq[seq >= 0].tolist()
@@ -551,6 +562,18 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                 # Check if at word boundary
                 valid_tokens, at_boundary, word_indices = \
                     self.lexicon.get_valid_next_tokens_with_word_info(seq_ctc)
+
+                invalid_completed_word = (
+                    boundary_token is not None
+                    and seq_ctc
+                    and seq_ctc[-1] == boundary_token
+                    and len(word_indices) == 0
+                )
+
+                if invalid_completed_word:
+                    # Word ended in silence but lexicon has no mapping; prune this beam.
+                    log_probs[b, k, :].fill_(float('-inf'))
+                    continue
                 
                 if at_boundary and len(word_indices) > 0:
                     # Decode to text (exclude the just-completed word)

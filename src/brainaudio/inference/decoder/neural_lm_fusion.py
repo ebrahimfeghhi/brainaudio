@@ -212,9 +212,7 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
             for ctx in contexts
         ]
         
-        if len(encoded_contexts[0]) > 1:
-            
-            breakpoint()
+   
         space_token = self.tokenizer.encode(" ", add_special_tokens=False)
 
         flat_requests = []
