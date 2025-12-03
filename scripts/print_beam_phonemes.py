@@ -2,9 +2,11 @@
 """Print per-beam phoneme decodes for a single validation trial."""
 
 import argparse
+import re
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import torch
 
 from brainaudio.inference.decoder import (
@@ -12,6 +14,7 @@ from brainaudio.inference.decoder import (
     LexiconConstraint,
     VectorizedLexiconConstraint,
     apply_ctc_rules,
+    materialize_beam_transcript,
     load_token_to_phoneme_mapping,
     load_phoneme_to_word_mapping,
 )
@@ -20,12 +23,13 @@ LANGUAGE_MODEL_PATH = Path("/data2/brain2text/lm/")
 TOKENS_TXT = LANGUAGE_MODEL_PATH / "units_pytorch.txt"
 WORDS_TXT = LANGUAGE_MODEL_PATH / "vocab_lower_100k_pytorch_phoneme.txt"
 LOGITS_PATH = Path("/data2/brain2text/b2t_25/logits/tm_transformer_combined_reduced_reg_seed_0/logits_val_None_None.npz")
+TRANSCRIPTS_PKL = Path("/data2/brain2text/b2t_25/transcripts_val_cleaned.pkl")
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Inspect all beams for a single trial")
-    parser.add_argument("trial", type=int, help="Validation trial index to decode (0-based)")
-    parser.add_argument("--beam-size", type=int, default=10, help="Beam size to use")
+    parser.add_argument("trial", type=int, default=1, help="Validation trial index to decode (0-based)")
+    parser.add_argument("--beam-size", type=int, default=2, help="Beam size to use")
     parser.add_argument(
         "--max-beams", type=int, default=None, help="Limit how many beams to print (default: all)"
     )
@@ -57,6 +61,36 @@ def load_single_trial(path: Path, trial_idx: int, device: str) -> tuple[torch.Te
     return logits, lengths
 
 
+def load_word_to_phonemes(lexicon_file: Path) -> dict[str, list[str]]:
+    mapping: dict[str, list[str]] = {}
+    with open(lexicon_file, "r", encoding="utf-8") as f:
+        for line in f:
+            parts = line.strip().split()
+            if len(parts) < 2:
+                continue
+            word = parts[0].lower()
+            phonemes = [p for p in parts[1:] if p]
+            if word not in mapping:
+                mapping[word] = phonemes
+    return mapping
+
+
+def sentence_to_phoneme_string(sentence: str, word_map: dict[str, list[str]]) -> str:
+    if not sentence:
+        return ""
+    tokens: list[str] = []
+    for raw_word in sentence.split():
+        normalized = re.sub(r"[^a-z']", "", raw_word.lower())
+        if not normalized:
+            continue
+        phonemes = word_map.get(normalized)
+        if phonemes:
+            tokens.extend(phonemes)
+        else:
+            tokens.append(f"<UNK:{raw_word}>")
+    return " ".join(tokens)
+
+
 def main() -> None:
     args = parse_args()
     device = torch.device(args.device)
@@ -66,6 +100,7 @@ def main() -> None:
     lexicon = None
     phoneme_to_word = None
     token_to_symbol = load_token_to_phoneme_mapping(TOKENS_TXT)
+    word_to_phonemes = load_word_to_phonemes(WORDS_TXT)
 
     if not args.no_lexicon:
         lexicon_cls = VectorizedLexiconConstraint if args.use_vectorized_lexicon else LexiconConstraint
@@ -82,40 +117,55 @@ def main() -> None:
         allow_cuda_graphs=False,
     )
 
+    ground_truth_sentence = None
+    ground_truth_phonemes = ""
+    if TRANSCRIPTS_PKL.exists():
+        transcripts = pd.read_pickle(TRANSCRIPTS_PKL)
+        if 0 <= args.trial < len(transcripts):
+            ground_truth_sentence = transcripts[args.trial]
+            ground_truth_phonemes = sentence_to_phoneme_string(ground_truth_sentence, word_to_phonemes)
+
     print(f"Decoding trial {args.trial} with beam size {decoder.beam_size}...")
     result = decoder(logits_batched, logits_lengths)
+
+    if ground_truth_sentence is not None:
+        print("\nGround truth text:     " + ground_truth_sentence)
+        print("Ground truth phonemes: " + (ground_truth_phonemes or "<unavailable>"))
+    else:
+        print("\nGround truth text unavailable")
+
+    if lexicon is None or phoneme_to_word is None:
+        print("\nLexicon not available, cannot print words/homophones.")
+        return
 
     beams_to_show = args.max_beams or decoder.beam_size
     beams_to_show = min(beams_to_show, decoder.beam_size)
 
-    seqs = result.transcript_wb[0]
     scores = result.scores[0]
     for beam_idx in range(beams_to_show):
-        raw_seq = seqs[beam_idx]
-        seq_filtered = raw_seq[raw_seq >= 0]
+        seq_filtered = materialize_beam_transcript(result, 0, beam_idx).cpu()
         score = scores[beam_idx].item()
-        print(f"\nBeam {beam_idx:02d} | score={score:.3f} | len={len(seq_filtered)}")
+        tokens = apply_ctc_rules(seq_filtered)
+
+        print(f"\nBeam {beam_idx:02d} | score={score:.3f}")
         if seq_filtered.numel() == 0 or score == float("-inf"):
             print("  <empty beam>")
             continue
-        tokens = apply_ctc_rules(seq_filtered)
-        phonemes = " ".join(token_to_symbol.get(t, f"UNK{t}") for t in tokens)
-        print(f"  Phonemes: {phonemes}")
-        if lexicon is not None and phoneme_to_word is not None:
-            word_alts = lexicon.decode_sequence_to_words(
-                token_ids=tokens,
-                token_to_symbol=token_to_symbol,
-                lexicon_word_map=phoneme_to_word,
-                return_alternatives=True,
-            )
-            words = [pair[0] for pair in word_alts]
-            print(f"  Words:    {' '.join(words)}")
-            for pos, (primary, alts) in enumerate(word_alts, 1):
-                if alts:
-                    pretty = ", ".join(alts)
-                    print(f"    {pos:02d}. {primary} -> [{pretty}]")
-        else:
-            print("  (lexicon disabled, showing phonemes only)")
+
+        word_alts = lexicon.decode_sequence_to_words(
+            token_ids=tokens,
+            token_to_symbol=token_to_symbol,
+            lexicon_word_map=phoneme_to_word,
+            return_alternatives=True,
+        )
+        words_only = " ".join(primary for primary, _ in word_alts) or "<none>"
+        print(f"  Words: {words_only}")
+        for pos, (primary, alts) in enumerate(word_alts, 1):
+            if alts:
+                pretty = ", ".join(alts)
+                print(f"    {pos:02d}. {primary} -> [{pretty}]")
+            else:
+                print(f"    {pos:02d}. {primary}")
 
 
 if __name__ == "__main__":

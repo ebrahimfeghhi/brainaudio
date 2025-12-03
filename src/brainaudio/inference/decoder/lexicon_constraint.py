@@ -58,6 +58,18 @@ class LexiconConstraint:
         self.device = device
         self.word_list = word_list
         self.word_boundary_token = word_boundary_token
+
+        if self.word_boundary_token is None:
+            raise ValueError(
+                "LexiconConstraint now requires a dedicated word-boundary token (e.g., '|')"
+            )
+
+        invalid_sequences = [seq for seq in lexicon if not seq or seq[-1] != self.word_boundary_token]
+        if invalid_sequences:
+            raise ValueError(
+                "Every lexicon entry must terminate with the word-boundary token;"
+                " found sequences missing the trailing boundary marker."
+            )
         
         # Build the prefix tree with word tracking
         self.trie = self._build_trie(lexicon)
@@ -283,52 +295,39 @@ class LexiconConstraint:
         node = self.trie
         word_indices = []
         at_word_boundary = False
-        
+        allow_boundary = False
         boundary_token = self.word_boundary_token
+        last_completed_indices: List[int] = []
 
         for token in sequence:
-            
-            if token in node:
-                
-                node = node[token]
-
-                if boundary_token is not None:
-                    
-                    if token == boundary_token:
-                        
-                        if '__end__' not in node:
-                            
-                            result = (set(), False, [])
-                            self._cache[cache_key] = result
-                            return result
-                        
-                        at_word_boundary = True
-                        
-                        if isinstance(node['__end__'], list):
-                            word_indices = node['__end__'].copy()
-                            
-                        node = self.trie
-                        
-                    else:
-                        
-                        at_word_boundary = False
-                        word_indices = []
-                        
-                else:
-                    
-                    if '__end__' in node:
-                        
-                        at_word_boundary = True
-                        if isinstance(node['__end__'], list):
-                            
-                            word_indices = node['__end__'].copy()
-                            
-                        node = self.trie  
-            else:
-                
+            if token not in node:
                 result = (set(), False, [])
                 self._cache[cache_key] = result
                 return result
+
+            node = node[token]
+
+            if token == boundary_token:
+                # Boundary tokens are part of the lexicon sequences. Reaching them means the
+                # preceding word has finished and we can optionally emit more silence tokens.
+                if '__end__' not in node:
+                    result = (set(), False, [])
+                    self._cache[cache_key] = result
+                    return result
+
+                allow_boundary = True
+                at_word_boundary = True
+
+                if isinstance(node['__end__'], list):
+                    word_indices = node['__end__'].copy()
+                    last_completed_indices = word_indices.copy()
+
+                node = self.trie
+                continue
+
+            allow_boundary = False
+            at_word_boundary = False
+            word_indices = []
         
         """
         If a word was completed, node is back at root and valid tokens are all tokens starting new words.
@@ -341,7 +340,7 @@ class LexiconConstraint:
 
         # Allow optional extra boundary tokens once we're back at root. This lets the decoder
         # emit multiple '|' (silence markers) between words without getting masked.
-        if self.word_boundary_token is not None and node is self.trie:
+        if allow_boundary:
             valid_tokens.add(self.word_boundary_token)
         
         result = (valid_tokens, at_word_boundary, word_indices)
@@ -494,8 +493,10 @@ class LexiconConstraint:
         # Flatten for vectorized processing
         sequences_flat = sequences.view(B * beam_size, seq_len)
         
+            
         # Process all beams (still some CPU overhead, but batched)
         for idx in range(B * beam_size):
+            
             seq = sequences_flat[idx]
             seq_filtered = seq[seq >= 0].tolist()
             
@@ -503,6 +504,7 @@ class LexiconConstraint:
             # The lexicon trie expects collapsed sequences (what you'd get after CTC decoding)
             seq_ctc_collapsed = []
             prev_token = None
+            
             for token in seq_filtered:
                 if token == self.blank_index:  # Skip blanks
                     prev_token = None
@@ -623,9 +625,11 @@ class VectorizedLexiconConstraint(LexiconConstraint):
                 child_idx = node_to_idx[id(child)]
                 table[idx, token] = child_idx
 
-        # Allow multiple boundary tokens at root once we've returned to it
+        # Allow boundary tokens only after completing a word (nodes with '__end__')
         if self.word_boundary_token is not None and self.word_boundary_token < self._table_vocab_size:
-            table[self._root_state, self.word_boundary_token] = self._root_state
+            for idx, node in enumerate(nodes):
+                if '__end__' in node:
+                    table[idx, self.word_boundary_token] = self._root_state
 
         end_state_mask[sink_state] = False
 

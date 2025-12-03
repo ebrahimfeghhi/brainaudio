@@ -50,6 +50,33 @@ NON_EXISTENT_LABEL_VALUE = -1
 INACTIVE_SCORE = float("-inf")
 
 
+def materialize_beam_transcript(
+    batched_hyps: BatchedBeamHyps, batch_idx: int, beam_idx: int
+) -> torch.Tensor:
+    """Rebuilds the actual token path for a beam by following parent pointers."""
+
+    seq_len = int(batched_hyps.current_lengths_wb[batch_idx, beam_idx].item())
+    if seq_len <= 0:
+        return batched_hyps.transcript_wb.new_empty((0,), dtype=torch.long)
+
+    tokens: list[int] = []
+    ptr_beam = beam_idx
+
+    for idx in range(seq_len - 1, -1, -1):
+        token = int(batched_hyps.transcript_wb[batch_idx, ptr_beam, idx].item())
+        if token == NON_EXISTENT_LABEL_VALUE:
+            break
+        tokens.append(token)
+
+        parent_ptr = int(batched_hyps.transcript_wb_prev_ptr[batch_idx, ptr_beam, idx].item())
+        if parent_ptr < 0:
+            break
+        ptr_beam = parent_ptr
+
+    tokens.reverse()
+    return torch.tensor(tokens, device=batched_hyps.transcript_wb.device, dtype=torch.long)
+
+
 class BacthedBeamCTCState:
     """
     State for Batched Beam Search for CTC models. Used only with CUDA graphs.
@@ -191,7 +218,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         fusion_models: List[NGramGPULanguageModel] = None,
         fusion_models_alpha: List[float] = None,
         beam_beta: float = 0.0,
-        beam_threshold: float = 20.0,
+        beam_threshold: float = 1e3,
         allow_cuda_graphs: bool = True,
         lexicon: LexiconConstraint = None,
         lm_fusion: NeuralLanguageModelFusion = None,
@@ -363,12 +390,15 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                 # Will be populated after first fusion_model.advance() call
                 fusion_states_candidates_list.append(None)
 
+        token_to_symbol = getattr(self.lexicon, "token_to_symbol", None) if self.lexicon is not None else None
+
         # Main decoding loop: process one acoustic frame at a time
         for frame_idx in range(curr_max_time):
             # active_mask: [B, beam_size] - True if this utterance hasn't ended yet at this frame
             # decoder_output_lengths[b] tells us the actual (unpadded) length of utterance b
             # If frame_idx >= length, that utterance is done and we shouldn't update its beams
             active_mask = frame_idx < decoder_output_lengths.unsqueeze(1)
+
             
             # repeated_mask: [B, beam_size, V+1] - True where a vocab token equals the last emitted token
             # batched_beam_hyps.last_label is [B, beam_size], we broadcast to compare against all vocab
@@ -402,6 +432,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                         vocab_size=vocab_size,
                     )
                 
+                
                 # Set invalid tokens to -inf so they won't be selected by topk
                 log_probs = torch.where(lexicon_mask, log_probs, INACTIVE_SCORE)
                 
@@ -427,21 +458,29 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                     )
                     fusion_states_candidates_list[fusion_idx] = fusion_states_candidates
 
-            # step 2.3: getting `beam_size` best candidates
+            """
+                step 2.3: getting `beam_size` best candidates
+                log_probs.view(curr_batch_size, -1) reshapes log_probs to [B, beam_size * (V+1)]
+            """
+            
             next_scores, next_candidates_indices = torch.topk(
                 log_probs.view(curr_batch_size, -1), k=self.beam_size, largest=True, sorted=True
             )
-            next_indices = next_candidates_indices // vocab_size
-            next_labels = next_candidates_indices % vocab_size
+            
+            next_indices = next_candidates_indices // vocab_size # indices of beams being extended
+            next_labels = next_candidates_indices % vocab_size # label indices
+
 
             # step 2.3: pruning candidates with threshold `beam_threshold`
             batch_next_scores = next_scores.view(curr_batch_size, -1)
             max_next_score = batch_next_scores.max(dim=-1, keepdim=True).values
             batch_next_scores.masked_fill_(batch_next_scores <= max_next_score - self.beam_threshold, INACTIVE_SCORE)
             next_scores.view(curr_batch_size, self.beam_size, -1)
-
+            
             # step 2.4: preserving updated fusion states
+            
             if self.fusion_models is not None:
+                
                 last_labels = torch.gather(batched_beam_hyps.last_label, dim=-1, index=next_indices)
                 blank_mask = next_labels == self._blank_index
                 repeating_mask = next_labels == last_labels
@@ -496,8 +535,13 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                             batched_beam_hyps.scores.new_full((), INACTIVE_SCORE),
                             batched_beam_hyps.scores,
                         )
+                        
+      
+            
             batched_beam_hyps.add_results_(next_indices, next_labels, next_scores)
             batched_beam_hyps.recombine_hyps_()
+
+        
 
         # step 3: updating fusion scores with eos scores
         if self.fusion_models is not None:

@@ -15,8 +15,8 @@ from typing import Optional
 
 import torch
 
-from .rnnt_utils import Hypothesis, NBestHypotheses
-from .enum import PrettyStrEnum
+from nemo.collections.asr.parts.utils.rnnt_utils import Hypothesis, NBestHypotheses
+from nemo.utils.enum import PrettyStrEnum
 
 # Constants used for hashing text sequences.
 MULTIPLIER = 6364136223846793005
