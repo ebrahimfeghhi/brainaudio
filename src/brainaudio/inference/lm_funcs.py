@@ -65,7 +65,9 @@ def compute_wer_from_logits(
     verbose: bool = True,
     transcripts_base_dir: str = "/data2/brain2text",
     save_results: bool = True,
-    output_filename: str = "wer_results.pkl"
+    output_filename: str = "wer_results.pkl",
+    start_trial: Optional[int] = None,
+    end_trial: Optional[int] = None,
 ) -> Tuple[Dict[str, float], List[float], Dict[str, List[List[str]]]]:
     """
     Compute WER for multiple models using beam search decoding.
@@ -79,6 +81,9 @@ def compute_wer_from_logits(
         transcripts_base_dir: Base directory for transcript files (default: /data2/brain2text)
         save_results: Whether to save results to file (default: True)
         output_filename: Name of output file (default: wer_results.pkl)
+        start_trial: Optional starting trial index (inclusive). Defaults to 0 when None.
+        end_trial: Optional ending trial index (exclusive). Defaults to the dataset length when None.
+                    Set both to run a single trial range; e.g., start_trial=42, end_trial=43 decodes only trial 42.
     
     Returns:
         Tuple of (wer_dict, wer_list, decoded_sentences) where:
@@ -121,13 +126,31 @@ def compute_wer_from_logits(
         with open(transcripts_path, 'rb') as f:
             val_transcripts = pickle.load(f)
         
-        # Run beam search on all trials
+        # Determine trial range
+        total_trials = len(model_logits)
+
+        start_idx = start_trial if start_trial is not None else 0
+        end_idx = end_trial if end_trial is not None else total_trials
+
+        if start_idx < 0 or start_idx >= total_trials:
+            raise ValueError(
+                f"start_trial must be within [0, {total_trials - 1}] for {logits_key}, got {start_idx}"
+            )
+        if end_idx <= start_idx or end_idx > total_trials:
+            raise ValueError(
+                f"end_trial must be within ({start_idx}, {total_trials}] for {logits_key}, got {end_idx}"
+            )
+
+        # Run beam search on selected trials
         ground_truth_arr = []
         pred_arr = []
         
-        for idx in range(len(model_logits)):
-            if verbose and idx % 100 == 0:
-                print(f"  Trial {idx}/{len(model_logits)}")
+        selected_trials = max(end_idx - start_idx, 0)
+
+        for idx in range(start_idx, end_idx):
+            processed = idx - start_idx
+            if verbose and processed % 100 == 0:
+                print(f"  Trial {idx} (processed {processed}/{selected_trials})")
             
             single_trial_logits = torch.as_tensor(model_logits[f'arr_{idx}']).float().unsqueeze(0)
             beam_search_outs = decoder(single_trial_logits * acoustic_scale)
@@ -145,8 +168,7 @@ def compute_wer_from_logits(
             ground_truth_arr.append(ground_truth_sentence)
             pred_arr.append(beam_search_transcript_char)
             decoded_sentences.setdefault(logits_key, []).append(trial_beams)
-            if idx == 1:
-                breakpoint()
+            
         # Compute WER
         cer, wer, wer_sent = _cer_and_wer(pred_arr, ground_truth_arr)
         wer_results.append(wer)

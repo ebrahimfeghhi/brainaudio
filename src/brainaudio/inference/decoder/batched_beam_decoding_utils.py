@@ -313,6 +313,7 @@ class BatchedBeamHyps:
             torch.gather(self.current_lengths_nb, dim=-1, index=next_indices) + extended_with_label
         )
         torch.add(self.current_lengths_wb, 1, out=self.current_lengths_wb)
+        
         self.scores.copy_(next_hyps_prob)
 
         prev_transcript_hash = torch.gather(self.transcript_hash, dim=-1, index=next_indices)
@@ -373,6 +374,7 @@ class BatchedBeamHyps:
             new_scores = torch.max(scores_matrix, dim=-1, keepdim=False).values
         else:
             new_scores = torch.logsumexp(scores_matrix, dim=-1, keepdim=False)
+            
         torch.where(scores_to_keep, new_scores.to(self.scores.dtype), self.INACTIVE_SCORE_TENSOR, out=self.scores)
 
     def remove_duplicates(self, labels: torch.Tensor, total_logps: torch.Tensor):

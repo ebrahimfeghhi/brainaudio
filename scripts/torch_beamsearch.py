@@ -6,6 +6,25 @@ from brainaudio.inference.eval_metrics import _cer_and_wer
 from brainaudio.inference.lm_funcs import normalize_shorthand, compute_wer_from_logits
 import pandas as pd
 
+
+def pretty_print_decoded_sentences(decoded_sentences: dict[str, list[list[str]]], max_trials: int | None = None):
+    """Pretty-print all decoded beams per trial."""
+    if not decoded_sentences:
+        print("No decoded sentences available.")
+        return
+
+    for logits_key, trials in decoded_sentences.items():
+        print(f"\n=== {logits_key} ===")
+        limit = len(trials) if max_trials is None else min(max_trials, len(trials))
+        for trial_idx in range(limit):
+            beams = trials[trial_idx]
+            print(f"Trial {trial_idx:04d}:")
+            for beam_idx, transcript in enumerate(beams):
+                print(f"  Beam {beam_idx:02d}: {transcript}")
+        if max_trials is not None and len(trials) > max_trials:
+            remaining = len(trials) - max_trials
+            print(f"  ... ({remaining} more trials omitted) ...")
+
 language_model_path = "/data2/brain2text/lm/"
 units_txt_file_pytorch = f"{language_model_path}units_pytorch.txt"
 imagineville_vocab_phoneme = f"{language_model_path}vocab_lower_100k_pytorch_phoneme.txt"
@@ -33,10 +52,12 @@ wer_dict, wer_list, decoded_sentences = compute_wer_from_logits(
     acoustic_scale=1.0,
     verbose=True,
     save_results=True,
-    output_filename="scratch.pkl"
+    output_filename="scratch.pkl", 
+    start_trial=1, 
+    end_trial=2
 )
 
-breakpoint()
+pretty_print_decoded_sentences(decoded_sentences)
 
 print("\nWER Results:")
 for key, wer in wer_dict.items():

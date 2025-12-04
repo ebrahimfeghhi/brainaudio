@@ -1,4 +1,8 @@
-from typing import Dict, List
+from __future__ import annotations
+
+import argparse
+from pathlib import Path
+from typing import Dict, Iterable, List
 
 class PhonemeTrie:
     def __init__(self) -> None:
@@ -20,23 +24,45 @@ class PhonemeTrie:
             node = node[token]
         return True
 
+DEFAULT_LEXICON = Path("/data2/brain2text/lm/vocab_lower_100k_pytorch_phoneme.txt")
+
+
+def iter_lexicon_sequences(path: Path) -> Iterable[List[str]]:
+    with path.open("r", encoding="utf-8") as f:
+        for line in f:
+            parts = line.strip().split()
+            if len(parts) < 2:
+                continue
+            yield parts[1:]
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Check if phoneme prefixes exist in the full lexicon trie.")
+    parser.add_argument(
+        "--lexicon",
+        type=Path,
+        default=DEFAULT_LEXICON,
+        help="Path to lexicon file (word followed by phonemes per line).",
+    )
+    parser.add_argument(
+        "--query",
+        action="append",
+        nargs="+",
+        help="Phoneme prefix to test (provide multiple --query blocks to check several prefixes).",
+    )
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    # Example lexicon
-    lexicon = [
-        ["HH", "W", "AH", "L", "OW", "|"],
-        ["HH", "W", "IY", "|"],
-        ["B", "AE", "T", "|"],
-    ]
+    args = parse_args()
+    if not args.lexicon.exists():
+        raise FileNotFoundError(f"Lexicon file not found: {args.lexicon}")
 
     trie = PhonemeTrie()
-    for seq in lexicon:
+    for seq in iter_lexicon_sequences(args.lexicon):
         trie.add(seq)
 
-    queries = [
-        ["HH"],         # True – valid prefix
-        ["HH", "W"],   # True – still on a path
-        ["HH", "W", "N"],   # False – diverges
-    ]
+    queries = args.query if args.query is not None else [["HH"], ["AA"], ["IH"], ["G"], ["NG"]]
 
     for q in queries:
-        print(q, "=>", trie.is_valid_prefix(q))
+        print(f"{q} => {trie.is_valid_prefix(q)}")
