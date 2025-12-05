@@ -15,6 +15,7 @@ lexicon = LexiconConstraint.from_file_paths(
     lexicon_file=WORDS_TXT,
     device='cuda:0',
 )
+
 token_to_symbol = load_token_to_phoneme_mapping(TOKENS_TXT)
 symbol_to_token = {v: k for k, v in token_to_symbol.items()}
 

@@ -459,8 +459,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                     log_probs = self._apply_lm_fusion(
                         log_probs=log_probs,
                         beam_hyps=batched_beam_hyps,
-                        lexicon_mask=lexicon_mask,
-                        curr_batch_size=curr_batch_size,
+                        curr_batch_size=curr_batch_size
                     )
 
             if self.fusion_models is not None:
@@ -574,7 +573,6 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         self,
         log_probs: torch.Tensor,
         beam_hyps: 'BatchedBeamHyps',
-        lexicon_mask: torch.Tensor,
         curr_batch_size: int,
         token_to_symbol: dict = None,
     ) -> torch.Tensor:
@@ -629,6 +627,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                     and len(word_indices) == 0
                 )
 
+                # I'm not sure if apply_lm_fusion needs to handle this case.
                 if invalid_completed_word:
                     # Word ended in silence but lexicon has no mapping; prune this beam.
                     log_probs[b, k, :].fill_(float('-inf'))
@@ -641,6 +640,8 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                         token_to_symbol, 
                         exclude_last_word=True
                     )
+                    
+                    # upcoming candidate words
                     candidate_words = [self.lexicon.word_list[idx] for idx in word_indices]
                     
                     boundary_beams.append(k)
@@ -651,8 +652,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                 # Prepare contexts and candidates for batched scoring
                 contexts = [info[3] for info in boundary_info]
                 candidate_word_lists = [info[4] for info in boundary_info]
-                
-                # Get LM scores for all candidates
+                # Get LM scores for all candidates (homophones)
                 all_lm_scores = self.lm_fusion.score_continuations(contexts, candidate_word_lists)
                 
                 # Apply scores to each beam
@@ -677,6 +677,8 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                     for token in valid_tokens:
                         if token < log_probs.shape[-1]:
                             log_probs[b, k, token] += self.lm_fusion.weight * combined_score
+                            
+                breakpoint()
         
         return log_probs
     
