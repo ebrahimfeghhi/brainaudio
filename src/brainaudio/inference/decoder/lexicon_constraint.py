@@ -602,8 +602,8 @@ class VectorizedLexiconConstraint(LexiconConstraint):
         sink_state = num_nodes # sink state for invalid transitions 
     
         """
-            table has rows for all nodes (+ sink state),
-            and columns for each vocabulary item.
+            table has rows for all nodes (+ sink state), and columns for each vocabulary item.
+            each node represents a prefix in the lexicon trie.
             
             the entry at row i, column j in the table tells us which node
             we should move to if we are at node i and observe token j. 
@@ -635,7 +635,7 @@ class VectorizedLexiconConstraint(LexiconConstraint):
         if self.word_boundary_token is not None and self.word_boundary_token < self._table_vocab_size:
             for idx, node in enumerate(nodes):
                 if '__end__' in node:
-                    table[idx, self.word_boundary_token] = self._root_state
+                    table[idx, self.word_boundary_token] = self._root_state # reset state to root on boundary token
 
         end_state_mask[sink_state] = False
 
@@ -647,8 +647,10 @@ class VectorizedLexiconConstraint(LexiconConstraint):
         beam_size: int,
         device: Optional[torch.device] = None,
     ) -> torch.Tensor:
+        
         device = device or self.device or torch.device('cpu')
         self._ensure_table_device(device)
+    
         return torch.zeros((batch_size, beam_size), dtype=torch.long, device=device)
 
     def get_constraint_mask_with_state(
@@ -657,18 +659,27 @@ class VectorizedLexiconConstraint(LexiconConstraint):
         vocab_size: int,
         last_labels: torch.Tensor,
     ) -> torch.Tensor:
+        
+        
         self._ensure_table_device(state.device)
+        
         table_vocab = self.transition_table.shape[1]
+        
         state_clamped = torch.clamp(state, 0, self.transition_table.shape[0] - 1)
+        
         transitions = self.transition_table[state_clamped]
 
         mask = torch.zeros((*state.shape, vocab_size), dtype=torch.bool, device=state.device)
+        
         copy_limit = min(vocab_size, table_vocab)
+        
+        # set all permissable transitions to True in the mask
         if copy_limit > 0:
             mask[:, :, :copy_limit] = transitions[:, :, :copy_limit] != self._INVALID_STATE
 
         mask[:, :, self.blank_index] = True
 
+        # allow last emitted token to be repeated
         if last_labels is not None:
             valid_last = (last_labels >= 0) & (last_labels < vocab_size)
             if valid_last.any():
@@ -684,7 +695,10 @@ class VectorizedLexiconConstraint(LexiconConstraint):
         emitted_labels: torch.Tensor,
         prev_last_labels: torch.Tensor,
     ) -> torch.Tensor:
+        
+        
         self._ensure_table_device(parent_state.device)
+        
         table_vocab = self.transition_table.shape[1]
         parent_clamped = torch.clamp(parent_state, 0, self.transition_table.shape[0] - 1)
 

@@ -82,4 +82,31 @@ The core of this class is built within `_build_dense_transition_table`.
 ### `_build_dense_transition_table`
 Converts the trie into a transition table through the following sequence of steps.
     1. Store nodes in BFS order, and assign each node id to a unique integer id in BFS order. 
-    2. 
+    2. Construct the transition table. The entry at row i, column j in the table tells us which node we should move to if we are at node i and observe token j. Each node represents a prefix in the lexicon trie. 
+    
+---
+## Core Methods
+
+### get_constraint_mask_with_state
+Generates a boolean mask for batch processing, identifying valid tokens for the next step in beam search.
+* **Inputs:**
+    * `state`: Shape `(B, beam_size)`, each state represents a prefix in trie.
+    * `last_labels`: The last emitted non-blank token for each beam.
+    * `vocab_size`: Total size of the vocabulary.
+* **Logic:**
+    1. Uses the state vector to retrieve transitions from the transition table.
+    2. Mask is set to True for all valid transitions, and False for invalid transitions.
+    3. Additionally set mask to true so that last emitted token can be repeated.
+
+
+### update_state
+
+* **Inputs:**
+    * `parent_state`: Shape `(B, beam_size)`, previous state values.
+    * `emitted_labels`: Shape `(B, beam_size)`, current token for each beam. 
+    * `prev_last_labels`:  Shape `(B, beam_size)`, previous token for each beam.
+* **Logic:**
+    1. Computes advance_mask, which is true only if emitted_labels is not a blank token or repeat.
+    2. All invalid emitted_labels or emitted_labels which return an invalid state are directed to the sink state.
+    
+
