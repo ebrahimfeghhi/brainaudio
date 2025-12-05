@@ -551,16 +551,8 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                             batched_beam_hyps.scores,
                         )
                         
-            #if frame_idx == curr_max_time - 1:
-            #    print("Before final recombination at last frame:")
-            #    breakpoint()
-                
+             
             batched_beam_hyps.add_results_(next_indices, next_labels, next_scores)
-
-            #if frame_idx == curr_max_time - 1:
-            #    print("After final recombination at last frame:")
-            #    breakpoint()
-        
 
         # step 3: updating fusion scores with eos scores
         if self.fusion_models is not None:

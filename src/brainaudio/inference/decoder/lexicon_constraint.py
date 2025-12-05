@@ -297,9 +297,9 @@ class LexiconConstraint:
         at_word_boundary = False
         allow_boundary = False
         boundary_token = self.word_boundary_token
-        last_completed_indices: List[int] = []
 
         for token in sequence:
+            
             if token not in node:
                 result = (set(), False, [])
                 self._cache[cache_key] = result
@@ -320,7 +320,6 @@ class LexiconConstraint:
 
                 if isinstance(node['__end__'], list):
                     word_indices = node['__end__'].copy()
-                    last_completed_indices = word_indices.copy()
 
                 node = self.trie
                 continue
@@ -348,15 +347,14 @@ class LexiconConstraint:
         
         return result
     
-    def get_word_alternatives(self, phoneme_sequence: List[int], token_to_symbol: Dict[int, str] = None) -> List[str]:
+    def get_word_alternatives(self, phoneme_sequence: List[int]) -> List[str]:
         
         """
         Get all possible words that match a phoneme sequence (for LM rescoring of homophones).
         
         Args:
             phoneme_sequence: Sequence of token IDs representing phonemes
-            token_to_symbol: Optional mapping for debugging
-            
+             
         Returns:
             List of word strings that match this phoneme sequence.
             Returns empty list if sequence is invalid or no words match.
@@ -379,7 +377,9 @@ class LexiconConstraint:
         
         return []
     
-    def decode_sequence_to_words(self, token_ids: List[int], token_to_symbol: Dict[int, str], lexicon_word_map: Dict[tuple, str] = None, return_alternatives: bool = False) -> Union[str, List[tuple[str, List[str]]]]:
+    def decode_sequence_to_words(self, token_ids: List[int], token_to_symbol: Dict[int, str], 
+                                 lexicon_word_map: Dict[tuple, str] = None, 
+                                 return_alternatives: bool = False) -> Union[str, List[tuple[str, List[str]]]]:
         """
         Decode a sequence of token IDs to words using the lexicon.
         
@@ -389,8 +389,8 @@ class LexiconConstraint:
         Args:
             token_ids: List of token IDs (after CTC rules applied - blanks removed, repeats merged)
             token_to_symbol: Mapping from token ID to symbol string
-            lexicon_word_map: Optional mapping from (phoneme_tuple) to word string (for single best word).
-                             The tuple should NOT include the word boundary token (e.g., "|")
+            lexicon_word_map: Deprecated; retained for API compatibility but ignored.
+                             Pass None (default) for forward compatibility.
             return_alternatives: If True, returns list of (chosen_word, alternative_words_list) tuples
                                 for LM rescoring. If False, returns space-separated string.
             
@@ -412,23 +412,17 @@ class LexiconConstraint:
                 # Check if word complete
                 if '__end__' in node:
                     # Get all alternative words for this phoneme sequence (homophones)
-                    alternatives = self.get_word_alternatives(current_word_tokens, token_to_symbol)
+                    alternatives = self.get_word_alternatives(current_word_tokens)
                     
-                    # Convert token IDs to symbols for fallback
-                    word_symbols = [token_to_symbol.get(t, f'?{t}') for t in current_word_tokens]
-                    word_symbols_for_lookup = [s for s in word_symbols if s != '|']
-                    word_phonemes_tuple = tuple(word_symbols_for_lookup)
+                    # Convert token IDs to symbols for fallback                    
                     
-                    # Choose primary word
-                    if alternatives:
-                        # Use first alternative as primary (or from lexicon_word_map if provided)
-                        if lexicon_word_map and word_phonemes_tuple in lexicon_word_map:
-                            primary_word = lexicon_word_map[word_phonemes_tuple]
-                        else:
-                            primary_word = alternatives[0]
-                    else:
-                        primary_word = ' '.join(word_symbols)
-                        alternatives = []
+                    # Choose primary word (first lexicon entry). Any missing alternative indicates bad lexicon setup.
+                    if not alternatives:
+                        raise RuntimeError(
+                            "decode_sequence_to_words hit a word boundary without alternatives; "
+                            "ensure the lexicon was built with word metadata."
+                        )
+                    primary_word = alternatives[0]
                     
                     words.append(primary_word)
                     word_alternatives.append((primary_word, alternatives if len(alternatives) > 1 else []))
@@ -443,6 +437,7 @@ class LexiconConstraint:
                     words.append(unk_word)
                     word_alternatives.append((unk_word, []))
                     current_word_tokens = []
+                    
                 unk_word = f'<UNK:{token_to_symbol.get(token_id, token_id)}>'
                 words.append(unk_word)
                 word_alternatives.append((unk_word, []))
@@ -457,6 +452,7 @@ class LexiconConstraint:
         
         if return_alternatives:
             return word_alternatives
+        
         return ' '.join(words)
     
     def get_constraint_mask(
@@ -548,7 +544,6 @@ class LexiconConstraint:
         self._cache_misses = 0
 
 
-
 class VectorizedLexiconConstraint(LexiconConstraint):
     """GPU-friendly lexicon constraint using a dense transition table."""
 
@@ -587,13 +582,13 @@ class VectorizedLexiconConstraint(LexiconConstraint):
 
     def _build_dense_transition_table(self, device: torch.device) -> tuple[torch.Tensor, int, torch.Tensor]:
         
-        node_queue: List[Dict] = [self.trie]
-        node_to_idx = {id(self.trie): 0}
-        nodes: List[Dict] = [self.trie]
+        # nodes doubles as the BFS queue; iterating by index saves a second list
+        nodes: List[Dict] = [self.trie] # stores trie nodes in BFS order
+        node_to_idx = {id(self.trie): 0} # assigns node IDs to integer indices in BFS order
         queue_idx = 0
 
-        while queue_idx < len(node_queue):
-            node = node_queue[queue_idx]
+        while queue_idx < len(nodes):
+            node = nodes[queue_idx]
             queue_idx += 1
             for token, child in node.items():
                 if token == '__end__':
@@ -602,27 +597,38 @@ class VectorizedLexiconConstraint(LexiconConstraint):
                 if child_id not in node_to_idx:
                     node_to_idx[child_id] = len(nodes)
                     nodes.append(child)
-                    node_queue.append(child)
 
         num_nodes = len(nodes)
-        sink_state = num_nodes
+        sink_state = num_nodes # sink state for invalid transitions 
+    
+        """
+            table has rows for all nodes (+ sink state),
+            and columns for each vocabulary item.
+            
+            the entry at row i, column j in the table tells us which node
+            we should move to if we are at node i and observe token j. 
+        """
+        
         table = torch.full(
             (num_nodes + 1, self._table_vocab_size),
             fill_value=self._INVALID_STATE,
             dtype=torch.long,
             device=device,
         )
+        
+        # set to true for nodes that represent the end of a word
         end_state_mask = torch.zeros(num_nodes + 1, dtype=torch.bool, device=device)
 
         for idx, node in enumerate(nodes):
             if '__end__' in node:
-                end_state_mask[idx] = True
+                end_state_mask[idx] = True # set flag to true if end of a word
             for token, child in node.items():
                 if token == '__end__':
                     continue
                 if token >= self._table_vocab_size:
                     continue
-                child_idx = node_to_idx[id(child)]
+                
+                child_idx = node_to_idx[id(child)]      
                 table[idx, token] = child_idx
 
         # Allow boundary tokens only after completing a word (nodes with '__end__')
