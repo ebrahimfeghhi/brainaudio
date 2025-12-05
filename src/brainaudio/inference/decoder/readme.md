@@ -82,8 +82,11 @@ The core of this class is built within `_build_dense_transition_table`.
 ### `_build_dense_transition_table`
 Converts the trie into a transition table through the following sequence of steps.
     1. Store nodes in BFS order, and assign each node id to a unique integer id in BFS order. 
-    2. Construct the transition table. The entry at row i, column j in the table tells us which node we should move to if we are at node i and observe token j. Each node represents a prefix in the lexicon trie. 
-    
+    2. Initialize a transition table where rows represent nodes/states (prefixes in trie) and columns represent
+    vocabulary tokens. Values in the transition table are initialized to an INVALID STATE VALUE (set to -1).
+    In this manner, we can handle observing the CTC blank token, repeats, as well as invalid phoneme sequences.
+    3. After filling the table using the trie, row i, column j tells us which node we should move to if we are at node i and observe token j.
+
 ---
 ## Core Methods
 
@@ -100,13 +103,17 @@ Generates a boolean mask for batch processing, identifying valid tokens for the 
 
 
 ### update_state
+Returns updated state vector.
 
 * **Inputs:**
     * `parent_state`: Shape `(B, beam_size)`, previous state values.
     * `emitted_labels`: Shape `(B, beam_size)`, current token for each beam. 
     * `prev_last_labels`:  Shape `(B, beam_size)`, previous token for each beam.
 * **Logic:**
-    1. Computes advance_mask, which is true only if emitted_labels is not a blank token or repeat.
-    2. All invalid emitted_labels or emitted_labels which return an invalid state are directed to the sink state.
+    1. Computes advance_mask, which is True only if emitted_labels is not a blank token or repeat. If False, 
+    we do not update the state.  
+    2. Transition to sink state when encountering invalid emitted_labels or emitted_labels which are invalid phoneme sequences. 
+    3. If the updated state is a valid word, reset to the root node. 
+
     
 

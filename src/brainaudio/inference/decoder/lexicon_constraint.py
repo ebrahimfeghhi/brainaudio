@@ -716,10 +716,13 @@ class VectorizedLexiconConstraint(LexiconConstraint):
 
         resettable = self._end_state_mask[next_nodes]
         next_nodes = torch.where(resettable, self._root_state_tensor, next_nodes)
-
+        
         updated_state = torch.where(advance_mask, next_nodes, parent_clamped)
+        
+        # reset inactivate beams to root state
         reset_mask = emitted_labels < 0
         root = torch.zeros_like(parent_clamped)
         updated_state = torch.where(reset_mask, root, updated_state)
+        
         return updated_state
 

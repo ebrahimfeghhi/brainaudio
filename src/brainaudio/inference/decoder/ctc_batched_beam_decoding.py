@@ -408,7 +408,6 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                 # Will be populated after first fusion_model.advance() call
                 fusion_states_candidates_list.append(None)
 
-        token_to_symbol = getattr(self.lexicon, "token_to_symbol", None) if self.lexicon is not None else None
 
         # Main decoding loop: process one acoustic frame at a time
         for frame_idx in range(curr_max_time):
@@ -437,6 +436,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             # step 2.2.5: apply lexicon constraints if provided
             # This masks out tokens that would create invalid words according to the lexicon
             if self.lexicon is not None:
+                # Vectorized lexicon maintains internal state (prefix) per beam
                 if lexicon_state is not None:
                     lexicon_mask = self.lexicon.get_constraint_mask_with_state(
                         state=lexicon_state,
@@ -535,7 +535,9 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             next_labels = torch.where(active_mask, next_labels, NON_EXISTENT_LABEL_VALUE)
 
             if lexicon_state is not None:
+                # gather parent lexicon states for the selected beams
                 parent_states = torch.gather(lexicon_state, dim=1, index=next_indices)
+                # update lexicon states based on the emitted labels
                 lexicon_state = self.lexicon.update_state(
                     parent_state=parent_states,
                     emitted_labels=next_labels,
@@ -543,8 +545,10 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                 )
                 sink_state = getattr(self.lexicon, "_sink_state", None)
                 if sink_state is not None:
+                    # mask beams that reached sink state
                     invalid_mask = lexicon_state == sink_state
                     if invalid_mask.any():
+                        breakpoint()
                         batched_beam_hyps.scores = torch.where(
                             invalid_mask,
                             batched_beam_hyps.scores.new_full((), INACTIVE_SCORE),

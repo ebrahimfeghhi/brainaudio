@@ -22,12 +22,6 @@ parser.add_argument("end", type=int, nargs="?", default=1400, help="End Index (d
 parser.add_argument("--no-lexicon", action="store_true", help="Disable lexicon constraint")
 parser.add_argument("--beam-size", type=int, default=1, help="Beam size for CTC decoding (default: 1)")
 parser.add_argument(
-    "--vectorized-lexicon",
-    dest="use_vectorized_lexicon",
-    action="store_true",
-    help="Use the GPU vectorized lexicon constraint implementation (default)",
-)
-parser.add_argument(
     "--no-vectorized-lexicon",
     dest="use_vectorized_lexicon",
     action="store_false",
