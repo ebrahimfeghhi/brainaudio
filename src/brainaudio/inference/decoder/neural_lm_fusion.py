@@ -184,6 +184,14 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
         # Ensure tokenizer has pad token
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
+
+        self.bos_token_id = self.tokenizer.bos_token_id
+        if self.bos_token_id is None:
+            self.bos_token_id = self.tokenizer.eos_token_id
+        if self.bos_token_id is None:
+            self.bos_token_id = self.tokenizer.pad_token_id
+        if self.bos_token_id is None:
+            raise ValueError("Tokenizer must define at least one of bos/eos/pad tokens")
     
     @torch.no_grad()
     def score_continuations(
@@ -191,98 +199,110 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
         contexts: List[str], 
         candidate_words: List[List[str]]
     ) -> List[List[float]]:
-        """
-        Score candidate words using the HuggingFace LM.
         
-        Implementation:
-            For each (context, candidate_word) pair:
-            1. Tokenize: context + " " + candidate_word
-            2. Get log-probs from LM
-            3. Extract log-prob of the candidate word tokens
-            4. Sum to get total log-prob of the word
         """
+        Docstring for score_continuations
+        
+        :param contexts: List of strings, each representing the context for a beam
+        :type contexts: List[str]
+        :param candidate_words: List of lists of candidate words for each beam
+        :type candidate_words: List[List[str]]
+        :return: List of lists of log-probabilities for each candidate word in each beam
+        :rtype: List[List[float]]
+        """
+        
+        print("CONTEXTS:", contexts)
         if not contexts:
             return []
 
-        beam_scores: List[List[float]] = [[] for _ in candidate_words]
+        # 1. Flatten inputs for batching
+        flat_texts = []
+        meta_info = [] # Stores (beam_idx, word_start_index)
 
-        # Pre-tokenize contexts (used repeatedly per candidate word)
-        encoded_contexts = [
-            self.tokenizer.encode(ctx, add_special_tokens=False) if ctx else []
-            for ctx in contexts
-        ]
-        
-   
-        space_token = self.tokenizer.encode(" ", add_special_tokens=False)
-
-        flat_requests = []
         for beam_idx, (context, words) in enumerate(zip(contexts, candidate_words)):
             if not words:
                 continue
 
-            context_tokens = encoded_contexts[beam_idx]
-            context_space_tokens = (
-                self.tokenizer.encode(f"{context} ", add_special_tokens=False)
-                if context else []
-            )
+            prefix_ids = self.tokenizer.encode(context, add_special_tokens=False)
+            prefix_len = len(prefix_ids) + 1  # +1 for manual BOS
 
-            for word_idx, word in enumerate(words):
+            for word in words:
                 full_text = f"{context} {word}" if context else word
-                full_tokens = self.tokenizer.encode(full_text, add_special_tokens=False)
+                flat_texts.append(full_text)
+                meta_info.append((beam_idx, prefix_len))
 
-                word_token_start = len(context_tokens)
-                if context and full_tokens[word_token_start:word_token_start + 1] != space_token:
-                    word_token_start = len(context_space_tokens)
+        if not flat_texts:
+            return [[] for _ in candidate_words]
 
-                if len(full_tokens) > self.max_context_length:
-                    offset = len(full_tokens) - self.max_context_length
-                    full_tokens = full_tokens[offset:]
-                    word_token_start = max(0, word_token_start - offset)
-
-                flat_requests.append(
-                    {
-                        "beam_idx": beam_idx,
-                        "word_idx": word_idx,
-                        "tokens": full_tokens,
-                        "word_start": word_token_start,
-                    }
-                )
-
-        if not flat_requests:
-            return beam_scores
-
-        # Batch all context-word prompts into a single LM forward pass.
-        max_len = max(len(req["tokens"]) for req in flat_requests)
-        pad_id = self.tokenizer.pad_token_id
-        input_ids = torch.full(
-            (len(flat_requests), max_len),
-            pad_id,
-            dtype=torch.long,
-            device=self.device,
+        # 2. Tokenize all beams + candidate words (manual BOS added later)
+        inputs = self.tokenizer(
+            flat_texts,
+            return_tensors="pt",
+            padding=True,
+            truncation=True,
+            max_length=max(1, self.max_context_length - 1),
+            add_special_tokens=False,
         )
-        attention_mask = torch.zeros_like(input_ids, dtype=torch.bool)
 
-        for row, req in enumerate(flat_requests):
-            tokens = torch.tensor(req["tokens"], dtype=torch.long, device=self.device)
-            seq_len = tokens.size(0)
-            input_ids[row, :seq_len] = tokens
-            attention_mask[row, :seq_len] = True
-            req["seq_len"] = seq_len
+        input_ids = inputs.input_ids
+        attention_mask = inputs.attention_mask
 
-        outputs = self.model(input_ids, attention_mask=attention_mask)
-        log_probs = torch.nn.functional.log_softmax(outputs.logits, dim=-1)
+        bos_column = torch.full(
+            (input_ids.size(0), 1),
+            self.bos_token_id,
+            dtype=input_ids.dtype,
+            device=input_ids.device,
+        )
+        
+        input_ids = torch.cat([bos_column, input_ids], dim=1)
+        attention_mask = torch.cat([torch.ones_like(bos_column), attention_mask], dim=1)
+        input_ids = input_ids.to(self.device)
+        attention_mask = attention_mask.to(self.device)
+        # 3. Forward Pass & Log Softmax
+        outputs = self.model(input_ids)
+        
+        # Shape: [B, L, Vocab]
+        all_log_probs = torch.log_softmax(outputs.logits, dim=-1)
+        
+        # 4. Shift and Gather
+        # We want the probability of token at t, given context <t.
+        # Logits at index [:-1] predict tokens at index [1:]
+        
+        # Align log probs and input_ids by shifting
+        log_probs_shifted = all_log_probs[:, :-1, :] # Shape: [B, L-1, Vocab]
+        target_ids = input_ids[:, 1:]                # Shape: [B, L-1]
+        
+        if len(contexts[0]) > 0:
+            breakpoint()
 
-        for row, req in enumerate(flat_requests):
-            seq_len = req["seq_len"]
-            word_start = min(req["word_start"], seq_len)
-            tokens = req["tokens"]
-            score = 0.0
-            for pos in range(word_start, seq_len):
-                if pos == 0:
-                    continue
-                token_id = tokens[pos]
-                score += log_probs[row, pos - 1, token_id].item()
-            beam_scores[req["beam_idx"]].append(score)
+        # Gather the log-prob of the ACTUAL token that appears in target_ids
+        # gathered_probs[i, t] = score of token target_ids[i, t]
+        gathered_probs = torch.gather(
+            log_probs_shifted, 
+            dim=2, 
+            index=target_ids.unsqueeze(-1)
+        ).squeeze(-1) # Shape: [B, L-1]
+
+        # 5. Reconstruct Scores
+        beam_scores: List[List[float]] = [[] for _ in candidate_words]
+
+        for batch_idx, (beam_idx, prefix_len) in enumerate(meta_info):
+            # Calculate where the candidate word starts in the *shifted* array.
+            # In input_ids, the new word starts at `prefix_len`.
+            # In gathered_probs (which is shifted by 1), that corresponds to index `prefix_len - 1`.
+            start = max(0, prefix_len - 1)
+            
+            # Calculate the end (ignoring padding)
+            # -1 because gathered_probs is 1 shorter than input_ids
+            valid_len = attention_mask[batch_idx].sum().item() - 1
+            
+            if start >= valid_len:
+                # Context pushed word out of truncation window
+                score = -float('inf')
+            else:
+                score = gathered_probs[batch_idx, start:valid_len].sum().item()
+
+            beam_scores[beam_idx].append(score)
 
         return beam_scores
     

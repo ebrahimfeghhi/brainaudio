@@ -547,7 +547,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                     # mask beams that reached sink state
                     invalid_mask = lexicon_state == sink_state
                     if invalid_mask.any():
-                        breakpoint()
+                        breakpoint() # added breakpoint because I don't think this condition should ever be hit
                         batched_beam_hyps.scores = torch.where(
                             invalid_mask,
                             batched_beam_hyps.scores.new_full((), INACTIVE_SCORE),
@@ -609,6 +609,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             boundary_token = getattr(self.lexicon, "word_boundary_token", None)
 
             for k in range(self.beam_size):
+                
                 seq = beam_hyps.transcript_wb[b, k]
                 seq_filtered = seq[seq >= 0].tolist()
                 seq_ctc = self._collapse_ctc_sequence(seq_filtered)
@@ -627,7 +628,8 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                     and len(word_indices) == 0
                 )
 
-                # I'm not sure if apply_lm_fusion needs to handle this case.
+                # I'm not sure if apply_lm_fusion needs to handle this case, 
+                # since the lexicon mask would have been applied.
                 if invalid_completed_word:
                     # Word ended in silence but lexicon has no mapping; prune this beam.
                     log_probs[b, k, :].fill_(float('-inf'))
@@ -678,7 +680,6 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                         if token < log_probs.shape[-1]:
                             log_probs[b, k, token] += self.lm_fusion.weight * combined_score
                             
-                breakpoint()
         
         return log_probs
     
