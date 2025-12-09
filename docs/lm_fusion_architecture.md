@@ -6,10 +6,12 @@ This document explains how N-gram language models are integrated into the CTC be
 
 The decoder supports **shallow fusion**: adding LM scores to acoustic model scores during beam search. Two integration points exist:
 
-1. **Token-level fusion** (N-gram LM): Uses `fusion_models` - applies at every token emission
+1. **Token-level fusion** (N-gram LM): Uses `fusion_models` - applies at every token emission (**disabled for now; code removed from `ctc_batched_beam_decoding.py` but documented here for historical reference**)
 2. **Word-level fusion** (Neural LM): Uses `lm_fusion` - applies only at word boundaries (NOT YET IMPLEMENTED)
 
-## Token-Level Fusion (N-gram LM) - Current Implementation
+## Token-Level Fusion (N-gram LM) - Legacy Implementation (Disabled)
+
+> **Status**: The functionality described in this section was removed to simplify the decoder and will need to be re-enabled explicitly if token-level n-gram fusion is desired again.
 
 ### Key Components
 

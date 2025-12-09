@@ -5,7 +5,7 @@ import os
 from typing import Optional, Dict
 
 # --- Configuration ---
-MODEL_NAME = "fully_chunked_25_trial_38_seed_0"
+MODEL_NAME = "tm_transformer"
 local_model_folder = "b2t_25"
 modelWeightsFiles = ["modelWeights_WER_25"]
 

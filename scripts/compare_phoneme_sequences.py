@@ -8,9 +8,9 @@ from torch.nn.utils.rnn import pad_sequence
 from brainaudio.inference.decoder import (
     BatchedBeamCTCComputer,
     LexiconConstraint,
+    apply_ctc_rules,
     load_token_to_phoneme_mapping,
 )
-from brainaudio.inference.decoder.decode_utils import apply_ctc_rules
 
 
 def load_logits(npz_path: Path, trial_index: int, device: torch.device) -> tuple[torch.Tensor, torch.Tensor]:

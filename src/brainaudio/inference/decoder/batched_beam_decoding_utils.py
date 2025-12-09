@@ -351,7 +351,7 @@ class BatchedBeamHyps:
 
         if self.beam_size <= 1:
             return
-
+        
         hyps_equal = (
             (self.transcript_hash[:, :, None] == self.transcript_hash[:, None, :])
             & (self.last_label[:, :, None] == self.last_label[:, None, :])
@@ -366,6 +366,7 @@ class BatchedBeamHyps:
             self.scores[:, None, :].expand(self.batch_size, self.beam_size, self.beam_size),
             self.INACTIVE_SCORE_TENSOR,
         )
+        
         scores_argmax = scores_matrix.argmax(-1, keepdim=False)
         scores_to_keep = (
             torch.arange(self.beam_size, device=scores_argmax.device, dtype=torch.long)[None, :] == scores_argmax
@@ -399,6 +400,7 @@ class BatchedBeamHyps:
         expansion_hashes = torch.where(non_blank_mask, expansion_hashes, self.transcript_hash.unsqueeze(-1)).view(
             self.batch_size, -1
         )
+        
 
         # masking inactive hypotheses
         inactive_hyps_mask = self.scores != INACTIVE_SCORE
