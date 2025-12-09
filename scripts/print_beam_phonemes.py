@@ -29,7 +29,7 @@ TRANSCRIPTS_PKL = Path("/data2/brain2text/b2t_25/transcripts_val_cleaned.pkl")
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Inspect all beams for a single trial")
     parser.add_argument("trial", type=int, default=1, help="Validation trial index to decode (0-based)")
-    parser.add_argument("--beam-size", type=int, default=2, help="Beam size to use")
+    parser.add_argument("--beam-size", type=int, default=25, help="Beam size to use")
     parser.add_argument(
         "--max-beams", type=int, default=None, help="Limit how many beams to print (default: all)"
     )

@@ -547,7 +547,8 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                     # mask beams that reached sink state
                     invalid_mask = lexicon_state == sink_state
                     if invalid_mask.any():
-                        breakpoint() # added breakpoint because I don't think this condition should ever be hit
+                        #breakpoint() # added breakpoint because I don't think this condition should ever be hit
+                        print("INVALID MASK")
                         batched_beam_hyps.scores = torch.where(
                             invalid_mask,
                             batched_beam_hyps.scores.new_full((), INACTIVE_SCORE),
@@ -609,10 +610,9 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             boundary_token = getattr(self.lexicon, "word_boundary_token", None)
 
             for k in range(self.beam_size):
-                
-                seq = beam_hyps.transcript_wb[b, k]
-                seq_filtered = seq[seq >= 0].tolist()
-                seq_ctc = self._collapse_ctc_sequence(seq_filtered)
+                # Reconstruct the actual token path for this beam by following parent pointers.
+                seq_tensor = materialize_beam_transcript(beam_hyps, b, k)
+                seq_ctc = self._collapse_ctc_sequence(seq_tensor.tolist())
 
                 if len(seq_ctc) == 0:
                     continue
@@ -620,6 +620,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                 # Check if at word boundary
                 valid_tokens, at_boundary, word_indices = \
                     self.lexicon.get_valid_next_tokens_with_word_info(seq_ctc)
+                    
 
                 invalid_completed_word = (
                     boundary_token is not None
@@ -654,18 +655,15 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                 # Prepare contexts and candidates for batched scoring
                 contexts = [info[3] for info in boundary_info]
                 candidate_word_lists = [info[4] for info in boundary_info]
+                
+
+                    
                 # Get LM scores for all candidates (homophones)
                 all_lm_scores = self.lm_fusion.score_continuations(contexts, candidate_word_lists)
                 
                 # Apply scores to each beam
                 for (k, valid_tokens, word_indices, partial_text, candidate_words), lm_scores in zip(boundary_info, all_lm_scores):
-                    if getattr(self.lm_fusion, "log_homophone_scores", False):
-                        print("[LM Fusion] Candidate scores")
-                        print(f"  Context: '{partial_text}' | Beam {k}")
-                        for word, raw_score in zip(candidate_words, lm_scores):
-                            print(
-                                f"    {word:<20} raw={raw_score:.4f} scaled={self.lm_fusion.weight * raw_score:.4f}"
-                            )
+               
                     # Aggregate homophone scores AFTER scoring all candidates
                     combined_score = self.lm_fusion.aggregate_homophone_scores(lm_scores)
 

@@ -34,13 +34,19 @@ def parse_args() -> argparse.Namespace:
         "--trials",
         type=int,
         nargs="+",
-        default=[0, 1],
+        default=[1],
         help="Validation trial indices to decode together (default: 0 1)",
     )
-    parser.add_argument("--beam-size", type=int, default=3, help="CTC beam size (default: 3)")
-    parser.add_argument("--model", default="sshleifer/tiny-gpt2", help="HuggingFace causal LM checkpoint")
+    parser.add_argument("--beam-size", type=int, default=50, help="CTC beam size (default: 3)")
+    parser.add_argument(
+        "--top-beams",
+        type=int,
+        default=10,
+        help="Number of beams to print with scores (default: 10)",
+    )
+    parser.add_argument("--model", default="google/gemma-3-270m", help="HuggingFace causal LM checkpoint")
     parser.add_argument("--hf-token", default=None, help="Optional HF token for gated models")
-    parser.add_argument("--lm-weight", type=float, default=0.3, help="Fusion weight passed to HuggingFaceLMFusion")
+    parser.add_argument("--lm-weight", type=float, default=1, help="Fusion weight passed to HuggingFaceLMFusion")
     parser.add_argument("--max-context-length", type=int, default=128, help="Token budget (including BOS)")
     parser.add_argument("--device", default=None, help="Torch device for CTC + LM (default: cuda if available)")
     parser.add_argument("--logits", type=Path, default=Path(DEFAULT_LOGITS), help="NPZ file containing validation logits")
@@ -87,7 +93,6 @@ def load_token_table(tokens_file: Path) -> Dict[int, str]:
             table[idx] = line.strip()
     return table
 
-
 def load_phoneme_to_word(lexicon_file: Path) -> Dict[tuple[str, ...], str]:
     mapping: Dict[tuple[str, ...], str] = {}
     with lexicon_file.open() as fh:
@@ -118,22 +123,45 @@ def decode_best_beams(
     lexicon: VectorizedLexiconConstraint,
     phoneme_to_word: Dict[tuple[str, ...], str],
 ) -> List[str]:
-    decoded: List[str] = []
+    top_texts = decode_beam_texts(
+        transcripts=transcripts,
+        token_table=token_table,
+        lexicon=lexicon,
+        phoneme_to_word=phoneme_to_word,
+        top_k=1,
+    )
+    return [texts[0] if texts else "<EMPTY>" for texts in top_texts]
+
+
+def decode_beam_texts(
+    transcripts: torch.Tensor,
+    token_table: Dict[int, str],
+    lexicon: VectorizedLexiconConstraint,
+    phoneme_to_word: Dict[tuple[str, ...], str],
+    top_k: int,
+) -> List[List[str]]:
+    """Decode up to top_k beams per batch element into word strings."""
+
+    decoded: List[List[str]] = []
+    beam_limit = min(top_k, transcripts.shape[1]) if top_k > 0 else 0
     for batch_idx in range(transcripts.shape[0]):
-        seq = transcripts[batch_idx, 0]
-        valid = seq[seq >= 0].tolist()
-        tokens = strip_ctc(valid, blank=lexicon.blank_index)
-        if not tokens:
-            decoded.append("<EMPTY>")
-            continue
-        word_alts = lexicon.decode_sequence_to_words(
-            token_ids=tokens,
-            token_to_symbol=token_table,
-            lexicon_word_map=phoneme_to_word,
-            return_alternatives=True,
-        )
-        words = [alts[0] if alts else word for word, alts in word_alts]
-        decoded.append(" ".join(words))
+        beam_texts: List[str] = []
+        for beam_idx in range(beam_limit):
+            seq = transcripts[batch_idx, beam_idx]
+            valid = seq[seq >= 0].tolist()
+            tokens = strip_ctc(valid, blank=lexicon.blank_index)
+            if not tokens:
+                beam_texts.append("<EMPTY>")
+                continue
+            word_alts = lexicon.decode_sequence_to_words(
+                token_ids=tokens,
+                token_to_symbol=token_table,
+                lexicon_word_map=phoneme_to_word,
+                return_alternatives=True,
+            )
+            words = [alts[0] if alts else word for word, alts in word_alts]
+            beam_texts.append(" ".join(words))
+        decoded.append(beam_texts)
     return decoded
 
 
@@ -153,7 +181,7 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(args.model, token=args.hf_token)
     model = AutoModelForCausalLM.from_pretrained(
         args.model,
-        torch_dtype=torch.float32,
+        dtype=torch.float32,
         token=args.hf_token,
     ).to(device)
 
@@ -175,12 +203,29 @@ def main():
     )
 
     result = decoder(logits, lengths)
-    decoded_texts = decode_best_beams(result.transcript_wb, token_table, lexicon, phoneme_to_word)
+    top_k = max(0, min(args.top_beams, result.transcript_wb.shape[1]))
+    decoded_beams = decode_beam_texts(
+        transcripts=result.transcript_wb,
+        token_table=token_table,
+        lexicon=lexicon,
+        phoneme_to_word=phoneme_to_word,
+        top_k=top_k,
+    )
+    decoded_texts = [texts[0] if texts else "<EMPTY>" for texts in decoded_beams]
 
     print("\n=== Neural LM Fusion Decode ===")
-    for trial_idx, text, score in zip(args.trials, decoded_texts, result.scores[:, 0]):
-        print(f"Trial {trial_idx:3d} | Beam size {args.beam_size} | Score {score.item():.2f}")
-        print(f"   Text: {text}")
+    for batch_idx, (trial_idx, text) in enumerate(zip(args.trials, decoded_texts)):
+        best_score = result.scores[batch_idx, 0].item()
+        print(f"Trial {trial_idx:3d} | Beam size {args.beam_size} | Score {best_score:.4f}")
+        print(f"   Best: {text}")
+
+        if top_k == 0:
+            continue
+
+        print("   Top beams:")
+        for beam_rank, beam_text in enumerate(decoded_beams[batch_idx]):
+            beam_score = result.scores[batch_idx, beam_rank].item()
+            print(f"     #{beam_rank:02d} | log {beam_score:.4f} | {beam_text}")
 
 
 if __name__ == "__main__":

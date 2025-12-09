@@ -17,7 +17,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
 import torch
-
+import torch.nn.functional as F
 
 class NeuralLanguageModelFusion(ABC):
     """
@@ -175,136 +175,97 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
         super().__init__(weight, homophone_aggregation, device)
         self.model = model
         self.tokenizer = tokenizer
+        self.tokenizer.padding_side = "right"
         self.max_context_length = max_context_length
         
         # Move model to device and set to eval mode
         self.model.to(self.device)
         self.model.eval()
         
-        # Ensure tokenizer has pad token
-        if self.tokenizer.pad_token is None:
-            self.tokenizer.pad_token = self.tokenizer.eos_token
 
-        self.bos_token_id = self.tokenizer.bos_token_id
-        if self.bos_token_id is None:
-            self.bos_token_id = self.tokenizer.eos_token_id
-        if self.bos_token_id is None:
-            self.bos_token_id = self.tokenizer.pad_token_id
-        if self.bos_token_id is None:
-            raise ValueError("Tokenizer must define at least one of bos/eos/pad tokens")
-    
     @torch.no_grad()
-    def score_continuations(
-        self, 
-        contexts: List[str], 
-        candidate_words: List[List[str]]
-    ) -> List[List[float]]:
+    def score_continuations(self, contexts: List[str], candidate_words: List[List[str]]) -> List[List[float]]:
         
-        """
-        Docstring for score_continuations
-        
-        :param contexts: List of strings, each representing the context for a beam
-        :type contexts: List[str]
-        :param candidate_words: List of lists of candidate words for each beam
-        :type candidate_words: List[List[str]]
-        :return: List of lists of log-probabilities for each candidate word in each beam
-        :rtype: List[List[float]]
-        """
-        
-        print("CONTEXTS:", contexts)
-        if not contexts:
-            return []
-
-        # 1. Flatten inputs for batching
         flat_texts = []
-        meta_info = [] # Stores (beam_idx, word_start_index)
-
-        for beam_idx, (context, words) in enumerate(zip(contexts, candidate_words)):
-            if not words:
-                continue
-
-            prefix_ids = self.tokenizer.encode(context, add_special_tokens=False)
-            prefix_len = len(prefix_ids) + 1  # +1 for manual BOS
-
-            for word in words:
-                full_text = f"{context} {word}" if context else word
+        flat_context_lens = []
+        
+        # 1. Flatten structure
+        for context, candidates in zip(contexts, candidate_words):
+            # Calculate context length roughly (approximation for indexing)
+            # Note: add_special_tokens=False is safer if we want raw length
+            ctx_ids = self.tokenizer.encode(context, add_special_tokens=False)
+            ctx_len = len(ctx_ids)
+            
+            for word in candidates:
+                # 2. Fix Spacing Logic
+                if not context:
+                    full_text = word
+                elif context.endswith(" ") or word.startswith(" "):
+                    full_text = f"{context}{word}"
+                else:
+                    full_text = f"{context} {word}"
+                
                 flat_texts.append(full_text)
-                meta_info.append((beam_idx, prefix_len))
+                flat_context_lens.append(ctx_len) 
 
         if not flat_texts:
-            return [[] for _ in candidate_words]
-
-        # 2. Tokenize all beams + candidate words (manual BOS added later)
+            return []
+    
+        # 3. Batch Tokenize
+        # Note: 'padding=True' is essential if lengths differ
         inputs = self.tokenizer(
             flat_texts,
             return_tensors="pt",
-            padding=True,
-            truncation=True,
-            max_length=max(1, self.max_context_length - 1),
-            add_special_tokens=False,
-        )
+            padding=True
+        ).to(self.device)
+        
+        input_ids = inputs.input_ids 
+        attention_mask = inputs.attention_mask # padded tokens have a value of 0 
 
-        input_ids = inputs.input_ids
-        attention_mask = inputs.attention_mask
+        # Forward Pass
+        outputs = self.model(input_ids, attention_mask=attention_mask)
+        logits = outputs.logits 
 
-        bos_column = torch.full(
-            (input_ids.size(0), 1),
-            self.bos_token_id,
-            dtype=input_ids.dtype,
-            device=input_ids.device,
-        )
+        # Shift Logits & Labels
+        shift_logits = logits[..., :-1, :].contiguous() # B x (Seq Len - 1) x Vocab
+        shift_labels = input_ids[..., 1:].contiguous() # B x (Seq Len - 1)
         
-        input_ids = torch.cat([bos_column, input_ids], dim=1)
-        attention_mask = torch.cat([torch.ones_like(bos_column), attention_mask], dim=1)
-        input_ids = input_ids.to(self.device)
-        attention_mask = attention_mask.to(self.device)
-        # 3. Forward Pass & Log Softmax
-        outputs = self.model(input_ids)
         
-        # Shape: [B, L, Vocab]
-        all_log_probs = torch.log_softmax(outputs.logits, dim=-1)
+        # Log Softmax
+        log_probs = F.log_softmax(shift_logits, dim=-1)
         
-        # 4. Shift and Gather
-        # We want the probability of token at t, given context <t.
-        # Logits at index [:-1] predict tokens at index [1:]
-        
-        # Align log probs and input_ids by shifting
-        log_probs_shifted = all_log_probs[:, :-1, :] # Shape: [B, L-1, Vocab]
-        target_ids = input_ids[:, 1:]                # Shape: [B, L-1]
-        
-        if len(contexts[0]) > 0:
-            breakpoint()
-
-        # Gather the log-prob of the ACTUAL token that appears in target_ids
-        # gathered_probs[i, t] = score of token target_ids[i, t]
+        # Gather scores
         gathered_probs = torch.gather(
-            log_probs_shifted, 
+            log_probs, 
             dim=2, 
-            index=target_ids.unsqueeze(-1)
-        ).squeeze(-1) # Shape: [B, L-1]
-
-        # 5. Reconstruct Scores
-        beam_scores: List[List[float]] = [[] for _ in candidate_words]
-
-        for batch_idx, (beam_idx, prefix_len) in enumerate(meta_info):
-            # Calculate where the candidate word starts in the *shifted* array.
-            # In input_ids, the new word starts at `prefix_len`.
-            # In gathered_probs (which is shifted by 1), that corresponds to index `prefix_len - 1`.
-            start = max(0, prefix_len - 1)
+            index=shift_labels.unsqueeze(-1)
+        ).squeeze(-1) # Beam Size x (Seq Len - 1)
+        
+        # Reconstruct and Sum
+        final_scores = []
+        flat_idx = 0
+        
+        for candidates in candidate_words:
             
-            # Calculate the end (ignoring padding)
-            # -1 because gathered_probs is 1 shorter than input_ids
-            valid_len = attention_mask[batch_idx].sum().item() - 1
+            beam_scores = []
             
-            if start >= valid_len:
-                # Context pushed word out of truncation window
-                score = -float('inf')
-            else:
-                score = gathered_probs[batch_idx, start:valid_len].sum().item()
+            for _ in candidates:
+                
+                start_idx = flat_context_lens[flat_idx] 
+                
+                # 4. Fix End Index Logic
+                # We want to sum from the end of context to the end of the VALID sequence
+                # -1 because gathered_probs is shifted
+                total_valid_len = attention_mask[flat_idx].sum().item() - 1
+                
+                
+                score = gathered_probs[flat_idx, start_idx:total_valid_len].sum().item()
+                beam_scores.append(score)
+                flat_idx += 1
+                
+            final_scores.append(beam_scores)
 
-            beam_scores[beam_idx].append(score)
-
-        return beam_scores
+        return final_scores
     
     def to(self, device: torch.device):
         """Move model to specified device."""
