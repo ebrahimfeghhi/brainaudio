@@ -141,7 +141,7 @@ candidates = [
     ["text", "banana"],      # 'text' should be higher
     ["search", "sandwich"],  # 'search' should be higher
     ["chart", "planet"],      # 'chart' should be higher
-    ["down", "own", "doan"]           # 'down' should be higher
+    ["down", "own", "doan", "tin"]           # 'down' should be higher
 ]
 
 print("\nRunning Scorer...")

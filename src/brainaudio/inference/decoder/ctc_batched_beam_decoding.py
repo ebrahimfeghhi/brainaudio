@@ -30,12 +30,7 @@ from .cuda_python_utils import (
 )
 from .enum import PrettyStrEnum
 from .nemo_stubs import logging
-from .neural_lm_fusion import NeuralLanguageModelFusion
-from .beam_helpers import (
-    materialize_beam_transcript,
-    collapse_ctc_sequence,
-    decode_sequence_to_text,
-)
+from .neural_lm_fusion import NeuralLanguageModelFusion, apply_lm_fusion
 
 HAVE_LM_FUSION = False
 
@@ -340,7 +335,6 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             # If frame_idx >= length, that utterance is done and we shouldn't update its beams
             active_mask = frame_idx < decoder_output_lengths.unsqueeze(1)
 
-
             # repeated_mask: [B, beam_size, V+1] - True where a vocab token equals the last emitted token
             # batched_beam_hyps.last_label is [B, beam_size], we broadcast to compare against all vocab
             # This identifies which tokens would be *repetitions* of the previous non-blank token
@@ -351,8 +345,10 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             repeated_or_blank_mask = repeated_mask | vocab_blank_mask[None, None, :]
 
             # step 2.1: getting the log probs and updating with fusion scores
+            # log probs is of shape batch size [B, beam_size, V+1]
             log_probs = decoder_outputs[:, frame_idx, :].unsqueeze(1).repeat(1, self.beam_size, 1)
-            log_probs += batched_beam_hyps.scores.unsqueeze(-1)
+            log_probs += batched_beam_hyps.scores.unsqueeze(-1) # add current beam scores to every token in our beam
+            
 
             # step 2.2: updating non-blank and non-repeating token scores with `beam_beta`
             log_probs = torch.where(repeated_or_blank_mask, log_probs, log_probs + self.beam_beta)
@@ -374,17 +370,9 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                         vocab_size=vocab_size,
                     )
                 
-            
                 # Set invalid tokens to -inf so they won't be selected by topk
                 log_probs = torch.where(lexicon_mask, log_probs, INACTIVE_SCORE)
                 
-                # step 2.2.6: apply LM fusion at word boundaries
-                if self.lm_fusion is not None:
-                    log_probs = self._apply_lm_fusion(
-                        log_probs=log_probs,
-                        beam_hyps=batched_beam_hyps,
-                        curr_batch_size=curr_batch_size
-                    )
 
             """
                 step 2.3: getting `beam_size` best candidates
@@ -394,9 +382,13 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             next_scores, next_candidates_indices = torch.topk(
                 log_probs.view(curr_batch_size, -1), k=self.beam_size, largest=True, sorted=True
             )
+            
             next_indices = next_candidates_indices // vocab_size # indices of beams being extended
             next_labels = next_candidates_indices % vocab_size # label indices
-
+            
+            
+            
+        
             # step 2.3: pruning candidates with threshold `beam_threshold`
             batch_next_scores = next_scores.view(curr_batch_size, -1)
             max_next_score = batch_next_scores.max(dim=-1, keepdim=True).values
@@ -419,7 +411,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                 )
             
             prev_last_labels = torch.gather(batched_beam_hyps.last_label, dim=-1, index=next_indices)
-
+            
             # step 2.5: masking inactive hypotheses, updating + recombining batched beam hypoteses
             next_labels = torch.where(active_mask, next_labels, NON_EXISTENT_LABEL_VALUE)
 
@@ -436,11 +428,28 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                 
             batched_beam_hyps.add_results_(next_indices, next_labels, next_scores)
             batched_beam_hyps.recombine_hyps_()
+            
+            # Apply LM fusion post-selection (after pruning and recombination)
+            if self.lm_fusion is not None and self.lexicon is not None:
+                from .neural_lm_fusion import apply_lm_fusion_post_selection
+                boundary_token = getattr(self.lexicon, "word_boundary_token", None)
+                apply_lm_fusion_post_selection(
+                    lm_fusion=self.lm_fusion,
+                    lexicon=self.lexicon,
+                    beam_hyps=batched_beam_hyps,
+                    blank_index=self._blank_index,
+                    boundary_token=boundary_token,
+                    next_labels=next_labels,
+                    prev_last_labels=prev_last_labels,
+                    token_to_symbol=getattr(self.lexicon, "token_to_symbol", None),
+                    word_insertion_bonus=0,
+                )
 
         return batched_beam_hyps
     
     def _apply_lm_fusion(
         self,
+        lexicon_mask, 
         log_probs: torch.Tensor,
         beam_hyps: 'BatchedBeamHyps',
         curr_batch_size: int,
@@ -449,118 +458,19 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         """
         Apply neural language model fusion at word boundaries.
         
-        Detects beams at word boundaries, scores alternative word interpretations
-        (including homophones) with the neural LM, and adds weighted LM scores
-        to log_probs before topk selection.
-        
-        Args:
-            log_probs: [B, beam_size, V] current log probabilities
-            beam_hyps: BatchedBeamHyps containing current sequences
-            lexicon_mask: [B, beam_size, V] mask of valid next tokens
-            curr_batch_size: Current batch size
-            token_to_symbol: Optional dict mapping token ID to phoneme symbol
-            
-        Returns:
-            log_probs: [B, beam_size, V] with LM scores added at word boundaries
+        Thin wrapper around the standalone apply_lm_fusion function.
+        See neural_lm_fusion.apply_lm_fusion for full documentation.
         """
-        if self.lm_fusion is None:
-            return log_probs
-        
-        # Build token_to_symbol map if not provided
-        if token_to_symbol is None and hasattr(self.lexicon, 'token_to_symbol'):
-            token_to_symbol = self.lexicon.token_to_symbol
-        
-        # Process each beam
-        for b in range(curr_batch_size):
-            # Collect beams at word boundaries for batched LM scoring
-            boundary_info = []  # (beam_idx, valid_tokens, word_indices, partial_text, candidate_words)
-            
-            boundary_token = getattr(self.lexicon, "word_boundary_token", None)
-
-            for k in range(self.beam_size):
-                # Reconstruct the actual token path for this beam by following parent pointers.
-                seq_tensor = materialize_beam_transcript(beam_hyps, b, k)
-                seq_ctc = collapse_ctc_sequence(seq_tensor.tolist(), self._blank_index)
-
-                if len(seq_ctc) == 0:
-                    continue
-                
-                # Check if at word boundary
-                valid_tokens, at_boundary, word_indices = \
-                    self.lexicon.get_valid_next_tokens_with_word_info(seq_ctc)
-                    
-
-                invalid_completed_word = (
-                    boundary_token is not None
-                    and seq_ctc
-                    and seq_ctc[-1] == boundary_token
-                    and len(word_indices) == 0
-                )
-
-                # I'm not sure if apply_lm_fusion needs to handle this case, 
-                # since the lexicon mask would have been applied.
-                if invalid_completed_word:
-                    # Word ended in silence but lexicon has no mapping; prune this beam.
-                    log_probs[b, k, :].fill_(float('-inf'))
-                    continue
-                
-                if at_boundary and len(word_indices) > 0:
-                    # Decode to text (exclude the just-completed word)
-                    partial_text = decode_sequence_to_text(
-                        token_sequence=seq_ctc,
-                        lexicon=self.lexicon,
-                        token_to_symbol=token_to_symbol,
-                        exclude_last_word=True,
-                    )
-                    
-                    # upcoming candidate words
-                    candidate_words = [self.lexicon.word_list[idx] for idx in word_indices]
-                    
-                    boundary_info.append((k, valid_tokens, word_indices, partial_text, candidate_words))
-            
-            # Optionally prune to fastest subset before running the neural LM
-            if (
-                self.lm_beam_limit is not None
-                and self.lm_beam_limit > 0
-                and len(boundary_info) > self.lm_beam_limit
-            ):
-                scored = []
-                for idx, info in enumerate(boundary_info):
-                    beam_idx = info[0]
-                    scored.append((beam_hyps.scores[b, beam_idx].item(), idx, info))
-                scored.sort(key=lambda x: x[0], reverse=True)
-                keep_indices = {idx for _, idx, _ in scored[: self.lm_beam_limit]}
-                boundary_info = [info for idx, info in enumerate(boundary_info) if idx in keep_indices]
-
-            # Score the remaining boundary beams together
-            if len(boundary_info) > 0:
-                # Prepare contexts and candidates for batched scoring
-                contexts = [info[3] for info in boundary_info]
-                candidate_word_lists = [info[4] for info in boundary_info]
-                
-
-                # Get LM scores for all candidates (homophones)
-                all_lm_scores = self.lm_fusion.score_continuations(contexts, candidate_word_lists)
-                
-                # Apply scores to each beam
-                for (k, valid_tokens, word_indices, partial_text, candidate_words), lm_scores in zip(boundary_info, all_lm_scores):
-               
-                    # Aggregate homophone scores AFTER scoring all candidates
-                    combined_score = self.lm_fusion.aggregate_homophone_scores(lm_scores)
-
-                    if getattr(self.lm_fusion, "log_homophone_scores", False):
-                        print(
-                            f"  Aggregated ({self.lm_fusion.homophone_aggregation}) "
-                            f"raw={combined_score:.4f} scaled={self.lm_fusion.weight * combined_score:.4f}\n"
-                        )
-                    
-                    # Add LM score to all tokens that start the next word
-                    for token in valid_tokens:
-                        if token < log_probs.shape[-1]:
-                            log_probs[b, k, token] += self.lm_fusion.weight * combined_score
-                            
-        
-        return log_probs
+        return apply_lm_fusion(
+            lm_fusion=self.lm_fusion,
+            lexicon=self.lexicon,
+            log_probs=log_probs,
+            beam_hyps=beam_hyps,
+            beam_size=self.beam_size,
+            blank_index=self._blank_index,
+            curr_batch_size=curr_batch_size,
+            token_to_symbol=token_to_symbol,
+        )
     
     def batched_beam_search_cuda_graphs(
         self,

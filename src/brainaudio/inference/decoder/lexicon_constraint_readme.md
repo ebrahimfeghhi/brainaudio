@@ -36,7 +36,7 @@ Evaluates a specific token sequence to determine valid next steps and word compl
     2.  **Invalid Path:** If a token is not in the current node, the path is invalid.
     3.  **Word Boundary:** If the token is the silence token (boundary), checks for the `"end"` key.
         * If found: Retrieves word indices and resets the node to the **root**.
-    4.  **Return Values:** Returns only the *final* word if multiple exist in the sequence. If the final word is incomplete, `is_word_boundary` is `False`.
+    4.  **Return Values:** Returns only the *final* word if multiple exist in the sequence (i.e. previously said words are not returned). If the final word is incomplete, `is_word_boundary` is `False`.
     5.  **CTC Handling:** If at a word boundary, the boundary token is explicitly allowed in the `valid_tokens` set to account for CTC collapse rules.
 
 ### `_get_constraint_mask`
@@ -51,7 +51,7 @@ Generates a boolean mask for batch processing, identifying valid tokens for the 
     2.  Applies **CTC merging rules** to the sequence.
     3.  Calls `_get_valid_tokens` on the merged sequence.
     4.  **Mask Update:** Sets valid tokens to `True`.
-    5.  **Repeat Token:** Explicitly sets the `last_token` entry to `True` to allow consecutive repeats (standard CTC behavior).
+    5.  **Repeat Token:** Explicitly sets the `last_token` and `blank` entry to `True` to allow consecutive repeats (standard CTC behavior).
 
 ---
 
@@ -81,11 +81,10 @@ The core of this class is built within `_build_dense_transition_table`.
 
 ### `_build_dense_transition_table`
 Converts the trie into a transition table through the following sequence of steps.
-    1. Store nodes in BFS order, and assign each node id to a unique integer id in BFS order. 
-    2. Initialize a transition table where rows represent nodes/states (prefixes in trie) and columns represent
-    vocabulary tokens. Values in the transition table are initialized to an INVALID STATE VALUE (set to -1).
-    In this manner, we can handle observing the CTC blank token, repeats, as well as invalid phoneme sequences.
-    3. After filling the table using the trie, row i, column j tells us which node we should move to if we are at node i and observe token j.
+1. Store nodes in BFS order, and assign each node id to a unique integer id in BFS order. 
+2. Initialize a transition table where rows represent nodes/states (prefixes in trie) and columns represent
+vocabulary tokens. Values in the transition table are initialized to an INVALID STATE VALUE (set to -1). 
+3. After filling the table using the trie, row i, column j tells us which node we should move to if we are at node i and observe token j.
 
 ---
 ## Core Methods
@@ -112,7 +111,7 @@ Returns updated state vector.
 * **Logic:**
     1. Computes advance_mask, which is True only if emitted_labels is not a blank token or repeat. If False, 
     we do not update the state.  
-    2. Transition to sink state when encountering invalid emitted_labels or emitted_labels which are invalid phoneme sequences. 
+    2. Transition to sink state when encountering invalid emitted_labels or emitted_labels which are invalid phoneme sequences (i.e.  invalid state value is reached and advance_mask is True).
     3. If the updated state is a valid word, reset to the root node. 
 
     

@@ -29,8 +29,8 @@ from brainaudio.inference.decoder.beam_helpers import (
     pick_device,
 )
 
-#DEFAULT_LOGITS = "/data2/brain2text/b2t_25/logits/tm_transformer_b2t_24+25_large_wide_bidir_grad_clip_cosine_decay/logits_val.npz"
-DEFAULT_LOGITS =  "/data2/brain2text/b2t_25/logits/tm_transformer_combined_reduced_reg_seed_0/logits_val_None_None.npz"
+DEFAULT_LOGITS = "/data2/brain2text/b2t_25/logits/tm_transformer_b2t_24+25_large_wide_bidir_grad_clip_cosine_decay/logits_val.npz"
+#DEFAULT_LOGITS =  "/data2/brain2text/b2t_25/logits/tm_transformer_combined_reduced_reg_seed_0/logits_val_None_None.npz"
 DEFAULT_TOKENS = "/data2/brain2text/lm/units_pytorch.txt"
 DEFAULT_LEXICON = "/data2/brain2text/lm/vocab_lower_100k_pytorch_phoneme.txt"
 
@@ -48,13 +48,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--top-beams",
         type=int,
-        default=1,
+        default=10,
         help="Number of beams to print with scores (default: 1)",
     )
     
     parser.add_argument("--model", default="google/gemma-3-270m", help="HuggingFace causal LM checkpoint")
     parser.add_argument("--hf-token", default=None, help="Optional HF token for gated models")
-    parser.add_argument("--lm-weight", type=float, default=1, help="Fusion weight passed to HuggingFaceLMFusion")
+    parser.add_argument("--lm-weight", type=float, default=0, help="Fusion weight passed to HuggingFaceLMFusion")
     parser.add_argument("--max-context-length", type=int, default=512, help="Token budget (including BOS)")
     parser.add_argument("--device", default=None, help="Torch device for CTC + LM (default: cuda if available)")
     parser.add_argument("--logits", type=Path, default=Path(DEFAULT_LOGITS), help="NPZ file containing validation logits")
@@ -66,7 +66,8 @@ def parse_args() -> argparse.Namespace:
 def main():
     args = parse_args()
     device = pick_device(args.device)
-    log_probs, lengths = load_log_probs(args.logits, args.trials, device)
+    log_probs, logits, lengths = load_log_probs(args.logits, args.trials, device)
+    
 
     lexicon = VectorizedLexiconConstraint.from_file_paths(
         tokens_file=str(args.tokens),

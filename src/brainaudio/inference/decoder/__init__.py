@@ -20,6 +20,7 @@ from .beam_helpers import (
     load_token_to_phoneme_mapping,
     load_phoneme_to_word_mapping,
     compute_wer,
+    log_lm_watchlist_scores,
 )
 from .rnnt_utils import Hypothesis, NBestHypotheses
 from .neural_lm_fusion import NeuralLanguageModelFusion, HuggingFaceLMFusion, DummyLMFusion
@@ -46,5 +47,6 @@ __all__ = [
     'apply_ctc_rules',
     'load_token_to_phoneme_mapping',
     'load_phoneme_to_word_mapping',
-    'compute_wer'
+    'compute_wer',
+    'log_lm_watchlist_scores',
 ]

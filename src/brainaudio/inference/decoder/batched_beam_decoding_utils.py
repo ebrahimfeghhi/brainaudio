@@ -88,6 +88,7 @@ class BatchedBeamHyps:
         float_dtype: torch.dtype = None,
         store_prefix_hashes: Optional[bool] = False,
         model_type: Optional[ASRModelTypeEnum | str] = ASRModelTypeEnum.RNNT,
+        score_combination: str = "logsumexp",
     ):
         """
         Initializes the batched beam hypotheses utility for Transducer decoding (RNN-T and TDT models).
@@ -100,6 +101,9 @@ class BatchedBeamHyps:
             float_dtype (torch.dtype): The floating-point data type. Defaults to None.
             store_prefix_hashes (bool, optional): Whether to store prefix hashes for hypotheses. Defaults to False.
             model_type: (str or ModelTypeEnum, optional): Model type, either 'rnnt', 'tdt' or 'ctc'. Defaults to 'rnnt'.
+            score_combination (str, optional): Method for combining scores of equivalent hypotheses.
+                Either 'logsumexp' (mathematically correct, sums probabilities) or 'max' (faster, keeps best). 
+                Defaults to 'logsumexp'.
         """
 
         if beam_size <= 0:
@@ -115,6 +119,9 @@ class BatchedBeamHyps:
 
         self.model_type = ASRModelTypeEnum(model_type)
         self.store_prefix_hashes = store_prefix_hashes
+        if score_combination not in ("logsumexp", "max"):
+            raise ValueError(f"score_combination must be 'logsumexp' or 'max', got '{score_combination}'")
+        self.score_combination = score_combination
         self._max_length = init_length
         self.beam_size = beam_size
         self.blank_index = blank_index
@@ -371,10 +378,10 @@ class BatchedBeamHyps:
         scores_to_keep = (
             torch.arange(self.beam_size, device=scores_argmax.device, dtype=torch.long)[None, :] == scores_argmax
         )
-        if self.model_type == ASRModelTypeEnum.CTC:
-            new_scores = torch.max(scores_matrix, dim=-1, keepdim=False).values
-        else:
+        if self.score_combination == "logsumexp":
             new_scores = torch.logsumexp(scores_matrix, dim=-1, keepdim=False)
+        else:  # max
+            new_scores = torch.max(scores_matrix, dim=-1, keepdim=False).values
             
         torch.where(scores_to_keep, new_scores.to(self.scores.dtype), self.INACTIVE_SCORE_TENSOR, out=self.scores)
 

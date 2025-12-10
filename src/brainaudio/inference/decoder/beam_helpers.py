@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Dict, List, Sequence, Tuple, TYPE_CHECKING
 
@@ -180,7 +181,7 @@ def load_log_probs(
     trial_indices: Sequence[int],
     device: torch.device,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """Load logits from NPZ, pad to the longest trial, and return log-probs + lengths."""
+    """Load logits from NPZ, pad to the longest trial, and return log-probs + logits + lengths."""
 
     data = np.load(npz_path)
     arrays = []
@@ -204,7 +205,7 @@ def load_log_probs(
     logits = torch.from_numpy(np.stack(padded, axis=0)).to(device)
     log_probs = torch.log_softmax(logits, dim=-1)
     lengths_tensor = torch.tensor(lengths, device=device)
-    return log_probs, lengths_tensor
+    return log_probs, logits, lengths_tensor
 
 
 def apply_ctc_rules(ids, blank: int = 0) -> List[int]:
@@ -259,3 +260,27 @@ def compute_wer(hypothesis: str, reference: str) -> float:
                 d[i][j] = min(d[i - 1][j], d[i][j - 1], d[i - 1][j - 1]) + 1
 
     return d[len(hyp_words)][len(ref_words)] / max(len(ref_words), 1)
+
+
+_WATCHLIST_ENV = os.environ.get("LM_FUSION_DEBUG_WORDS", "")
+_DEFAULT_WATCHLIST = {word.strip().lower() for word in _WATCHLIST_ENV.split(",") if word.strip()}
+
+
+def log_lm_watchlist_scores(
+    candidate_words: Sequence[str],
+    combined_score: float,
+    context: str | None = None,
+    watchlist: Sequence[str] | None = None,
+) -> None:
+    """Print LM scores for watchlisted words that appear in candidates."""
+
+    watch = watchlist or _DEFAULT_WATCHLIST
+    if not watch:
+        return
+
+    lowered = {word.lower(): word for word in candidate_words}
+    for watch_word in watch:
+        if watch_word in lowered:
+            pretty = lowered[watch_word]
+            ctx = f" context='{context}'" if context else ""
+            print(f"[LM watch] word='{pretty}' score={combined_score:.4f}{ctx}")
