@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import time
 from pathlib import Path
+import pandas as pd
 
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -33,6 +34,7 @@ DEFAULT_LOGITS = "/data2/brain2text/b2t_25/logits/tm_transformer_b2t_24+25_large
 #DEFAULT_LOGITS =  "/data2/brain2text/b2t_25/logits/tm_transformer_combined_reduced_reg_seed_0/logits_val_None_None.npz"
 DEFAULT_TOKENS = "/data2/brain2text/lm/units_pytorch.txt"
 DEFAULT_LEXICON = "/data2/brain2text/lm/vocab_lower_100k_pytorch_phoneme.txt"
+TRANSCRIPTS_PKL = Path("/data2/brain2text/b2t_25/transcripts_val_cleaned.pkl")
 
 
 def parse_args() -> argparse.Namespace:
@@ -41,7 +43,7 @@ def parse_args() -> argparse.Namespace:
         "--trials",
         type=int,
         nargs="+",
-        default=[1],
+        default=[0,1],
         help="Validation trial indices to decode together (default: 0 1)",
     )
     parser.add_argument("--beam-size", type=int, default=50, help="CTC beam size (default: 3)")
@@ -54,7 +56,8 @@ def parse_args() -> argparse.Namespace:
     
     parser.add_argument("--model", default="google/gemma-3-270m", help="HuggingFace causal LM checkpoint")
     parser.add_argument("--hf-token", default=None, help="Optional HF token for gated models")
-    parser.add_argument("--lm-weight", type=float, default=0, help="Fusion weight passed to HuggingFaceLMFusion")
+    parser.add_argument("--lm-weight", type=float, default=1, help="Fusion weight passed to HuggingFaceLMFusion")
+    parser.add_argument("--word-insertion-bonus", type=float, default=0.5, help="Word insertion bonus applied at boundaries")
     parser.add_argument("--max-context-length", type=int, default=512, help="Token budget (including BOS)")
     parser.add_argument("--device", default=None, help="Torch device for CTC + LM (default: cuda if available)")
     parser.add_argument("--logits", type=Path, default=Path(DEFAULT_LOGITS), help="NPZ file containing validation logits")
@@ -98,6 +101,7 @@ def main():
         beam_size=args.beam_size,
         lexicon=lexicon,
         lm_fusion=lm_fusion,
+        word_insertion_bonus=args.word_insertion_bonus,
         allow_cuda_graphs=False,
     )
 
@@ -119,6 +123,9 @@ def main():
         top_k=top_k,
     )
     decoded_texts = [texts[0] if texts else "<EMPTY>" for texts in decoded_beams]
+    
+    if TRANSCRIPTS_PKL.exists():
+        transcripts = pd.read_pickle(TRANSCRIPTS_PKL)
 
     print("\n=== Neural LM Fusion Decode ===")
     print(
@@ -126,8 +133,17 @@ def main():
         f" ({decode_elapsed:.3f} s) for batch size {len(args.trials)}"
     )
     for batch_idx, (trial_idx, text) in enumerate(zip(args.trials, decoded_texts)):
+        
+    
+        ground_truth_sentence = transcripts[trial_idx]
+                
+                
         best_score = result.scores[batch_idx, 0].item()
+        
+        
         print(f"Trial {trial_idx:3d} | Beam size {args.beam_size} | Score {best_score:.4f}")
+        # Print ground truth text for this trial
+        print(f"   Ground truth: {ground_truth_sentence}")
         print(f"   Best: {text}")
 
         if top_k == 0:

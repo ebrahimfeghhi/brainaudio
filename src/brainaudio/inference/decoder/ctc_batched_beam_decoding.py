@@ -30,7 +30,7 @@ from .cuda_python_utils import (
 )
 from .enum import PrettyStrEnum
 from .nemo_stubs import logging
-from .neural_lm_fusion import NeuralLanguageModelFusion, apply_lm_fusion
+from .neural_lm_fusion import NeuralLanguageModelFusion
 
 HAVE_LM_FUSION = False
 
@@ -183,6 +183,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         lexicon: LexiconConstraint = None,
         lm_fusion: NeuralLanguageModelFusion = None,
         lm_beam_limit: Optional[int] = None,
+        word_insertion_bonus: float = 0.0,
     ):
         """
         Init method.
@@ -217,6 +218,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         self.state = None
         self.full_graph = None
         self.separate_graphs = None
+        self.word_insertion_bonus = word_insertion_bonus
 
         self.cuda_graphs_mode = None
         self.maybe_enable_cuda_graphs()
@@ -442,35 +444,12 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                     next_labels=next_labels,
                     prev_last_labels=prev_last_labels,
                     token_to_symbol=getattr(self.lexicon, "token_to_symbol", None),
-                    word_insertion_bonus=0,
+                    word_insertion_bonus=self.word_insertion_bonus,
                 )
 
         return batched_beam_hyps
     
-    def _apply_lm_fusion(
-        self,
-        lexicon_mask, 
-        log_probs: torch.Tensor,
-        beam_hyps: 'BatchedBeamHyps',
-        curr_batch_size: int,
-        token_to_symbol: dict = None,
-    ) -> torch.Tensor:
-        """
-        Apply neural language model fusion at word boundaries.
-        
-        Thin wrapper around the standalone apply_lm_fusion function.
-        See neural_lm_fusion.apply_lm_fusion for full documentation.
-        """
-        return apply_lm_fusion(
-            lm_fusion=self.lm_fusion,
-            lexicon=self.lexicon,
-            log_probs=log_probs,
-            beam_hyps=beam_hyps,
-            beam_size=self.beam_size,
-            blank_index=self._blank_index,
-            curr_batch_size=curr_batch_size,
-            token_to_symbol=token_to_symbol,
-        )
+ 
     
     def batched_beam_search_cuda_graphs(
         self,

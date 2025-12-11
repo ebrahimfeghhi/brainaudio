@@ -3,6 +3,15 @@ import torchaudio.functional as F
 import pickle
 from torchaudio.functional import forced_align
 from tqdm import tqdm
+import re
+
+
+def clean_string(transcript):
+    
+    transcript = re.sub(r"[^a-zA-Z\- \']", "", transcript)
+    transcript = transcript.replace("--", "").lower()
+    
+    return transcript
 
 
 

@@ -5,6 +5,16 @@ Evaluation functions for computing character and word error rates.
 import numpy as np
 import torch
 from edit_distance import SequenceMatcher
+import re
+
+def clean_string(transcript):
+    
+    transcript = re.sub(r"[^a-zA-Z\- \']", "", transcript)
+    transcript = transcript.replace("--", "").lower()
+    
+    return transcript
+
+
 
 def compute_per(logits, y, total_edit_distance, total_seq_length):
     
@@ -77,8 +87,8 @@ def _cer_and_wer(decodedSentences, trueSentences, outputType='speech',
     allWordErr = []
     allWord = []
     for x in range(len(decodedSentences)):
-        decSent = decodedSentences[x]
-        trueSent = trueSentences[x]
+        decSent = clean_string(decodedSentences[x])
+        trueSent = clean_string(trueSentences[x])
 
         nCharErr = compute_wer([c for c in trueSent], [c for c in decSent])
         if outputType == 'handwriting':

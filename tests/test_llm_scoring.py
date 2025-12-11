@@ -105,7 +105,7 @@ class SimpleScorer:
 # Using 2b as the closest public proxy.
 MODEL_NAME = "google/gemma-3-270m" 
 
-device = "cuda:0" if torch.cuda.is_available() else "cpu"
+device = "cuda:1" if torch.cuda.is_available() else "cpu"
 print(f"Loading {MODEL_NAME} on {device}...")
 
 try:
@@ -131,17 +131,10 @@ scorer = SimpleScorer(model, tokenizer, device)
 # 3. The Tests
 # ==========================================
 contexts = [
-    "The neural activity was decoded into",   
-    "To improve error rate, we used a beam",
-    "The doctor looked at the patient's", 
-    "how does it keep the cost"
+    "it’s to valuable to just let people stay in"
 ]
-
 candidates = [
-    ["text", "banana"],      # 'text' should be higher
-    ["search", "sandwich"],  # 'search' should be higher
-    ["chart", "planet"],      # 'chart' should be higher
-    ["down", "own", "doan", "tin"]           # 'down' should be higher
+    ["sorry", "sory"]
 ]
 
 print("\nRunning Scorer...")
