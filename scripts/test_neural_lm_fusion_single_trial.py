@@ -41,11 +41,11 @@ def parse_args() -> argparse.Namespace:
     
     parser.add_argument("--start-trial-idx", type=int, default=0, help="Start index (inclusive)")
     parser.add_argument("--end-trial-idx", type=int, default=None, help="End index (exclusive); defaults to all trials in logits file")
-    parser.add_argument("--beam-size", type=int, default=50, help="CTC beam size")
+    parser.add_argument("--beam-size", type=int, default=100, help="CTC beam size")
     parser.add_argument("--model", default="google/gemma-3-270m", help="HF causal LM checkpoint")
     parser.add_argument("--hf-token", default=None, help="Optional HF token")
-    parser.add_argument("--lm-weight", type=float, default=1.0, help="Fusion weight")
-    parser.add_argument("--word-insertion-bonus", type=float, default=0.5, help="Bonus at boundaries")
+    parser.add_argument("--lm-weight", type=float, default=1.5, help="Fusion weight")
+    parser.add_argument("--word-insertion-bonus", type=float, default=5, help="Bonus at boundaries")
     parser.add_argument("--max-context-length", type=int, default=512, help="Token budget")
     parser.add_argument("--device", default=None, help="Torch device")
     parser.add_argument("--logits", type=Path, default=Path(DEFAULT_LOGITS), help="NPZ logits file")
@@ -119,7 +119,6 @@ def main():
     print(f"[INFO] Decoding from start-trial-idx={args.start_trial_idx} to end-trial-idx={args.end_trial_idx}")
     
     for trial_idx in range(args.start_trial_idx, args.end_trial_idx):
-        
         # Load single trial
         log_probs, _, lengths = load_log_probs(args.logits, [trial_idx], device)
 
@@ -127,43 +126,39 @@ def main():
         if device.type == "cuda":
             torch.cuda.synchronize()
         trial_start = time.perf_counter()
-        
+
         result = decoder(log_probs, lengths)
-        
+
         if device.type == "cuda":
             torch.cuda.synchronize()
         trial_elapsed = time.perf_counter() - trial_start
 
-        # Decode best beam
-        decoded_beams = decode_beam_texts(
-            beam_hyps=result,
-            token_table=token_table,
-            lexicon=lexicon,
-            phoneme_to_word=phoneme_to_word,
-            top_k=1,
-        )
-        
-        best_text = decoded_beams[0][0] if (decoded_beams and decoded_beams[0]) else ""
+        # Use context_texts for decoded beams (like test_neural_lm_fusion)
+        top_k = min(5, result.scores.shape[1])  # Print up to 5 beams for inspection
+        decoded_beams = result.context_texts[0][:top_k]
+        best_text = decoded_beams[0] if decoded_beams else ""
         decoded_sentences.append(best_text)
 
         # Handle Ground Truth
         ground_truth = ""
         if transcripts is not None:
-            # Check if transcripts is dict-like or list-like
             if isinstance(transcripts, (list, tuple)) and trial_idx < len(transcripts):
                 ground_truth = transcripts[trial_idx]
             elif hasattr(transcripts, 'get'):
                 ground_truth = transcripts.get(trial_idx, "")
-            elif hasattr(transcripts, 'iloc'): # pandas
+            elif hasattr(transcripts, 'iloc'):
                 ground_truth = transcripts.iloc[trial_idx]
-                
         ground_truth_sentences.append(ground_truth)
 
         # Print Status
         best_score = result.scores[0, 0].item()
         print(f"Trial {trial_idx:3d} | {trial_elapsed*1000:.1f}ms | Score: {best_score:.2f}")
         print(f"  GT:   {ground_truth}")
-        print(f"  Pred: {best_text}")
+        print(f"  Best: {best_text}")
+        print("   Top beams:")
+        for beam_rank, beam_text in enumerate(decoded_beams):
+            beam_score = result.scores[0, beam_rank].item()
+            print(f"     #{beam_rank:02d} | log {beam_score:.4f} | {beam_text}")
         print("-" * 40)
 
     total_elapsed = time.perf_counter() - total_start_time
@@ -180,8 +175,23 @@ def main():
         except Exception as e:
             print(f"\nError computing WER: {e}")
             
-    print("\nDecoded Sentences Array:")
-    print(decoded_sentences)
+    # Save decoded and ground truth sentences to file
+    output_path = Path("decoded_sentences_12_11_beamsize_100.txt")
+    # Compute WER for file header
+    wer_str = "WER: N/A"
+    if transcripts is not None:
+        try:
+            _, wer, _ = _cer_and_wer(decoded_sentences, ground_truth_sentences)
+            wer_str = f"WER: {wer:.4f}"
+        except Exception as e:
+            wer_str = f"WER: ERROR ({e})"
+    with output_path.open("w", encoding="utf-8") as f:
+        f.write(wer_str + "\n\n")
+        for idx, (gt, pred) in enumerate(zip(ground_truth_sentences, decoded_sentences)):
+            f.write(f"{idx}\n")
+            f.write(f"gt: {gt}\n")
+            f.write(f"pred: {pred}\n\n")
+    print(f"\nSaved decoded and ground truth sentences to {output_path}")
 
 if __name__ == "__main__":
     main()

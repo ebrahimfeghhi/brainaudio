@@ -132,6 +132,8 @@ class BatchedBeamHyps:
         # Non-blank (non-blank and non-repeating for CTC) and full lengths
         self.current_lengths_nb = torch.zeros([batch_size, self.beam_size], device=device, dtype=torch.long)
         self.current_lengths_wb = torch.zeros([batch_size, self.beam_size], device=device, dtype=torch.long)
+        
+        self.context_texts = [["" for _ in range(self.beam_size)] for _ in range(self.batch_size)]
 
         # Initializing tree structure for hypothesis storing
         self.transcript_wb = torch.full(
@@ -279,9 +281,22 @@ class BatchedBeamHyps:
             dim=-1, index=self.current_lengths_wb.unsqueeze(-1), src=next_indices.unsqueeze(-1)
         )
 
+        # Update context_texts: propagate parent context to child beams using next_indices
+        # This is a Python list of lists, so we use a loop
+        old_context_texts = [beam_list[:] for beam_list in self.context_texts]
+
+        # 2. Update context_texts using the snapshot
+        for b in range(self.batch_size):
+            for k in range(self.beam_size):
+                parent_k = next_indices[b, k].item()
+                
+                # BUG FIX: Read from 'old_context_texts', write to 'self.context_texts'
+                self.context_texts[b][k] = old_context_texts[b][parent_k]
+    
         is_extended = next_labels >= 0
         extended_with_blank = next_labels == self.blank_index
         extended_with_label = (is_extended) & (~extended_with_blank)
+        
         if self.model_type == ASRModelTypeEnum.CTC:
             # for CTC last non-blank and non-repeated label
             extended_with_label = (extended_with_label) & (next_labels != last_labels)  # non-repeated non-blank label

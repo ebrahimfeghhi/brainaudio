@@ -387,9 +387,6 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             
             next_indices = next_candidates_indices // vocab_size # indices of beams being extended
             next_labels = next_candidates_indices % vocab_size # label indices
-            
-            
-            
         
             # step 2.3: pruning candidates with threshold `beam_threshold`
             batch_next_scores = next_scores.view(curr_batch_size, -1)
@@ -443,8 +440,8 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                     boundary_token=boundary_token,
                     next_labels=next_labels,
                     prev_last_labels=prev_last_labels,
-                    token_to_symbol=getattr(self.lexicon, "token_to_symbol", None),
                     word_insertion_bonus=self.word_insertion_bonus,
+                    next_indices=next_indices
                 )
 
         return batched_beam_hyps

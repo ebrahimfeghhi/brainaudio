@@ -43,21 +43,21 @@ def parse_args() -> argparse.Namespace:
         "--trials",
         type=int,
         nargs="+",
-        default=[0,1],
+        default=[100],
         help="Validation trial indices to decode together (default: 0 1)",
     )
     parser.add_argument("--beam-size", type=int, default=50, help="CTC beam size (default: 3)")
     parser.add_argument(
         "--top-beams",
         type=int,
-        default=10,
+        default=1,
         help="Number of beams to print with scores (default: 1)",
     )
     
     parser.add_argument("--model", default="google/gemma-3-270m", help="HuggingFace causal LM checkpoint")
     parser.add_argument("--hf-token", default=None, help="Optional HF token for gated models")
-    parser.add_argument("--lm-weight", type=float, default=1, help="Fusion weight passed to HuggingFaceLMFusion")
-    parser.add_argument("--word-insertion-bonus", type=float, default=0.5, help="Word insertion bonus applied at boundaries")
+    parser.add_argument("--lm-weight", type=float, default=1.5, help="Fusion weight passed to HuggingFaceLMFusion")
+    parser.add_argument("--word-insertion-bonus", type=float, default=10, help="Word insertion bonus applied at boundaries")
     parser.add_argument("--max-context-length", type=int, default=512, help="Token budget (including BOS)")
     parser.add_argument("--device", default=None, help="Torch device for CTC + LM (default: cuda if available)")
     parser.add_argument("--logits", type=Path, default=Path(DEFAULT_LOGITS), help="NPZ file containing validation logits")
@@ -115,13 +115,8 @@ def main():
         
     decode_elapsed = time.perf_counter() - decode_start
     top_k = max(0, min(args.top_beams, result.transcript_wb.shape[1]))
-    decoded_beams = decode_beam_texts(
-        beam_hyps=result,
-        token_table=token_table,
-        lexicon=lexicon,
-        phoneme_to_word=phoneme_to_word,
-        top_k=top_k,
-    )
+    # Use context_texts attribute for beam texts
+    decoded_beams = [result.context_texts[batch_idx][:top_k] for batch_idx in range(len(args.trials))]
     decoded_texts = [texts[0] if texts else "<EMPTY>" for texts in decoded_beams]
     
     if TRANSCRIPTS_PKL.exists():
@@ -150,8 +145,10 @@ def main():
             continue
 
         print("   Top beams:")
+        from brainaudio.inference.decoder.beam_helpers import materialize_beam_transcript, collapse_ctc_sequence
         for beam_rank, beam_text in enumerate(decoded_beams[batch_idx]):
             beam_score = result.scores[batch_idx, beam_rank].item()
+            # Use materialize_beam_transcript and collapse_ctc_sequence for CTC phoneme output
             print(f"     #{beam_rank:02d} | log {beam_score:.4f} | {beam_text}")
 
 

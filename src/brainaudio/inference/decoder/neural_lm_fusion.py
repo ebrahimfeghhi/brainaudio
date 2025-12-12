@@ -288,8 +288,8 @@ def apply_lm_fusion_post_selection(
     boundary_token: int,
     next_labels: torch.Tensor,
     prev_last_labels: torch.Tensor,
-    token_to_symbol: dict | None = None,
     word_insertion_bonus: float = 0.0,
+    next_indices: torch.Tensor = None
 ) -> None:
     
     from .beam_helpers import (
@@ -311,7 +311,6 @@ def apply_lm_fusion_post_selection(
 
     batch_size, beam_size = beam_hyps.scores.shape
     to_score = []  # (b, k, context_text, candidate_words)
-    idx_map = []
     for b in range(batch_size):
         for k in range(beam_size):
             if beam_hyps.scores[b, k] == float('-inf'):
@@ -322,17 +321,17 @@ def apply_lm_fusion_post_selection(
                 continue
             if prev_last_label == boundary_token:
                 continue
+            
+            # update the beam context based on parent index
+            #parent_k = next_indices[b, k].item()
+            #beam_hyps.context_texts[b][k] = beam_hyps.context_texts[b][parent_k]
+            
             seq_raw = materialize_beam_transcript(beam_hyps, b, k)
             seq_ctc = collapse_ctc_sequence(seq_raw.tolist(), blank_index)
             _, at_boundary, word_indices = lexicon.get_valid_next_tokens_with_word_info(seq_ctc)
             if not at_boundary or not word_indices:
                 continue
-            context_text = decode_sequence_to_text(
-                token_sequence=seq_ctc,
-                lexicon=lexicon,
-                token_to_symbol=token_to_symbol,
-                exclude_last_word=True,
-            )
+            context_text = beam_hyps.context_texts[b][k]
             candidate_words = [lexicon.word_list[idx] for idx in word_indices]
             to_score.append((b, k, context_text, candidate_words))
     if not to_score:
@@ -341,11 +340,15 @@ def apply_lm_fusion_post_selection(
     contexts = [x[2] for x in to_score]
     candidate_lists = [x[3] for x in to_score]
     all_lm_scores = lm_fusion.score_continuations(contexts, candidate_lists)
+    
     for (b, k, context_text, candidate_words), lm_scores in zip(to_score, all_lm_scores):
+        
         combined_score = lm_fusion.aggregate_homophone_scores(lm_scores)
         
         beam_hyps.scores[b, k] += lm_fusion.weight * combined_score
         beam_hyps.scores[b, k] += word_insertion_bonus
+        beam_hyps.context_texts[b][k] = f"{context_text} {candidate_words[lm_scores.index(max(lm_scores))]}".strip()
+
         
         
         
