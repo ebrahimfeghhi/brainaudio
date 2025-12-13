@@ -5,9 +5,9 @@ import os
 from typing import Optional, Dict
 
 # --- Configuration ---
-MODEL_NAME = "tm_transformer"
-local_model_folder = "b2t_25"
-modelWeightsFiles = ["modelWeights_WER_25"]
+MODEL_NAME = "baseline_hpo_combined_trial_6"
+local_model_folder = "b2t_combined" # folder the model is stored
+modelWeightsFiles = ["modelWeights_PER_25"]
 
 
 LOAD_MODEL_FOLDER = f"/data2/brain2text/{local_model_folder}/outputs/{MODEL_NAME}"  
@@ -17,9 +17,7 @@ PARTITION = 'val'
 # Optionally evaluate multiple chunk configs per run. Use None to keep the
 # checkpoint's stored eval config. Add dicts like {"chunk_size": 5, "context_chunks": 50}.
 EVAL_CONFIGS = [
-    {"chunk_size": 5, "context_chunks": 30},
-    {"chunk_size": 5, "context_chunks": 25},
-    {"chunk_size": 5, "context_chunks": 20},
+    {"chunk_size": None, "context_chunks": 50},
 ]
 
 

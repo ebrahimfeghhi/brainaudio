@@ -30,10 +30,11 @@ from brainaudio.inference.decoder.beam_helpers import (
     pick_device,
 )
 
+
 DEFAULT_LOGITS = "/data2/brain2text/b2t_25/logits/tm_transformer_b2t_24+25_large_wide_bidir_grad_clip_cosine_decay/logits_val.npz"
 #DEFAULT_LOGITS =  "/data2/brain2text/b2t_25/logits/tm_transformer_combined_reduced_reg_seed_0/logits_val_None_None.npz"
 DEFAULT_TOKENS = "/data2/brain2text/lm/units_pytorch.txt"
-DEFAULT_LEXICON = "/data2/brain2text/lm/vocab_lower_100k_pytorch_phoneme.txt"
+DEFAULT_LEXICON = "/data2/brain2text/lm/lexicon_phonemes.txt"
 TRANSCRIPTS_PKL = Path("/data2/brain2text/b2t_25/transcripts_val_cleaned.pkl")
 
 
@@ -43,10 +44,10 @@ def parse_args() -> argparse.Namespace:
         "--trials",
         type=int,
         nargs="+",
-        default=[100],
+        default=[527],
         help="Validation trial indices to decode together (default: 0 1)",
     )
-    parser.add_argument("--beam-size", type=int, default=50, help="CTC beam size (default: 3)")
+    parser.add_argument("--beam-size", type=int, default=100, help="CTC beam size (default: 3)")
     parser.add_argument(
         "--top-beams",
         type=int,
@@ -56,10 +57,10 @@ def parse_args() -> argparse.Namespace:
     
     parser.add_argument("--model", default="google/gemma-3-270m", help="HuggingFace causal LM checkpoint")
     parser.add_argument("--hf-token", default=None, help="Optional HF token for gated models")
-    parser.add_argument("--lm-weight", type=float, default=1.5, help="Fusion weight passed to HuggingFaceLMFusion")
-    parser.add_argument("--word-insertion-bonus", type=float, default=10, help="Word insertion bonus applied at boundaries")
+    parser.add_argument("--lm-weight", type=float, default=2, help="Fusion weight passed to HuggingFaceLMFusion")
+    parser.add_argument("--word-insertion-bonus", type=float, default=5, help="Word insertion bonus applied at boundaries")
     parser.add_argument("--max-context-length", type=int, default=512, help="Token budget (including BOS)")
-    parser.add_argument("--device", default=None, help="Torch device for CTC + LM (default: cuda if available)")
+    parser.add_argument("--device", default="cuda:1", help="Torch device for CTC + LM (default: cuda if available)")
     parser.add_argument("--logits", type=Path, default=Path(DEFAULT_LOGITS), help="NPZ file containing validation logits")
     parser.add_argument("--tokens", type=Path, default=Path(DEFAULT_TOKENS), help="units_pytorch.txt file")
     parser.add_argument("--lexicon", type=Path, default=Path(DEFAULT_LEXICON), help="lexicon file")
@@ -146,11 +147,37 @@ def main():
 
         print("   Top beams:")
         from brainaudio.inference.decoder.beam_helpers import materialize_beam_transcript, collapse_ctc_sequence
-        for beam_rank, beam_text in enumerate(decoded_beams[batch_idx]):
+        beam_scores_sorted = torch.argsort(result.scores[batch_idx], descending=True)
+        for beam_rank in beam_scores_sorted:
+            
             beam_score = result.scores[batch_idx, beam_rank].item()
+            
+            if beam_score == -float('inf'):
+                continue
+            
+            last_label = result.last_label[batch_idx, beam_rank].item()
+            transcript_hash = result.transcript_hash[batch_idx, beam_rank].item()
+            current_length_nb = result.current_lengths_nb[batch_idx, beam_rank].item()
             # Use materialize_beam_transcript and collapse_ctc_sequence for CTC phoneme output
-            print(f"     #{beam_rank:02d} | log {beam_score:.4f} | {beam_text}")
-
+            seq_raw = materialize_beam_transcript(result, batch_idx, beam_rank)
+            seq_ctc = collapse_ctc_sequence(seq_raw.tolist(), result.blank_index)
+            # Map to phoneme symbols, filter out blanks and word boundaries
+            word_boundary = getattr(result, 'word_boundary', None)
+            phonemes = []
+            phonemes_all = []
+            for t in seq_ctc:
+                phonemes.append(token_table[t])
+            for t in seq_raw.to("cpu").numpy():
+                phonemes_all.append(token_table[t])
+            phoneme_seq = " ".join(phonemes)
+            phonemes_seq_all = " ".join(phonemes_all)
+            print(f"         Text: {result.context_texts[batch_idx][beam_rank]}")
+            print(f"         Last label: {last_label}")
+            print(f"         Transcript hash: {transcript_hash}")
+            print(f"         Current length (no blanks): {current_length_nb}")
+            print(f"         Score: {beam_score:.4f}")
+            print(f"         Phonemes: {phoneme_seq}")
+            print(f"         Phonemes (all): {phonemes_seq_all}")
 
 if __name__ == "__main__":
     main()

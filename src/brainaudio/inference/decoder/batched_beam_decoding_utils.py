@@ -76,6 +76,8 @@ class ASRModelTypeEnum(PrettyStrEnum):
 
 
 class BatchedBeamHyps:
+    
+    
     """Class to store batch of beam hypotheses (labels, time_indices, scores) for efficient batched beam decoding"""
 
     def __init__(
@@ -283,16 +285,27 @@ class BatchedBeamHyps:
 
         # Update context_texts: propagate parent context to child beams using next_indices
         # This is a Python list of lists, so we use a loop
-        old_context_texts = [beam_list[:] for beam_list in self.context_texts]
+        next_indices_cpu = next_indices.detach().cpu().tolist()
 
-        # 2. Update context_texts using the snapshot
+        # 2. Capture the current state (Snapshot)
+        # We use the existing reference because we will build a completely new list structure below
+        old_context_texts = self.context_texts
+        new_context_texts = []
+
+        # 3. Reorder using Python List Comprehensions (Runs entirely in CPU RAM)
         for b in range(self.batch_size):
-            for k in range(self.beam_size):
-                parent_k = next_indices[b, k].item()
-                
-                # BUG FIX: Read from 'old_context_texts', write to 'self.context_texts'
-                self.context_texts[b][k] = old_context_texts[b][parent_k]
-    
+            # Retrieve the list of parent indices for this batch
+            batch_parent_indices = next_indices_cpu[b]
+            
+            # Create the new beam list for this batch by picking from the old list
+            # logic: new_beam[k] comes from old_beam[ parent_indices[k] ]
+            new_beam_list = [old_context_texts[b][p_idx] for p_idx in batch_parent_indices]
+            
+            new_context_texts.append(new_beam_list)
+
+        # 4. Update the class reference
+        self.context_texts = new_context_texts
+        
         is_extended = next_labels >= 0
         extended_with_blank = next_labels == self.blank_index
         extended_with_label = (is_extended) & (~extended_with_blank)
@@ -361,7 +374,7 @@ class BatchedBeamHyps:
                 extended_with_label, prev_transcript_hash, prev_transcript_prefix_hash, out=self.transcript_prefix_hash
             )
 
-    def recombine_hyps_(self):
+    def recombine_hyps_(self, is_last_step: bool = False):
         """
         Recombines hypotheses in the beam search by merging equivalent hypotheses and updating their scores.
         This method identifies hypotheses that are equivalent based on their transcript hash, last label,
@@ -374,11 +387,29 @@ class BatchedBeamHyps:
         if self.beam_size <= 1:
             return
         
-        hyps_equal = (
-            (self.transcript_hash[:, :, None] == self.transcript_hash[:, None, :])
-            & (self.last_label[:, :, None] == self.last_label[:, None, :])
-            & (self.current_lengths_nb[:, :, None] == self.current_lengths_nb[:, None, :])
-        )
+        if is_last_step:
+            flat_hashes = [hash(text) for batch in self.context_texts for text in batch]
+
+            # 2. Get dimensions to reshape back later
+            B = len(self.context_texts)
+            K = len(self.context_texts[0]) # Assuming uniform beam size
+
+            # 3. Create tensor and reshape to (Batch, Beam)
+            # This automatically infers int64 for the hashes
+            hashed_tensor = torch.tensor(flat_hashes).view(B, K).to(self.device)
+
+            # 4. Perform the broadcasted comparison
+            hyps_equal = (
+                hashed_tensor[:, :, None] == hashed_tensor[:, None, :]
+            )
+                    
+        else: 
+            
+            hyps_equal = (
+                (self.transcript_hash[:, :, None] == self.transcript_hash[:, None, :])
+                & (self.last_label[:, :, None] == self.last_label[:, None, :])
+                & (self.current_lengths_nb[:, :, None] == self.current_lengths_nb[:, None, :])
+            )
 
         if self.model_type == ASRModelTypeEnum.TDT:
             hyps_equal &= self.next_timestamp[:, :, None] == self.next_timestamp[:, None, :]
@@ -486,7 +517,7 @@ class BatchedBeamHyps:
 
     def to_hyps_list(self, score_norm: bool = True) -> list[Hypothesis]:
         """
-        Converts the batched beam search results into a list of signle best hypotheses for each batch.
+        Converts the batched beam search results into a list of single best hypotheses for each batch.
         Args:
             score_norm (bool):  If True, normalize the scores before sorting. Defaults to True.
         Returns:
@@ -647,3 +678,6 @@ class BatchedBeamHyps:
             return self._create_fold_consecutive_mask(transcripts)
         else:
             return (transcripts >= 0) & (transcripts != self.blank_index)
+
+        
+        

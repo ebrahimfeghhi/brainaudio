@@ -426,7 +426,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                 lexicon_state = torch.where(inactive_candidate_mask, parent_states, lexicon_state)
                 
             batched_beam_hyps.add_results_(next_indices, next_labels, next_scores)
-            batched_beam_hyps.recombine_hyps_()
+            batched_beam_hyps.recombine_hyps_(is_last_step= curr_max_time-1 == frame_idx)
             
             # Apply LM fusion post-selection (after pruning and recombination)
             if self.lm_fusion is not None and self.lexicon is not None:
@@ -443,7 +443,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                     word_insertion_bonus=self.word_insertion_bonus,
                     next_indices=next_indices
                 )
-
+                
         return batched_beam_hyps
     
  

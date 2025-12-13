@@ -30,9 +30,10 @@ from brainaudio.inference.decoder.beam_helpers import (
     pick_device,
 )
 
+
 DEFAULT_LOGITS = "/data2/brain2text/b2t_25/logits/tm_transformer_b2t_24+25_large_wide_bidir_grad_clip_cosine_decay/logits_val.npz"
 DEFAULT_TOKENS = "/data2/brain2text/lm/units_pytorch.txt"
-DEFAULT_LEXICON = "/data2/brain2text/lm/vocab_lower_100k_pytorch_phoneme.txt"
+DEFAULT_LEXICON = "/data2/brain2text/lm/lexicon_phonemes.txt"
 TRANSCRIPTS_PKL = Path("/data2/brain2text/b2t_25/transcripts_val_cleaned.pkl")
 
 
@@ -44,18 +45,27 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--beam-size", type=int, default=100, help="CTC beam size")
     parser.add_argument("--model", default="google/gemma-3-270m", help="HF causal LM checkpoint")
     parser.add_argument("--hf-token", default=None, help="Optional HF token")
-    parser.add_argument("--lm-weight", type=float, default=1.5, help="Fusion weight")
-    parser.add_argument("--word-insertion-bonus", type=float, default=5, help="Bonus at boundaries")
+    parser.add_argument("--lm-weight", type=float, default=2, help="Fusion weight")
+    parser.add_argument("--word-insertion-bonus", type=float, default=12, help="Bonus at boundaries")
     parser.add_argument("--max-context-length", type=int, default=512, help="Token budget")
     parser.add_argument("--device", default=None, help="Torch device")
     parser.add_argument("--logits", type=Path, default=Path(DEFAULT_LOGITS), help="NPZ logits file")
     parser.add_argument("--tokens", type=Path, default=Path(DEFAULT_TOKENS), help="units file")
     parser.add_argument("--lexicon", type=Path, default=Path(DEFAULT_LEXICON), help="lexicon file")
+    parser.add_argument(
+        "--results-filename",
+        type=str,
+        required=True,
+        help="Filename for saving results (will be placed in /home/ebrahim/brainaudio/results directory)"
+    )
+
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
+    # Set CUDA device if available and requested
+
     device = pick_device(args.device)
 
     # Determine number of trials in logits file if end-trial-idx is None
@@ -175,8 +185,10 @@ def main():
         except Exception as e:
             print(f"\nError computing WER: {e}")
             
-    # Save decoded and ground truth sentences to file
-    output_path = Path("decoded_sentences_12_11_beamsize_100.txt")
+    # Save decoded and ground truth sentences to file in /home/ebrahim/brainaudio/results directory
+    results_dir = Path("/home/ebrahim/brainaudio/results")
+    results_dir.mkdir(exist_ok=True)
+    output_path = results_dir / args.results_filename
     # Compute WER for file header
     wer_str = "WER: N/A"
     if transcripts is not None:
