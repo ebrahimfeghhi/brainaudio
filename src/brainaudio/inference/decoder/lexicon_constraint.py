@@ -139,7 +139,7 @@ class LexiconConstraint:
     @staticmethod
     def _load_tokens_file(tokens_file: Path) -> tuple[Dict[str, int], int]:
         """
-        Load tokens.txt file.
+        Load tokens.txt file (ctc vocabulary).
         
         Args:
             tokens_file: Path to tokens.txt
@@ -239,7 +239,7 @@ class LexiconConstraint:
         return trie
     
     def _get_all_valid_tokens(self) -> Set[int]:
-        """Extract all token IDs that appear anywhere in the lexicon."""
+        """Extract all token IDs that appear anywhere in the lexicon. <DFS>"""
         valid_tokens = set()
         
         def traverse(node):
@@ -274,7 +274,7 @@ class LexiconConstraint:
         Get valid next tokens AND information about word boundaries for LM fusion.
         
         Args:
-            sequence: Current token sequence
+            sequence: Current token sequence. Shape: [seq_len]
             
         Returns:
             Tuple of:
@@ -351,6 +351,7 @@ class LexiconConstraint:
         
         """
         Get all possible words that match a phoneme sequence (for LM rescoring of homophones).
+        Called exactly when detected a word boundary.
         
         Args:
             phoneme_sequence: Sequence of token IDs representing phonemes

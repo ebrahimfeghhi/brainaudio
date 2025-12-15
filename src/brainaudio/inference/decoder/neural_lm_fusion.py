@@ -93,6 +93,21 @@ class NeuralLanguageModelFusion(ABC):
             - Can return approximate scores (e.g., from sampling) if exact scoring is slow
         """
         raise NotImplementedError("Subclasses must implement score_continuations()")
+
+    @abstractmethod
+    def init_caches(self, batch_size: int, beam_size: int):
+        """Initialize or reset internal cache state."""
+        raise NotImplementedError()
+
+    @abstractmethod
+    def reorder_cache(self, next_indices: torch.Tensor):
+        """Reorder cache based on beam selection indices."""
+        raise NotImplementedError()
+
+    @abstractmethod
+    def post_step_update(self, winning_token_ids: torch.Tensor):
+        """Update cache with the officially selected tokens."""
+        raise NotImplementedError()
     
     def aggregate_homophone_scores(self, scores: List[float]) -> float:
         """
