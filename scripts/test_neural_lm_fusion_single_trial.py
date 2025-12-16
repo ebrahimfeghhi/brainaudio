@@ -50,7 +50,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lm-weight", type=float, default=2, help="Fusion weight")
     parser.add_argument("--token-insertion-bonus", type=float, default=1.5, help="Bonus at boundaries")
     parser.add_argument("--max-context-length", type=int, default=512, help="Token budget")
-    parser.add_argument("--device", default="cuda:0", help="Torch device")
+    parser.add_argument("--device", default="cuda:1", help="Torch device")
     parser.add_argument("--logits", type=Path, default=Path(DEFAULT_LOGITS), help="NPZ logits file")
     parser.add_argument("--tokens", type=Path, default=Path(DEFAULT_TOKENS), help="units file")
     parser.add_argument("--lexicon", type=Path, default=Path(DEFAULT_LEXICON), help="lexicon file")
@@ -121,6 +121,7 @@ def main():
         homophone_aggregation="max",
         device=device,
         max_context_length=args.max_context_length,
+        token_insertion_bonus=args.token_insertion_bonus
     )
 
     decoder = BatchedBeamCTCComputer(
@@ -128,8 +129,7 @@ def main():
         beam_size=args.beam_size,
         lexicon=lexicon,
         lm_fusion=lm_fusion,
-        token_insertion_bonus=args.token_insertion_bonus,
-        allow_cuda_graphs=False,
+        allow_cuda_graphs=False
     )
 
     transcripts = None

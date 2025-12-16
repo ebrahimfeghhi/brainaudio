@@ -1,6 +1,42 @@
-WER: 0.1250
+WER: 0.2769
 
 0
-gt: they had us fill out a long questionnaire
-pred: They had us fill out a long
+gt: you can see the code at this point as well
+pred: You can see the code at this point as well
+
+1
+gt: how does it keep the cost down
+pred: How does it keep the
+
+2
+gt: not too controversial
+pred: Not to commercial
+
+3
+gt: the jury and a judge work together on it
+pred: The jury in a judge work together on it
+
+4
+gt: were quite vocal about it
+pred: We quite
+
+5
+gt: he said the decision to part ways was mutual
+pred: He said the decision to part ways was mutual
+
+6
+gt: in fact this morning when they were talking
+pred: In fact this morning when they were talking
+
+7
+gt: this is like a cruelty joke
+pred: This is like a
+
+8
+gt: has such a high clay content
+pred: Is such
+
+9
+gt: woodworking mastery
+pred: When working
 

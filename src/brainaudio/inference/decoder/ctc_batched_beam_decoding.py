@@ -182,8 +182,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         allow_cuda_graphs: bool = True,
         lexicon: LexiconConstraint = None,
         lm_fusion: NeuralLanguageModelFusion = None,
-        lm_beam_limit: Optional[int] = None,
-        token_insertion_bonus: float = 0.0,
+        lm_beam_limit: Optional[int] = None
     ):
         """
         Init method.
@@ -218,7 +217,6 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         self.state = None
         self.full_graph = None
         self.separate_graphs = None
-        self.token_insertion_bonus = token_insertion_bonus
 
         self.cuda_graphs_mode = None
         self.maybe_enable_cuda_graphs()
@@ -425,16 +423,13 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                 lexicon_state = torch.where(inactive_candidate_mask, parent_states, lexicon_state)
                 
             batched_beam_hyps.add_results_(next_indices, next_labels, next_scores)
-            
-
-                    
             batched_beam_hyps.recombine_hyps_(is_last_step= curr_max_time-1 == frame_idx)
 
         
             # Apply LM fusion post-selection (after pruning and recombination)
             if self.lm_fusion is not None and self.lexicon is not None:
                 
-                from .neural_lm_fusion import apply_lm_fusion_post_selection
+                from .neural_lm_fusion import apply_lm_fusion_post_selection, apply_lm_fusion_post_selection_complex    
                 
                 boundary_token = getattr(self.lexicon, "word_boundary_token", None)
                 
@@ -446,7 +441,6 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                     boundary_token=boundary_token,
                     next_labels=next_labels,
                     prev_last_labels=prev_last_labels,
-                    token_insertion_bonus=self.token_insertion_bonus,
                     next_indices=next_indices
                 )
       
