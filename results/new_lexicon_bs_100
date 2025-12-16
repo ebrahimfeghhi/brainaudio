@@ -1,4 +1,4 @@
-WER: 0.0905
+WER: 0.0929
 
 0
 gt: you can see the code at this point as well
@@ -34,11 +34,11 @@ pred: this is like a coral
 
 8
 gt: has such a high clay content
-pred: has such a high clay content
+pred: as such a high clay content
 
 9
 gt: woodworking mastery
-pred: when working mastery
+pred: when working
 
 10
 gt: wait a minute we know this thing isn't
@@ -66,7 +66,7 @@ pred: to me it's a treasure
 
 16
 gt: he is also a member of the royal irish academy
-pred: he is also a member of the royal ours academy
+pred: he is also a member of the royal our academy
 
 17
 gt: i guess i like to take care of it
@@ -74,7 +74,7 @@ pred: i guess i like to take care of it
 
 18
 gt: put that back in the saucepan
-pred: put that back in the saucepan
+pred: but that bag in the saucepan
 
 19
 gt: he does the yard
@@ -122,7 +122,7 @@ pred: and it also helps when they were running
 
 30
 gt: she came last june and watched a game in the sky dome
-pred: she came last june and watched a game in the sae dome
+pred: she came last june and watched a game in the se du
 
 31
 gt: for me i had no choice but to move
@@ -142,7 +142,7 @@ pred: when i do recipes i just throw stuff in
 
 35
 gt: they recently released him
-pred: they regally released him
+pred: the regally relaxed him
 
 36
 gt: one year public service for everybody
@@ -150,7 +150,7 @@ pred: one year public service for everybody
 
 37
 gt: it's an eighty seven degree day
-pred: it's an eighty seven degree day
+pred: it's an andy seven degree day
 
 38
 gt: i don't know if they do it all over
@@ -198,11 +198,11 @@ pred: and you paint around it
 
 49
 gt: crime is too much
-pred: crime is to much
+pred: prime is to much
 
 50
 gt: house robberies
-pred: house robberies
+pred: house rubbers
 
 51
 gt: the grand canyon
@@ -234,7 +234,7 @@ pred: they waited a couple years
 
 58
 gt: i have a gold one
-pred: i have a cold one
+pred: i have a old one
 
 59
 gt: there's not a whole lot
@@ -270,7 +270,7 @@ pred: n of your business
 
 67
 gt: he put up all of his ash trays
-pred: he put up all of his ash trays
+pred: he put up all of his ash trees
 
 68
 gt: he didn't just say
@@ -302,7 +302,7 @@ pred: i guess we don't really use that many in games
 
 75
 gt: we're a sit down together family
-pred: where a set down together family
+pred: we're a set down together family
 
 76
 gt: i'm originally from maine
@@ -354,7 +354,7 @@ pred: here are some key points from the briefing
 
 88
 gt: ninety seven cents a week
-pred: tidy seven seats a week
+pred: mighty seven cents a week
 
 89
 gt: i think the roles now are less defined
@@ -370,7 +370,7 @@ pred: so thank you for not using the exploit
 
 92
 gt: their economy's a little bit weak
-pred: there economy a little bit weak
+pred: there a economy a little bit weak
 
 93
 gt: employees will not get any severance pay
@@ -390,7 +390,7 @@ pred: according to the judicial system
 
 97
 gt: afford the payments on a used car
-pred: a ford the payment on a used car
+pred: a for the payment on a used car
 
 98
 gt: couple of hundred kids in the band
@@ -410,7 +410,7 @@ pred: i know we've had this one lady that was attacked
 
 102
 gt: we went to colorado springs
-pred: we went to colorado streets
+pred: we went to colorado spruce
 
 103
 gt: now it doesn't bother me at all
@@ -494,7 +494,7 @@ pred: for the things that we want
 
 123
 gt: streaming season is opening boys
-pred: driving season is opening boys
+pred: dreaming season is opening boys
 
 124
 gt: it's already done for you
@@ -510,7 +510,7 @@ pred: outside the building it's not bad
 
 127
 gt: the victims' families and things
-pred: the victim's family and things
+pred: the victim's family's and things
 
 128
 gt: i don't want to do anything
@@ -534,7 +534,7 @@ pred: lawmakers passed a measure last year
 
 133
 gt: i'd be curious
-pred: i'd be curious
+pred: i'd be
 
 134
 gt: it's like a major production
@@ -546,7 +546,7 @@ pred: we ended up watching it for a couple of hours
 
 136
 gt: you live in garland
-pred: you live in
+pred: you live in carlin
 
 137
 gt: anything on that
@@ -558,11 +558,11 @@ pred: he's never gone away
 
 139
 gt: what will be a luxury in the future
-pred: it will be a luxury in the future
+pred: what will be a luxury in the future
 
 140
 gt: fiction books that i really like
-pred: fission books that i really like
+pred: fashion books that i really like
 
 141
 gt: i was really working with the middle class
@@ -594,7 +594,7 @@ pred: what would you find if you just kept on doing
 
 148
 gt: helps them understand the world
-pred: help them understand the world
+pred: app then understand the world
 
 149
 gt: i do study what's going on in the economy
@@ -618,7 +618,7 @@ pred: adding my voices
 
 154
 gt: when was the last time we measured you
-pred: when was the last time we messaged you
+pred: when was the last time we measured you
 
 155
 gt: i wanted him to win best actor on top of it
@@ -634,11 +634,11 @@ pred: you look down at your arm
 
 158
 gt: the bermuda triangle
-pred: the permanent trial
+pred: the personal trial
 
 159
 gt: he's nine months old
-pred: he non muss hold
+pred: he non mais old
 
 160
 gt: it is like a country
@@ -646,15 +646,15 @@ pred: it is like a country
 
 161
 gt: a male profession
-pred: a male profession
+pred: a meal provision
 
 162
 gt: the islanders sleep inside
-pred: the eyes sleep
+pred: the high-end sleek
 
 163
 gt: they are the detroit delegates
-pred: they are the detroit dallas
+pred: they are a detroit dallas
 
 164
 gt: they have coupons
@@ -670,7 +670,7 @@ pred: you just have to keep buying them
 
 167
 gt: in a new house everything is white
-pred: in a new house everything is what
+pred: in a new house everything is white
 
 168
 gt: easiest way out maybe
@@ -714,23 +714,23 @@ pred: this brings me to the next point
 
 178
 gt: i don't think they're in a conspiracy
-pred: i don't think there been a conspiracy
+pred: i don't think there in a conspiracy
 
 179
 gt: a million dollars a year
-pred: a million dollars amir
+pred: a million dollars a year
 
 180
 gt: trump's budget is just a proposal at this point
-pred: trumps bigot is just a proposal at this point
+pred: trump bigot is just a proposal at this point
 
 181
 gt: we've had one as long as i can remember
-pred: we've had one as long as i can remember
+pred: i've had one as long as i can remember
 
 182
 gt: however there is one key point to keep in mind
-pred: however there is one key point to keep in mind
+pred: how ever there is one key point to keep in mind
 
 183
 gt: it's working up to a year now
@@ -750,7 +750,7 @@ pred: all of those things that one does with kids
 
 187
 gt: that aren't getting taught at home
-pred: that art getting taught at home
+pred: that are getting taught at home
 
 188
 gt: that's what they said
@@ -774,7 +774,7 @@ pred: did they mail that to you
 
 193
 gt: tim would like to take on other genres
-pred: team would like to take on other errors
+pred: seem would like to take on other errors
 
 194
 gt: can't give up on it
@@ -818,7 +818,7 @@ pred: you can't get all of us
 
 204
 gt: i think the newsmen
-pred: i think the
+pred: i think the design
 
 205
 gt: that's understandable
@@ -870,7 +870,7 @@ pred: that's one of the biggest ones i've seen
 
 217
 gt: my name is pat johnson and i live in texas
-pred: my name is pat johnson and i live in texas
+pred: my name is pat chesson and i live in texas
 
 218
 gt: they can if they want to
@@ -878,7 +878,7 @@ pred: they can if they want to
 
 219
 gt: a liberal arts school
-pred: a a liberal arts school
+pred: a. a liberal arts school
 
 220
 gt: in the houston area
@@ -890,7 +890,7 @@ pred: what kind of puppy you got
 
 222
 gt: you actually hand quilted it yourself
-pred: you actually had quilted it yourself
+pred: you actually had wilted it yourself
 
 223
 gt: got into it when i was young
@@ -954,7 +954,7 @@ pred: what are the problems with public education
 
 238
 gt: oh well no point in dwelling on the past
-pred: ho will no point in piling on the past
+pred: who will know point in playing on the past
 
 239
 gt: you have to pay the interest
@@ -990,7 +990,7 @@ pred: i'm not saying that they were
 
 247
 gt: pay and exhaustion and you know
-pred: k an exact and you know
+pred: a. an insect and you know
 
 248
 gt: all my aunts and uncles
@@ -1010,7 +1010,7 @@ pred: there was one point i was going to make
 
 252
 gt: i have more energy when i exercise
-pred: i have more energy when exercise
+pred: i have more energy when i exercise
 
 253
 gt: probably seventies
@@ -1058,7 +1058,7 @@ pred: that's a previous generation
 
 264
 gt: i get great distance hitting it
-pred: i get great distance hating it
+pred: i get great distance eating it
 
 265
 gt: the kids like to go out
@@ -1070,11 +1070,11 @@ pred: i got it right after high school
 
 267
 gt: regime change in iran
-pred: regime change in around
+pred: regime change in a n
 
 268
 gt: there is some definite snark in her report
-pred: there is some definite snark in her report
+pred: there is some definite knock in her report
 
 269
 gt: as far as that goes
@@ -1114,7 +1114,7 @@ pred: have there billings road and everything
 
 278
 gt: ambiance down there
-pred: amy's down there
+pred: appease down their
 
 279
 gt: go over there
@@ -1242,11 +1242,11 @@ pred: in fact the first year we were married
 
 310
 gt: i've got a two year old
-pred: i've got a two year old
+pred: i got a two year old
 
 311
 gt: that's what the different types are
-pred: that's what the different types are
+pred: that what the different types are
 
 312
 gt: when i came back here
@@ -1294,7 +1294,7 @@ pred: the nursing home
 
 323
 gt: snuggle up to you
-pred: sewing up to you
+pred: sal up to you
 
 324
 gt: i don't know if you've heard of her
@@ -1318,7 +1318,7 @@ pred: we all know that unfortunately schools are not always the safest places
 
 329
 gt: no deaths have been reported in the city
-pred: no death have been reported in the city
+pred: no deaths have been reported in the city
 
 330
 gt: he has no criminal convictions
@@ -1330,11 +1330,11 @@ pred: thank you for signing up
 
 332
 gt: this is the price paid for counting eggs rather than chicken embryos
-pred: this is the price paid for counting elves rather than chicken
+pred: this is the price paid for counting help rather than chicken
 
 333
 gt: grassley grew up on a family farm where he still works
-pred: gally grew up on a family farm where he still works
+pred: grassley grew up on a family farm where he still works
 
 334
 gt: we decided to ask them
@@ -1358,7 +1358,7 @@ pred: ho so you need to put away the milk and cereal
 
 339
 gt: everything trump wants to do threatens everything trudeau wants to do
-pred: everything trump wants to do threaten everything trudeau once to do
+pred: everything crap once to do threaten everything trudeau once to do
 
 340
 gt: peter was in bed when i walked into the bedroom
@@ -1378,11 +1378,11 @@ pred: and oregon jose had not turned north yet
 
 344
 gt: the two have since taken some steps toward a rapprochement
-pred: the two have since taken some steps or a
+pred: the two have since taken some steps or a repayment
 
 345
 gt: but there have often been times when turkey has been a problematic ally
-pred: but there have often been times when talking has been a problematic ally
+pred: but there have happened been times when talking has been a problematic ally
 
 346
 gt: check out the new sales items
@@ -1410,7 +1410,7 @@ pred: it could be used to hassle somebody
 
 352
 gt: america is losing it
-pred: amerika is losing it
+pred: america is losing it
 
 353
 gt: i don't know whether you did yours first
@@ -1418,7 +1418,7 @@ pred: i don't know whether you did yours first
 
 354
 gt: the sticky slide rugs under the carpet
-pred: the sticking fly rolls under the carpet
+pred: the stick lined rows under the carpet
 
 355
 gt: i think the majority are in that
@@ -1490,7 +1490,7 @@ pred: i would work in the summer
 
 372
 gt: taylor attributed this to confirmation bias
-pred: tailor attributed this to conversation buyers
+pred: dehler attributed this to conversation buyers
 
 373
 gt: we apologize but this video has failed to load
@@ -1506,7 +1506,7 @@ pred: this project has been a real team effort
 
 376
 gt: he can consistently score the damage you need to prowl your hand into play
-pred: he can consistently score the damage you need to trial your hand into play
+pred: he can consistently score the damage you need to drill your hand into play
 
 377
 gt: this is headache powders revisited
@@ -1514,19 +1514,19 @@ pred: this is adding powers
 
 378
 gt: understanding the mobile landscape
-pred: understanding the mobile
+pred: understanding the mobile concept
 
 379
 gt: trump has nominated william barr as the next attorney general
-pred: trump as nominee william barr as the next attorney general
+pred: trump has nominated william barr as the next attorney general
 
 380
 gt: pasquale thinks a similar argument should be made for search engines
-pred: bask thing a similar argument should be made for search engines
+pred: maisel things a similar argument should be made for search engines
 
 381
 gt: the hercules and rainbow stag beetles are highlights here
-pred: the arles and rambo stack middles are allies here
+pred: the argall and graber stack paddles are allies here
 
 382
 gt: a visual comparison of various distances
@@ -1542,7 +1542,7 @@ pred: the news and stories that matter delivered windy warnings
 
 385
 gt: which amiga games impressed you in terms of gameplay or technical tricks
-pred: which amida gaze impressed you in terms of gameplay or technical tricks
+pred: which a mega games impressed you in terms of gameplay or technical tricks
 
 386
 gt: also at that time we were starting to hate each other a little bit
@@ -1550,7 +1550,7 @@ pred: also at that time we were starting to hate each other a little bit
 
 387
 gt: are either or both dogs considered dangerous under davis county ordinance
-pred: or either or both dogs considered dangerous under dufus county ordinance
+pred: or either or both dogs considered dangerous under deaf county ordinance
 
 388
 gt: target and difficulty calculations
@@ -1558,7 +1558,7 @@ pred: target and difficulty calculations
 
 389
 gt: what is beef jerky anyway
-pred: what is big jerking anyway
+pred: what is big talking anyway
 
 390
 gt: the quantity you chose exceeds the quantity available
@@ -1586,7 +1586,7 @@ pred: we just left it alone
 
 396
 gt: you can always heat it up again
-pred: you can always eat it up again
+pred: you can always heat it up again
 
 397
 gt: trying to find someone at home
@@ -1646,7 +1646,7 @@ pred: our sleeping bags i guess
 
 411
 gt: see things like that
-pred: 't things like that
+pred: t things like that
 
 412
 gt: i don't get that
@@ -1678,7 +1678,7 @@ pred: the last book i read
 
 419
 gt: almost like a tingling
-pred: almost like a tickling
+pred: almost like a
 
 420
 gt: i think that could work as a toy
@@ -1722,7 +1722,7 @@ pred: students do not like this response
 
 430
 gt: there are no more vehicle tokens spread across the map
-pred: there are no more vehicle tokens straight out the map
+pred: there are no more vehicle tokens straight out the bat
 
 431
 gt: where is the evidence that they possess consciousness
@@ -1734,7 +1734,7 @@ pred: garrulous i roll my eyes as i get up
 
 433
 gt: people will do humiliating grotesque things for ambition
-pred: people will to uniting retest things for emission
+pred: people will do uniting grotesque things for ambition
 
 434
 gt: several correspondents had their notebooks searched
@@ -1742,15 +1742,15 @@ pred: several correspondents had their notebooks searched
 
 435
 gt: they send off emissaries to start new cancer colonies
-pred: they said off emissaries to start new cancer colonies
+pred: a. set off emissaries to start new cancer colonies
 
 436
 gt: you actually look forward to foxes or raccoons raiding your garbage
-pred: you actually look forward to foxes or recluse reading your garbage
+pred: you actually look forward to bosses or recruits raiding your garbage
 
 437
 gt: for example the face might be typically painted red black and white
-pred: for example the face might be compactly painted red black and white
+pred: for example the face might be pimple painted red black and white
 
 438
 gt: it was given to you the minute you cast your ballot
@@ -1758,7 +1758,7 @@ pred: it was given to you the minute you cast your ballot
 
 439
 gt: check out ebay craigslist and other online sites for deals
-pred: check out b belly and other only sites for deals
+pred: check out ebay belly and other only sites for deals
 
 440
 gt: sign up for our daily newsletter of the top stories in courier country
@@ -1766,7 +1766,7 @@ pred: sign up for our daily newsletter of the top stories in corey county
 
 441
 gt: such threats are a violation of the un charter
-pred: must that are a violation of the ewan charter
+pred: us that are a violation of the ewan charter
 
 442
 gt: never miss a moment
@@ -1886,19 +1886,19 @@ pred: shop spring mathematics developing
 
 471
 gt: run bargains hopeless persists meals
-pred: gun bargains offlist pursuits meals
+pred: gun bargains uplift pursuits meals
 
 472
 gt: keeps allowed monarch strap uses
-pred: kips allowed mana trap uses
+pred: keeps allowed mana trap uses
 
 473
 gt: casualty communism argue frost receptacle scroll
-pred: casualty confuse aki frost receptacle scroll
+pred: casualty commune ikea frost receptacle scroll
 
 474
 gt: supported according key arrive crush
-pred: supported according he arrive crush
+pred: support id according t arrive crash
 
 475
 gt: playing traditional used flat
@@ -1910,15 +1910,15 @@ pred: turquoise teams dollars consecration wins commonly
 
 477
 gt: pops against idol accurate crop steak
-pred: pax against idle accu grp sick
+pred: backs against idle accurate rap stick
 
 478
 gt: kept touring shallows hang everyone
-pred: kept during cellos hang everyone
+pred: kept boring shallow hang everyone
 
 479
 gt: terms news earning by commitment
-pred: burbs news earning by commitment
+pred: bob's news earning my commitment
 
 480
 gt: grandparents engagement throw stage
@@ -1926,11 +1926,11 @@ pred: grandparents engagement through age
 
 481
 gt: elk diplomatic plates reimbursed names
-pred: hal diplomatic plats reimbursed names
+pred: al diplomatic plates reimposed names
 
 482
 gt: first terror slips done
-pred: first der lips done
+pred: first tire lifts done
 
 483
 gt: ice hairs blooming coming opinion take
@@ -1938,15 +1938,15 @@ pred: i hair blooming coming opinion take
 
 484
 gt: semesters plans lean zales fertilizers dementia
-pred: semester plan lien sales fertilizers
+pred: semester plan lien sales fertilizers division
 
 485
 gt: grade nucleus arrive excess destroying
-pred: grade nicolas of access destroying
+pred: grade nicholas of access destroying
 
 486
 gt: bonsai meeting ghost mainly
-pred: boss beating ghost male
+pred: boss meeting ghost family
 
 487
 gt: resale telling serious understanding moral
@@ -1954,7 +1954,7 @@ pred: resell telling siri understanding moral
 
 488
 gt: democratically reduces carbon cramped baked
-pred: demerol e reduces carbon cramp band
+pred: democratically reduces carbon cramp band
 
 489
 gt: we're paying basketball people
@@ -1974,7 +1974,7 @@ pred: but drastic times could call for drastic measures
 
 493
 gt: either savings or investment
-pred: either savings or investment
+pred: the savings or investment
 
 494
 gt: magnified vision able to see at night
@@ -1986,7 +1986,7 @@ pred: of course my job was such that i didn't
 
 496
 gt: blizzards now have a new visual effect
-pred: blizzard now have a new visual effect
+pred: business now have a new visual effect
 
 497
 gt: it's like a joke i heard once
@@ -2026,7 +2026,7 @@ pred: i mean just nothing
 
 506
 gt: while my oldest was a year old
-pred: while my oldest was a year old
+pred: hile my oldest was a year old
 
 507
 gt: so it was really too late to do much
@@ -2050,11 +2050,11 @@ pred: we want to stay forever
 
 512
 gt: of course they ate a lot of sea food
-pred: of course they ate a lot of c food
+pred: of course they eat a lot of sea food
 
 513
 gt: it is estimated a total of three thousand properties were affected
-pred: it is estimated a total of three thousand properties were affected
+pred: it is estimated the total of three thousand properties were affected
 
 514
 gt: not all men pay their employees less
@@ -2074,11 +2074,11 @@ pred: n reboot the system
 
 518
 gt: the product i tried was their mini corn dogs which were superb
-pred: the product i tried was there mini car dog which were
+pred: the product i tried was there many corn dog which were superb
 
 519
 gt: vancouver teacher faces disciplinary action for harassing gay student
-pred: makeover teacher faces desultory action for harassing gay student
+pred: make-over teacher faces desultory action for harassing gay student
 
 520
 gt: how to avoid being tracked on the internet
@@ -2106,11 +2106,11 @@ pred: so what about the enemies of the assad regime
 
 526
 gt: its too valuable to just let people stay in sorry
-pred: it's too valuable to just let people stay in sory
+pred: it's too valuable to just let people stay in sorry
 
 527
 gt: and if i'm so blessed by the gods i'll never have to kill again
-pred: and if i'm so placed by the gods i'll never have to kill again
+pred: and if i'm so blessed by the gods i'll never have to kill again
 
 528
 gt: your birthday and age won't be visible to other users
@@ -2142,11 +2142,11 @@ pred: low the seat to the dark blue background
 
 535
 gt: it's easy to tell the depth of a well
-pred: it's easy to tell the depth of a well
+pred: it's easy to tell the depth of a while
 
 536
 gt: these days a chicken leg is a rare dish
-pred: these days a chicken leg is a rare dish
+pred: these days a chicken lick is a rare dish
 
 537
 gt: rice is often served in round bowls
@@ -2158,19 +2158,19 @@ pred: the choose of limits makes fine point
 
 539
 gt: the box was thrown beside the parked truck
-pred: the bust was thrown beside the part rock
+pred: the boss was thrown beside the port rock
 
 540
 gt: the hogs were fed chopped corn and garbage
-pred: the hands were fed chopped corn and
+pred: the hands were fed chopped corn and garbage
 
 541
 gt: four hours of steady work faced us
-pred: for hours of city work finned us
+pred: for hours of study work faced us
 
 542
 gt: the small pup gnawed a hole in the sock
-pred: the small pup docked a hole in the sock
+pred: the small pop dot a hole in the sock
 
 543
 gt: the fish twisted and turned on the bent hook
@@ -2178,7 +2178,7 @@ pred: the fish twisted and turned on the bait hook
 
 544
 gt: press the pants and sew a button on the vest
-pred: press the pass and so a button on the first
+pred: press the pass and show a button on the first
 
 545
 gt: the swan dive was far short of perfect
@@ -2190,7 +2190,7 @@ pred: the beauty of the view stand the young boy
 
 547
 gt: two blue fish swam in the tank
-pred: to blue fish swim and the take
+pred: to blue fish swim and the deck
 
 548
 gt: her purse was full of useless trash
@@ -2206,7 +2206,7 @@ pred: it sold great and helped the same morning
 
 551
 gt: read verse out loud for pleasure
-pred: wed first out loud for pleasure
+pred: we'd first out loud for pleasure
 
 552
 gt: hoist the load to your left shoulder
@@ -2258,7 +2258,7 @@ pred: is that pollution
 
 564
 gt: the productivity and the training costs
-pred: the poet and the training course
+pred: the productivity and the training course
 
 565
 gt: they're always willing to help you out
@@ -2302,15 +2302,15 @@ pred: he worked hard at it
 
 575
 gt: the frosty air passed through the coat
-pred: the faster air passed through the cut
+pred: the faster air passed through the coat
 
 576
 gt: the crooked maze failed to fool the mouse
-pred: the lookin' maids filed to full the mess
+pred: the ticket made filled to full the most
 
 577
 gt: adding fast leads to wrong sums
-pred: hatting fish leads to reich sums
+pred: hating fish leads to wrong sums
 
 578
 gt: the show was a flop from the very start
@@ -2322,15 +2322,15 @@ pred: a saw is a tool used for making points
 
 580
 gt: the wagon moved on well oiled wheels
-pred: the walkie moved on well oiled wheels
+pred: the walkie moved on well old wheels
 
 581
 gt: march the soldiers past the next hill
-pred: march the surges past the next hill
+pred: much the sudden past the next hill
 
 582
 gt: a cup of sugar makes sweet fudge
-pred: a cup of sitter makes sweet fudge
+pred: a cup of suiter makes sweet fudge
 
 583
 gt: place a rosebush near the porch steps
@@ -2338,11 +2338,11 @@ pred: place a rubbish near the porch steps
 
 584
 gt: both lost their lives in the raging storm
-pred: both lost their lives in the raging storm
+pred: both lost their lives' in the raging storm
 
 585
 gt: we talked of the side show in the circus
-pred: we talked if the side show in the circus
+pred: we talked in the side show in the circus
 
 586
 gt: use a pencil to write the first draft
@@ -2350,7 +2350,7 @@ pred: use a pencil to write the first tab
 
 587
 gt: he ran half way to the hardware store
-pred: he read half way to the arcade store
+pred: he ran half way to the arbor store
 
 588
 gt: the clock struck to mark the third period
@@ -2358,15 +2358,15 @@ pred: the like struck to my the third being
 
 589
 gt: a small creek cut across the field
-pred: a small weak cut across the field
+pred: a small work cut across the field
 
 590
 gt: cars and busses stalled in snow drifts
-pred: cars and busses sold in no trips
+pred: cars and busses called in no trips
 
 591
 gt: the set of china hit the floor with a crash
-pred: the set of gender in the play with a
+pred: the set of chain in the floor with a crotch
 
 592
 gt: this is a grand season for hikes on the road
@@ -2374,11 +2374,11 @@ pred: this is a grand season for hikes on the road
 
 593
 gt: the dune rose from the edge of the water
-pred: the two rules from the s of the water
+pred: the moon rose from the s of the water
 
 594
 gt: those words were the cue for the actor to leave
-pred: these words were the key for the actor to leave
+pred: those words were the key for the actor to leave
 
 595
 gt: a yacht slid around the point into the bay
@@ -2390,11 +2390,11 @@ pred: the two met while playing on the side
 
 597
 gt: the ink stain dried on the finished page
-pred: the week sun tried on the visit pass
+pred: the eke sen tried on the finished page
 
 598
 gt: the walled town was seized without a fight
-pred: the wild kind was seized without a fight
+pred: the world pound was seized without a fight
 
 599
 gt: the lease ran out in sixteen weeks
@@ -2402,7 +2402,7 @@ pred: the lease ran out in sixteen weeks
 
 600
 gt: it's just pocket change to a lot of people
-pred: it's just makin change to a a lot of people
+pred: it's just making change to a lot of people
 
 601
 gt: they told me that this was the topic
@@ -2418,11 +2418,11 @@ pred: the other thing to do
 
 604
 gt: they both cooperate together
-pred: the both core together
+pred: they both core together
 
 605
 gt: it got too cold up there
-pred: it got to cold up there
+pred: it got to hold up there
 
 606
 gt: so let's make some conclusions
@@ -2430,7 +2430,7 @@ pred: so let's make some conclusions
 
 607
 gt: train accidents and everything else
-pred: crain exodus and everything else
+pred: reign exodus and everything else
 
 608
 gt: i guess that's about it
@@ -2458,7 +2458,7 @@ pred: others said they were disappointed
 
 614
 gt: somebody's going to change it
-pred: somebody going to change it
+pred: somebody's going to change it
 
 615
 gt: this is easy for me
@@ -2498,7 +2498,7 @@ pred: they don't register
 
 624
 gt: it's called reviewing my life
-pred: it's called rearing my life
+pred: it's called wearing my life
 
 625
 gt: how are you doing
@@ -2510,7 +2510,7 @@ pred: do you think this is right
 
 627
 gt: this is good isn't it
-pred: this is good isn't it
+pred: this is good is it
 
 628
 gt: i am also doing this
@@ -2566,11 +2566,11 @@ pred: i wasn't saying this at all
 
 641
 gt: i have to pay for four things
-pred: i have to pay for four things
+pred: i have to pay more for things
 
 642
 gt: call me once you get here
-pred: called me once you get here
+pred: 'til me once you get here
 
 643
 gt: what part of this is hard
@@ -2746,11 +2746,11 @@ pred: cry mean turn couldn't morning somewhere
 
 686
 gt: sports miss companies aren't television
-pred: sports msn companies art television
+pred: sports mich companies art
 
 687
 gt: drug newspaper you'll report baby
-pred: grow newspaper you'll report
+pred: grow newspaper you'll report maybe
 
 688
 gt: won't choices couldn't thirty cards
@@ -2762,19 +2762,19 @@ pred: avoid anymore we guys all
 
 690
 gt: funny past decisions dallas future bring
-pred: funny past decisions dallas future bring
+pred: funny best decision dallas future bring
 
 691
 gt: variety yours originally check second
-pred: variety years originally check
+pred: variety yours originally check second
 
 692
 gt: child boys classical clothes team
-pred: chad boys classical clothes team
+pred: shad boys classical clothes team
 
 693
 gt: store somewhere unusual helps miss
-pred: store somewhere unusual helps this
+pred: sore somewhere unusual helps this
 
 694
 gt: course girl exactly fan watching
@@ -2782,11 +2782,11 @@ pred: coarse goal exactly fine watching
 
 695
 gt: you'll middle benefits education lives
-pred: your middle benefits education live
+pred: your middle benefit education life
 
 696
 gt: mother testing second easier program number
-pred: mother testing second easier pregame number
+pred: mother testing second easy program number
 
 697
 gt: coming sun york favorite food
@@ -2798,11 +2798,11 @@ pred: grew spend men necessarily you've
 
 699
 gt: vote month expected fan nursing
-pred: met month expected my nursing
+pred: met month expected fine nursing
 
 700
 gt: thank york catch along set
-pred: think your catch along set
+pred: think your catch a long set
 
 701
 gt: mother team system amount texas
@@ -2814,7 +2814,7 @@ pred: story noise sounds at friends
 
 703
 gt: line talked turn depends across weekend
-pred: i talked tr depends across weekend
+pred: i talked ton depend across weekend
 
 704
 gt: large number of employees will miss this
@@ -2918,7 +2918,7 @@ pred: please order our regular food for everyone
 
 729
 gt: it pertains to my daily life at the present time
-pred: it fusses to the daily live at the present time
+pred: it proceeds to the daily life at the present time
 
 730
 gt: but you have friends that have children
@@ -2946,7 +2946,7 @@ pred: this happened about a week ago
 
 736
 gt: it seems like you walk quicker
-pred: it seems like you work week
+pred: it seems like you work quicker
 
 737
 gt: in the district
@@ -2962,7 +2962,7 @@ pred: join us for an among event
 
 740
 gt: do you believe in the dallas cowboys
-pred: do you believe in the palace cowboys
+pred: do you believe it the palace
 
 741
 gt: do you find yourself funny
@@ -2978,7 +2978,7 @@ pred: second generation
 
 744
 gt: real rough type camping
-pred: will roam type camping
+pred: real room type camping
 
 745
 gt: so i made my own version
@@ -3042,7 +3042,7 @@ pred: what happened to the sound
 
 760
 gt: tell me your education story
-pred: ll me your education story
+pred: 'til me your education story
 
 761
 gt: there's good music and good food
@@ -3054,7 +3054,7 @@ pred: what is the cost of each piece you sell
 
 763
 gt: i often listen to this wonderful music
-pred: i often listen to this wonderful music
+pred: offen listen to this wonderful music
 
 764
 gt: i have to go across the city to see her
@@ -3078,7 +3078,7 @@ pred: is good luck will help him avoid problems
 
 769
 gt: i am free to make a decision about my college
-pred: i am free to take a decision about my college
+pred: i am free to make a decision about my college
 
 770
 gt: avoid capital punishment
@@ -3198,7 +3198,7 @@ pred: i have lived in illinois and dallas
 
 799
 gt: television service is awful here
-pred: television service is awfull here
+pred: television service is awful here
 
 800
 gt: the jury cannot change this fact
@@ -3218,7 +3218,7 @@ pred: i'm watching my kids education
 
 804
 gt: i bought these new clothes today
-pred: i bought this new clothes today
+pred: i bought these new clothes today
 
 805
 gt: this may seem important now
@@ -3230,7 +3230,7 @@ pred: tax season is certainly interesting
 
 807
 gt: there's so much noise in the capital city
-pred: there's so much noise in the capitol city
+pred: there's so much noise in the capital city
 
 808
 gt: your story is not clear anymore
@@ -3306,7 +3306,7 @@ pred: i like all this open space around the house
 
 826
 gt: evening is the best time for reading
-pred: evening is the best time for reading
+pred: evening is the best time for wedding
 
 827
 gt: nothing can stop me from doing this
@@ -3318,7 +3318,7 @@ pred: she will sit across the room
 
 829
 gt: seventy awful years
-pred: seventy offal years
+pred: seventy awful years
 
 830
 gt: appeal of luxury things is something else
@@ -3370,7 +3370,7 @@ pred: there will be more light somewhere around here
 
 842
 gt: that woman will check this fact
-pred: that woman will check this fact
+pred: that woman will take this fact
 
 843
 gt: do not sell your free time or your peace of mind
@@ -3378,19 +3378,19 @@ pred: do not sell your free time or your space of mind
 
 844
 gt: it all worked out quite well for our family
-pred: it all worked out quite well for our family
+pred: it all worked and quite well for our family
 
 845
 gt: the joy of an early morning walk
-pred: the girl have an early warning walk
+pred: the joy of an early morning walk
 
 846
 gt: it is easier to go without food
-pred: it is easy to go with that food
+pred: it is easy to go with out food
 
 847
 gt: my vision does not amount to anything
-pred: my version does not amount to anything
+pred: my vision does not amount to anything
 
 848
 gt: the baby will stick its head in the food
@@ -3398,7 +3398,7 @@ pred: the baby will stick its ass in the food
 
 849
 gt: how often do you go for a walk with him
-pred: how often do you go for a walk with him
+pred: how offen do you go for a walk with him
 
 850
 gt: we should turn around and pick her up from school
@@ -3470,7 +3470,7 @@ pred: i don't see what the problem is
 
 867
 gt: i guess something has to go
-pred: i guess something s to go
+pred: i guess something has to go
 
 868
 gt: do you know that i've never seen a monkey
@@ -3494,11 +3494,11 @@ pred: i think its just a lot
 
 873
 gt: if you haven't slowed down
-pred: if you haven't cleaned down
+pred: if you haven't learned now
 
 874
 gt: keeps to their own turf
-pred: keep to their own turf
+pred: keeps to their own turf
 
 875
 gt: we also set aside money for entertainment
@@ -3510,7 +3510,7 @@ pred: i enjoy the news
 
 877
 gt: everything i learned about ancient rome
-pred: everything i learnt about engine room
+pred: everything i learned about engine room
 
 878
 gt: as far as doing things for them
@@ -3530,7 +3530,7 @@ pred: the coastline was just incredible
 
 882
 gt: why do you say that actually
-pred: y do you say that actually
+pred: i do you say that actually
 
 883
 gt: you were great
@@ -3638,7 +3638,7 @@ pred: we cannot go there without you
 
 909
 gt: not everyone can exercise in the morning
-pred: not everyone can exercise in the morning
+pred: but everyone can exercise in the morning
 
 910
 gt: the work gets easier with experience
@@ -3674,7 +3674,7 @@ pred: let's play this new version of my favorite music
 
 918
 gt: most of us think we know the story of detroit michigan
-pred: most of us think we know the story of detroit michigan
+pred: most of us think we know the story of detroit
 
 919
 gt: that was one thing that's been really nice to have
@@ -3686,7 +3686,7 @@ pred: they shot him point blank in the face
 
 921
 gt: these are made with a flour tortilla
-pred: these are made with a phial putty
+pred: those are made with a file total
 
 922
 gt: did you hear from another person
@@ -3738,7 +3738,7 @@ pred: there were none left by the year two thousand
 
 934
 gt: wayne state university is in detroit michigan
-pred: fine state university is in detroit michigan
+pred: one state university is in detroit michigan
 
 935
 gt: it's an invasion of privacy
@@ -3770,7 +3770,7 @@ pred: i am from
 
 942
 gt: it is like winning the lottery
-pred: it is like reading the lady
+pred: it is like reading the lottery
 
 943
 gt: i did it all on the job
@@ -3786,11 +3786,11 @@ pred: whenever you like
 
 946
 gt: the movie is slow burning
-pred: the movie is slow burning
+pred: the movie is so bada
 
 947
 gt: we don't listen to any elevator music at my house
-pred: we don't listen to any area musings at my house
+pred: we don't listen to any era music at my house
 
 948
 gt: what do you think
@@ -3806,15 +3806,15 @@ pred: you came out out top
 
 951
 gt: that really ticks me off
-pred: that really takes me off
+pred: that really takes me of
 
 952
 gt: there were thousands of cows on the farm
-pred: there were thousands of cows on the farm
+pred: there were thousands of cows at the farm
 
 953
 gt: now some people object during primary debates
-pred: now some people enjoyed during prior depends
+pred: now some people invest during buy
 
 954
 gt: you have to do the random drug testing
@@ -3834,7 +3834,7 @@ pred: the ranch dressing goes along well with that
 
 958
 gt: it used to cost six bucks
-pred: it used to cost six base
+pred: it used to cost six bucks
 
 959
 gt: in those situations i don't know how to behave
@@ -3842,11 +3842,11 @@ pred: in those situations i don't know how to behave
 
 960
 gt: it would be fun just to win one
-pred: it would be fun just to ride one
+pred: it would be fun just to read one
 
 961
 gt: the full decision statement is available here
-pred: the full decision statement is avila here
+pred: the full decision standard is available here
 
 962
 gt: especially with butter and honey on them
@@ -3854,7 +3854,7 @@ pred: especially with butter at honey on them
 
 963
 gt: i'm interested in having it in my office
-pred: i'm interested in having it in my office
+pred: i'm interested in having that in my office
 
 964
 gt: i do not talk to many people in the military
@@ -3882,7 +3882,7 @@ pred: they would have to be supported in some way
 
 970
 gt: i miss the intellectual stimulation of taking classes in college
-pred: i miss the international jebel shun of taking classes in college
+pred: i miss the interracial gibble shun of taking classes in college
 
 971
 gt: as you get older you will understand
@@ -3946,7 +3946,7 @@ pred: he took care of it
 
 986
 gt: i love to watch cartoons on saturday morning
-pred: i love to watch actors on saturday morning
+pred: i love to watch hikers on saturday morning
 
 987
 gt: she will be a sophomore in high school next year
@@ -3958,15 +3958,15 @@ pred: some entries will be a lot more casual
 
 989
 gt: you have a choice of which car to buy
-pred: you have a price of what he to pay
+pred: you have a press of one here to be
 
 990
 gt: my real concern is this
-pred: my real excite is this
+pred: the real deceit is this
 
 991
 gt: it's been kind of scary
-pred: it been well if saying
+pred: it been well of saying
 
 992
 gt: they would have never picked it out
@@ -3974,7 +3974,7 @@ pred: they would have never picked it it
 
 993
 gt: that is why they're kind of behind on work
-pred: that is what their kind of beget in week
+pred: that is what their kind of beget at work
 
 994
 gt: she can do it
@@ -3998,7 +3998,7 @@ pred: it could be recycled
 
 999
 gt: it costs ten or twenty dollars per ounce
-pred: it costs it or waiting daily to house
+pred: it costs it or waiting daily by his
 
 1000
 gt: of course it's real convenient for you
@@ -4014,7 +4014,7 @@ pred: and my insurance is about to expire
 
 1003
 gt: i sew clothes for them every once in a while
-pred: i so close for them every weeks in a while
+pred: i so close for them ever works in a while
 
 1004
 gt: we were interested in the local schools
@@ -4022,11 +4022,11 @@ pred: we were interested in the longer schools
 
 1005
 gt: he won a free trip or something along those lines
-pred: he won a free trip or something along those
+pred: he won a free trip or something along those ass
 
 1006
 gt: the sport looks fun until you're playing it
-pred: the sport lack fun until you playing it
+pred: the sport dass fun until you playing it
 
 1007
 gt: you have to look around at the school
@@ -4038,7 +4038,7 @@ pred: i still like the new york giants
 
 1009
 gt: i studied environmental engineering in college
-pred: i started environmental engineering in college
+pred: i stated environmental engineering in college
 
 1010
 gt: my son really wanted a pet bird
@@ -4062,7 +4062,7 @@ pred: r u pleased with this decision
 
 1015
 gt: the town is just over the hill here
-pred: the town is just over the hill here
+pred: the time is just over the hill here
 
 1016
 gt: it's totally ridiculous
@@ -4082,7 +4082,7 @@ pred: that is horrible
 
 1020
 gt: fill the jar to the top with boiling water
-pred: ll the jar to the job with boiling water
+pred: filled the char to the job with boiling water
 
 1021
 gt: it was a prime time football game
@@ -4102,7 +4102,7 @@ pred: i went back to school and got my masters degree
 
 1025
 gt: then i heard a very loud explosion
-pred: then i heard a very loud explosion
+pred: when i heard a very loud explosion
 
 1026
 gt: my dad is a potato farmer
@@ -4110,7 +4110,7 @@ pred: my dad is a potato farmer
 
 1027
 gt: that's a good option to consider
-pred: that's a good option to consider
+pred: it's a good option to consider
 
 1028
 gt: do you want to eat inside or outside
@@ -4206,7 +4206,7 @@ pred: i've got a two year old and a four year old
 
 1051
 gt: we definitely need a change in the system
-pred: we definitely need a judge in the system
+pred: we definitely need a charge in the system
 
 1052
 gt: that's pretty much the south end of the state
@@ -4314,7 +4314,7 @@ pred: if it's run by the individual state
 
 1078
 gt: and so you know and it's his choice to make
-pred: and so you know and it's his choice to make
+pred: and so you know and it's his chores to make
 
 1079
 gt: you just gave it away
@@ -4322,7 +4322,7 @@ pred: you just gave it away
 
 1080
 gt: the acid rain situation or the ozone depletion
-pred: the asset grade situation or the ocean depletion
+pred: the asset red situation or the ocean depletion
 
 1081
 gt: employment income
@@ -4330,7 +4330,7 @@ pred: employment
 
 1082
 gt: i have to be real careful
-pred: i have to be real awful
+pred: i have to be real
 
 1083
 gt: i hope you enjoyed this article
@@ -4350,7 +4350,7 @@ pred: where do you go camping at around here
 
 1087
 gt: i try to save that for the weekend
-pred: i try to seem that for the weekend
+pred: i try to see that for the weekend
 
 1088
 gt: when does school start
@@ -4366,7 +4366,7 @@ pred: that's just the way it was
 
 1091
 gt: vegetables grow in the fields
-pred: vegetables grow in the fields
+pred: vegetables grow in the field
 
 1092
 gt: it's kind of like drawing this line
@@ -4374,7 +4374,7 @@ pred: it's kind of like during this line
 
 1093
 gt: i had gone to a very dimly lit area
-pred: i had gone to a very bella lit area
+pred: i had gone to a very deli lot area
 
 1094
 gt: which one is the tourist area
@@ -4382,7 +4382,7 @@ pred: which one is the coolest area
 
 1095
 gt: i was raised in new york
-pred: i was rez in new york
+pred: i was reg in new york
 
 1096
 gt: when you leave a job
@@ -4394,7 +4394,7 @@ pred: that's the only pollution that's been there
 
 1098
 gt: they needed a smaller setting
-pred: they needed a smaller setting
+pred: a. needed a smaller setting
 
 1099
 gt: they put it out in a video
@@ -4406,7 +4406,7 @@ pred: especially in the winter
 
 1101
 gt: you like pets and things
-pred: you like bakes and things
+pred: you like books and things
 
 1102
 gt: like building a house or anything
@@ -4414,7 +4414,7 @@ pred: like building a house or anything
 
 1103
 gt: take a lot of chances
-pred: take a lot of chances
+pred: took a lot of chances
 
 1104
 gt: i don't think i would have insurance
@@ -4470,7 +4470,7 @@ pred: did you see it the other night
 
 1117
 gt: yeah i really mean that
-pred: yeah i really mean that
+pred: o i really mean that
 
 1118
 gt: he's been a legend for so many years
@@ -4478,7 +4478,7 @@ pred: he's been a legend for so many years
 
 1119
 gt: yeah that book is about the same kind of thing
-pred: where that book is about the same kind of thing
+pred: well that book is about the same kind of thing
 
 1120
 gt: i can still read music
@@ -4494,7 +4494,7 @@ pred: i was accused of selling drugs
 
 1123
 gt: what was the actual starting point for the story
-pred: what was the int'l starting point for the story
+pred: what was the annal starting point for the story
 
 1124
 gt: did you find it hard to make decisions
@@ -4510,7 +4510,7 @@ pred: i went back up tonight
 
 1127
 gt: the door bell rang
-pred: the door bill y
+pred: the door bell y
 
 1128
 gt: i try not to use insecticides on my lawn
@@ -4522,7 +4522,7 @@ pred: it does not snow as much as i remember while growing up
 
 1130
 gt: we drove through oklahoma city
-pred: we live through oklahoma city
+pred: we drove through oklahoma city
 
 1131
 gt: after graduation the students will go on to a variety of colleges
@@ -4538,7 +4538,7 @@ pred: the military has a drug presence in the person call
 
 1134
 gt: that is cheap compared to what i usually buy
-pred: that is cheap upright to what i usually buy
+pred: that is same cuppy to what i usually buy
 
 1135
 gt: on the other hand i am quite good
@@ -4562,7 +4562,7 @@ pred: i love eating bacon pie
 
 1140
 gt: we went to go see the godfather part three
-pred: we went to go see the defiantly bought three
+pred: we went to go see the different part three
 
 1141
 gt: it is strange enough
@@ -4570,11 +4570,11 @@ pred: it is re enough
 
 1142
 gt: i think its relevance is pretty limited
-pred: i think its policy is pretty commitee
+pred: i think its policy is pretty competent
 
 1143
 gt: give a voice to the voiceless
-pred: give a voice to the crisis
+pred: gave a voice to the crisis
 
 1144
 gt: there has been a change in the price of oil
@@ -4582,11 +4582,11 @@ pred: there has been a change in the price of oil
 
 1145
 gt: i absolutely loved it
-pred: i absolutely loved it
+pred: i actually loved it
 
 1146
 gt: either way they always spell it wrong
-pred: either way they always spell it go
+pred: either way they always spell it wrong
 
 1147
 gt: i guess what you have to do is just relax
@@ -4594,15 +4594,15 @@ pred: i guess what you have to do is just relax
 
 1148
 gt: i think that's a really interesting question
-pred: i think that's a really interesting
+pred: i think that's a really entrusting
 
 1149
 gt: i think nursing homes can be good for some people
-pred: i think cursing helps could be good for some people
+pred: i think nursing help could be good for some people
 
 1150
 gt: i was arrested for something really minor
-pred: i was arrested for something really morning
+pred: i was arrested for something really
 
 1151
 gt: he's going to be traveling to europe with a group of friends
@@ -4614,11 +4614,11 @@ pred: they live in a little white frame house
 
 1153
 gt: the event was really oriented toward little kids
-pred: the event was really orta cord later kids
+pred: the event was really origin torn little kids
 
 1154
 gt: they fell out because of his drug addiction
-pred: they fell out because of his drug
+pred: they fell out because of his drug addition
 
 1155
 gt: nobody remembers him as a loser
@@ -4662,7 +4662,7 @@ pred: that's what i was about to say
 
 1165
 gt: but they're planning on doing it very soon
-pred: but there planning on doing it very soon
+pred: what they're planning on doing it very soon
 
 1166
 gt: you live right across the street from my daughter
@@ -4734,7 +4734,7 @@ pred: it's not like he had a choice
 
 1183
 gt: lunch was like thirteen dollars or something
-pred: lunch was like thirteen dollars or something
+pred: large was like thirteen dollars or something
 
 1184
 gt: and i think he's as guilty as the devil
@@ -4758,7 +4758,7 @@ pred: the brand new company is making a lot of money
 
 1189
 gt: i'm going to go to the grocery store
-pred: i'm going to go to the country store
+pred: i'm going to go to the crusher store
 
 1190
 gt: i was so thrilled that they visited me
@@ -4774,7 +4774,7 @@ pred: it has been a really nice spring
 
 1193
 gt: the movie had a lot of nudity and curse words
-pred: the movie had a lot of teuton and cos works
+pred: the movie had a lot of hooten and curse words
 
 1194
 gt: take a piece of paper to draw on
@@ -4846,7 +4846,7 @@ pred: employment income
 
 1211
 gt: i have to be real careful
-pred: i have to be real carful
+pred: i have to be real
 
 1212
 gt: i hope you enjoyed this article
@@ -4906,7 +4906,7 @@ pred: the reality is that's usually not the case
 
 1226
 gt: i wonder where they learned to do that
-pred: i wonder where they load to do that
+pred: i wonder where they learned to do that
 
 1227
 gt: he kept his tone light and casual but firm
@@ -5006,7 +5006,7 @@ pred: take a stacks of books or small quiet toys
 
 1251
 gt: i would reconsider where i was buying it from
-pred: i would unconcerned where i was buying it from
+pred: i would reckon where i was buying it from
 
 1252
 gt: it was written at a third grade level
@@ -5014,7 +5014,7 @@ pred: it was written at a third grade level
 
 1253
 gt: they're doing a lot of good research here
-pred: there duri a lot of gun rosin here
+pred: there do a lot of good reasons here
 
 1254
 gt: if it does the job
@@ -5022,7 +5022,7 @@ pred: at it does the name
 
 1255
 gt: do you like to travel
-pred: do you like to dine
+pred: do you like to tanner
 
 1256
 gt: the state and the city are contradicting each other
@@ -5034,11 +5034,11 @@ pred: i don't reconcile watch with conclusion
 
 1258
 gt: you don't need a personal one
-pred: you don't need a panel one
+pred: you don't did a panel one
 
 1259
 gt: the measure passed the house by a landslide vote
-pred: the measure passed the house by a crescent point
+pred: the money passed the house by a cosset point
 
 1260
 gt: they sent us a little booklet to read
@@ -5046,7 +5046,7 @@ pred: the set has a little billing to wait
 
 1261
 gt: why is this such an unusual thing to do
-pred: by is this such an occasional thing to do
+pred: y is this such an occasional thing to do
 
 1262
 gt: between the rows and all
@@ -5054,7 +5054,7 @@ pred: between the rows in all
 
 1263
 gt: we have a dog too so that adds to it
-pred: we have a dog to so that adds to it
+pred: we have a dog do so that adds to it
 
 1264
 gt: take a seat on the bench
@@ -5074,7 +5074,7 @@ pred: i'm going to visit florida on luna
 
 1268
 gt: cars have come down in price significantly
-pred: core have come down in fresh sonically
+pred: core have come down in touch
 
 1269
 gt: when we bought it last year
@@ -5086,7 +5086,7 @@ pred: i kind of wish that they had a little league for the boys
 
 1271
 gt: and that is the best book to go through
-pred: at that is the most big to join through
+pred: at that is the most big to die through
 
 1272
 gt: it's nice to have a pet dog
@@ -5094,11 +5094,11 @@ pred: it's nice to have a big dog
 
 1273
 gt: that's one good thing about having a cat though
-pred: that's one good thing about often a cat though
+pred: that's one good thing about huffy a cat though
 
 1274
 gt: the rich people started leaving the city
-pred: the lunch people started liking the city
+pred: the rich people started claiming the city
 
 1275
 gt: he went over all that with his doctors
@@ -5110,7 +5110,7 @@ pred: actually it makes sense to a certain extent
 
 1277
 gt: doesn't seem like it so far
-pred: isn't seem like it so far
+pred: kisan se like it so far
 
 1278
 gt: when was it
@@ -5202,7 +5202,7 @@ pred: decisions that are being made by world leaders
 
 1300
 gt: she was delivered the next day
-pred: she was eleven the next day
+pred: she was delivered the next day
 
 1301
 gt: i wouldn't say it's as bad as new york
@@ -5298,11 +5298,11 @@ pred: r or other is r and there
 
 1324
 gt: are you pleased with this decision
-pred: r a neath the earth
+pred: r a ne the a
 
 1325
 gt: the town is just over the hill here
-pred: the door is does a the or
+pred: the door is does a the are are
 
 1326
 gt: it is totally ridiculous
@@ -5310,11 +5310,11 @@ pred: it is deadly
 
 1327
 gt: in other words there is a choice to make
-pred: in other words there is a day to work
+pred: in other words there is a door to work
 
 1328
 gt: that does not seem quite fair
-pred: that does not a done here
+pred: that does not a one care
 
 1329
 gt: that is horrible
@@ -5322,11 +5322,11 @@ pred: that is
 
 1330
 gt: fill the jar to the top with boiling water
-pred: shill the jar to the top with boiling water
+pred: feel the joy to the top with boiling water
 
 1331
 gt: it was a prime time football game
-pred: it was a prime time football game
+pred: it was a fine time football game
 
 1332
 gt: not too long ago
@@ -5334,7 +5334,7 @@ pred: not to long ago
 
 1333
 gt: she has had really good luck this year
-pred: she is had probly good luck this year
+pred: she has had brolly good luck this year
 
 1334
 gt: i went back to school and got my master's degree
@@ -5350,7 +5350,7 @@ pred: r u played with this division
 
 1337
 gt: the town is just over the hill here
-pred: the town is just off a hill here
+pred: the town is just off the hill here
 
 1338
 gt: it is totally ridiculous
@@ -5394,11 +5394,11 @@ pred: and the next five years
 
 1348
 gt: college credit for community service is a good idea
-pred: college credit for community service is a good idea
+pred: college ready for community service is a good idea
 
 1349
 gt: ethical and religious views on need and pleasure
-pred: ella and religious cues on need and pleasure
+pred: elsen and religious cues on need and pleasure
 
 1350
 gt: the past few weeks are a case in point
@@ -5410,7 +5410,7 @@ pred: the government offers financial services
 
 1352
 gt: mix some cream sauce with it and pour it over rice
-pred: makes some cream sauce with it and pour it over rice
+pred: make some cream sauce with it and pour it over rice
 
 1353
 gt: people are dropping out of school
@@ -5450,7 +5450,7 @@ pred: i live in a farming community
 
 1362
 gt: do you have any friends with older children
-pred: do you have any friends with older children
+pred: to you have any friends with older children
 
 1363
 gt: when things don't go right you have to adjust
@@ -5498,7 +5498,7 @@ pred: so do you like your new truck
 
 1374
 gt: you'd think that it was a private school
-pred: you think that it was a private school
+pred: you'd think that it was a private school
 
 1375
 gt: they've started a drug testing policy
@@ -5510,7 +5510,7 @@ pred: i think there's about seventy five people here
 
 1377
 gt: whatever they tell you is a lie
-pred: whatever they tell you is a lie
+pred: what ever they tell you is a lie
 
 1378
 gt: they can't do as good of a job
@@ -5526,11 +5526,11 @@ pred: everybody is sitting here screaming
 
 1381
 gt: i just can't do those types of puzzles
-pred: i just got to those type of puzzles
+pred: i just got to this type of puzzles
 
 1382
 gt: if their skirts are above the knee they are too short
-pred: if there kids are approved there of me they are too run
+pred: if you're kids are approved there of me they are too run
 
 1383
 gt: how long have you lived in this house
@@ -5554,7 +5554,7 @@ pred: that's where i am
 
 1388
 gt: it was about nine o'clock at night
-pred: it was about not o'clock at night
+pred: it was about not a long at night
 
 1389
 gt: how is your boss at your new job
@@ -5562,11 +5562,11 @@ pred: how is your point at your new job
 
 1390
 gt: which is probably about what their equity is
-pred: that is probably about what they're uppity is
+pred: this is probably about what they're uppity is
 
 1391
 gt: my father is the man in the corduroy jacket
-pred: my father is the man in the cotton
+pred: my father is the man in the cotton jacket
 
 1392
 gt: they can't read anything
@@ -5574,7 +5574,7 @@ pred: they can't read anything
 
 1393
 gt: the two seats up front are empty
-pred: the two scenes of what are
+pred: the two scenes of what are are happy
 
 1394
 gt: it's a personal decision
@@ -5590,7 +5590,7 @@ pred: keep it clean please
 
 1397
 gt: i think it's good that you see your cousins frequently
-pred: i think its just that you use your causes
+pred: i think its just that you see your cosset
 
 1398
 gt: about how many calls have you made on this system
@@ -5630,7 +5630,7 @@ pred: who did they play
 
 1407
 gt: losers all the way around
-pred: loses all the way around
+pred: users all the way around
 
 1408
 gt: i drove a cadillac back then
@@ -5650,7 +5650,7 @@ pred: it doesn't seem that long
 
 1412
 gt: this is an invasion of privacy issue
-pred: this is an invasion of prophecy into
+pred: this is an invasion of privacy into
 
 1413
 gt: a really good thing to do
@@ -5666,7 +5666,7 @@ pred: the only other place i've ever vacation
 
 1416
 gt: but they have snakes over there
-pred: but they have six over there
+pred: but they have sex over there
 
 1417
 gt: they had snacks and story time and everything
@@ -5678,7 +5678,7 @@ pred: because of a service that they could rely
 
 1419
 gt: not just with the visit to pittsburgh
-pred: but just with the visit to
+pred: not just with the visit to
 
 1420
 gt: there's no deductions
@@ -5690,11 +5690,11 @@ pred: what if you were in your kids shoes
 
 1422
 gt: i don't know if you've tried it
-pred: i don't know if you've find it
+pred: i don't know if you've found it
 
 1423
 gt: barometric pressure drops during a tornado
-pred: parametric pressure drops during a terrain
+pred: parametric pressure drops during a catena
 
 1424
 gt: cover him up and keep him warm

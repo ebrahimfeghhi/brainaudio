@@ -58,8 +58,7 @@ class NeuralLanguageModelFusion(ABC):
         """
         self.weight = weight
         self.homophone_aggregation = homophone_aggregation
-        self.device = device if device is not None else torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.log_homophone_scores = False
+        self.device = device
         
         if homophone_aggregation not in ['max', 'logsumexp']:
             raise ValueError(f"homophone_aggregation must be 'max' or 'logsumexp', got {homophone_aggregation}")
@@ -69,7 +68,7 @@ class NeuralLanguageModelFusion(ABC):
         self, 
         contexts: List[str], 
         candidate_words: List[List[str]]
-    ) -> List[List[float]]:
+    ) -> tuple[List[List[float]], List[List[int]]]:
         """
         Score candidate words given context.
         
@@ -86,6 +85,7 @@ class NeuralLanguageModelFusion(ABC):
             scores: List of score lists matching structure of candidate_words.
                    Each score is a log-probability (negative values, higher is better).
                    Example: [[0.7, 0.01], [0.3, 0.6]] for the inputs above.
+            num_tokens: List of lists of token counts for each candidate word.
                    
         Notes:
             - Return scores in the same order as candidate_words
@@ -140,9 +140,11 @@ class DummyLMFusion(NeuralLanguageModelFusion):
         self, 
         contexts: List[str], 
         candidate_words: List[List[str]]
-    ) -> List[List[float]]:
-        """Return uniform (zero) log-probability for all candidates."""
-        return [[0.0 for _ in words] for words in candidate_words]
+    ) -> tuple[List[List[float]], List[List[int]]]:
+        """Return uniform (zero) log-probability for all candidates and zero token counts."""
+        scores = [[0.0 for _ in words] for words in candidate_words]
+        num_tokens = [[0 for _ in words] for words in candidate_words]
+        return scores, num_tokens
 
 
 class HuggingFaceLMFusion(NeuralLanguageModelFusion):
@@ -183,103 +185,129 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
         self.tokenizer.padding_side = "right"
         self.max_context_length = max_context_length
         
+        self.device = device if device is not None else next(self.model.parameters()).device
+        
         # Move model to device and set to eval mode
-        self.model.to(self.device)
+        # Skip .to() for quantized models as they may already be on the correct device
+        if device is not None:
+            current_device = next(self.model.parameters()).device
+            if current_device != self.device:
+                self.model.to(self.device)
         self.model.eval()
         
 
     @torch.no_grad()
-    def score_continuations(self, contexts: List[str], candidate_words: List[List[str]]) -> List[List[float]]:
+    def score_continuations(self, contexts: List[str], candidate_words: List[List[str]]) -> tuple[List[List[float]], List[List[int]]]:
         
         flat_texts = []
-        flat_context_lens = []
+        # Store where the candidate word starts for each entry
+        candidate_start_indices = [] 
         
-        # 1. Flatten structure
+        # 1. Prepare Texts
         for context, candidates in zip(contexts, candidate_words):
-            # Calculate context length roughly (approximation for indexing)
-            # Note: add_special_tokens=False is safer if we want raw length
-            ctx_ids = self.tokenizer.encode(context, add_special_tokens=False)
-            ctx_len = len(ctx_ids)
+            
+            # Robust Logic: Determine prefix length including Special Tokens
+            # We assume the tokenizer adds BOS if configured to do so.
+            # Note: We must replicate the 'add_special_tokens' behavior of the batch call.
+            prefix_ids = self.tokenizer.encode(context, add_special_tokens=True)
+            
+            # The model predicts the NEXT token.
+            # If prefix is [BOS, A, B], logits at last position predict C.
+            # We want the scores starting FROM the prediction of the first candidate token.
+            # Length of prefix is exactly the start index for the shifted logits.
+            # e.g., Prefix len 3 ([BOS, A, B]). 
+            # Shifted Labels: [A, B, C]. 
+            # Indices: 0->A, 1->B, 2->C.
+            # We want index 2 (C).
+            # So start_idx = len(prefix_ids) - 1.
+            start_idx = len(prefix_ids) - 1
             
             for word in candidates:
-                # 2. Fix Spacing Logic
+                # Construct full text
                 if not context:
-                    full_text = word
+                    full_text = word.capitalize()
                 elif context.endswith(" ") or word.startswith(" "):
                     full_text = f"{context}{word}"
                 else:
                     full_text = f"{context} {word}"
                 
                 flat_texts.append(full_text)
-                flat_context_lens.append(ctx_len) 
+                candidate_start_indices.append(start_idx)
 
         if not flat_texts:
-            return []
-    
-        # 3. Batch Tokenize
-        # Note: 'padding=True' is essential if lengths differ
+            return [], []
+
+        # 2. Batch Tokenize
         inputs = self.tokenizer(
             flat_texts,
             return_tensors="pt",
-            padding=True
+            padding=True,
+            add_special_tokens=True 
         ).to(self.device)
         
         input_ids = inputs.input_ids 
-        attention_mask = inputs.attention_mask # padded tokens have a value of 0 
+        attention_mask = inputs.attention_mask 
 
-        # Forward Pass
+        # 3. Forward Pass
         outputs = self.model(input_ids, attention_mask=attention_mask)
-        logits = outputs.logits 
-
-        # Shift Logits & Labels
-        shift_logits = logits[..., :-1, :].contiguous() # B x (Seq Len - 1) x Vocab
-        shift_labels = input_ids[..., 1:].contiguous() # B x (Seq Len - 1)
         
+        # 4. Shift and Gather
+        # Logits[i] predicts Token[i+1]
+        shift_logits = outputs.logits[..., :-1, :].contiguous() 
+        shift_labels = input_ids[..., 1:].contiguous()
         
-        # Log Softmax
         log_probs = F.log_softmax(shift_logits, dim=-1)
         
-        # Gather scores
+        # gathered_probs[b, t] is the log-prob of token t+1 given 0..t
         gathered_probs = torch.gather(
             log_probs, 
             dim=2, 
             index=shift_labels.unsqueeze(-1)
-        ).squeeze(-1) # Beam Size x (Seq Len - 1)
+        ).squeeze(-1) 
         
-        # Reconstruct and Sum
+        # 5. Extract Scores
         final_scores = []
+        final_num_tokens = []
         flat_idx = 0
         
         for candidates in candidate_words:
-            
             beam_scores = []
+            num_tokens_beam = []
             
             for _ in candidates:
+                start_idx = candidate_start_indices[flat_idx]
                 
-                start_idx = flat_context_lens[flat_idx] 
+                # Find the end of the valid sequence (ignoring padding)
+                # -1 because gathered_probs is 1 shorter than input
+                valid_seq_len = attention_mask[flat_idx].sum().item() - 1
                 
-                # 4. Fix End Index Logic
-                # We want to sum from the end of context to the end of the VALID sequence
-                # -1 because gathered_probs is shifted
-                total_valid_len = attention_mask[flat_idx].sum().item() - 1
+                # Safety clamp (in case context + candidate merged weirdly and became shorter than context)
+                safe_start = min(start_idx, valid_seq_len)
                 
+                # Slice: From end of context -> End of word
+                word_log_probs = gathered_probs[flat_idx, safe_start:valid_seq_len]
                 
-                score = gathered_probs[flat_idx, start_idx:total_valid_len].sum().item()
+                score = word_log_probs.sum().item()
+                
+                # FIX: Return length of the *candidate word only*
+                n_tokens = valid_seq_len - safe_start
+                
                 beam_scores.append(score)
+                num_tokens_beam.append(n_tokens)
+                
                 flat_idx += 1
                 
             final_scores.append(beam_scores)
+            final_num_tokens.append(num_tokens_beam)
 
-        return final_scores
+        return final_scores, final_num_tokens
     
     def to(self, device: torch.device):
         """Move model to specified device."""
         self.device = device
         self.model.to(device)
         return self
-
-
-
+    
 def apply_lm_fusion_post_selection(
     lm_fusion: NeuralLanguageModelFusion | None,
     lexicon: 'LexiconConstraint',
@@ -288,7 +316,96 @@ def apply_lm_fusion_post_selection(
     boundary_token: int,
     next_labels: torch.Tensor,
     prev_last_labels: torch.Tensor,
-    word_insertion_bonus: float = 0.0,
+    token_insertion_bonus: float = 0.0,
+    next_indices: torch.Tensor = None
+) -> None:
+    
+    from .beam_helpers import (
+        materialize_beam_transcript,
+        collapse_ctc_sequence
+    )
+    
+    if lm_fusion is None:
+        return
+
+    batch_size, beam_size = beam_hyps.scores.shape
+    to_score = []  # List to store: (b, k, context_text, candidate_words)
+    
+    # --- PHASE 1: Identify beams that need LM Scoring ---
+    for b in range(batch_size):
+        for k in range(beam_size):
+            
+            # Skip empty or pruning beams
+            if beam_hyps.scores[b, k] == float('-inf'):
+                continue
+            
+            # Check if we just crossed a word boundary
+            last_label = int(next_labels[b, k].item())
+            prev_last_label = int(prev_last_labels[b, k].item())
+            
+            if last_label != boundary_token:
+                continue
+            if prev_last_label == boundary_token:
+                continue
+            
+            # Get the sequence to find valid words
+            seq_raw = materialize_beam_transcript(beam_hyps, b, k)
+            seq_ctc = collapse_ctc_sequence(seq_raw.tolist(), blank_index)
+            
+            # Note: Assuming lexicon handles suffix extraction automatically as discussed
+            _, at_boundary, word_indices = lexicon.get_valid_next_tokens_with_word_info(seq_ctc)
+            
+            if not at_boundary or not word_indices:
+                continue
+            
+            context_text = beam_hyps.context_texts[b][k]
+            candidate_words = [lexicon.word_list[idx] for idx in word_indices]
+            
+            to_score.append((b, k, context_text, candidate_words))
+            
+    if not to_score:
+        return
+    
+    # --- PHASE 2: Batch LM Scoring ---
+    contexts = [x[2] for x in to_score]
+    candidate_lists = [x[3] for x in to_score]
+    
+    # Returns list of scores per candidate for every beam
+    all_lm_scores, num_tokens = lm_fusion.score_continuations(contexts, candidate_lists)
+    
+    # --- PHASE 3: Update Beams (Best Match Only) ---
+    for (b, k, context_text, candidate_words), lm_scores, num_tokens_beam in zip(to_score, all_lm_scores, num_tokens):
+
+        base_score = beam_hyps.scores[b, k].item()
+        
+        # Combine: Candidate Word, LM Score, and Token Count
+        candidates = zip(candidate_words, lm_scores, num_tokens_beam)
+        
+        # Find the single best word based on LM Score (or Combined Score if you preferred)
+        # Here we pick the one the LM likes best to replace the acoustic path
+        best_word, best_lm_score, best_nt_word = max(candidates, key=lambda x: x[1])
+        
+        
+        # Update Score: Acoustic + (Weight * LM) + (Bonus * Length)
+        beam_hyps.scores[b, k] = base_score + (lm_fusion.weight * best_lm_score) + (best_nt_word * token_insertion_bonus)
+        
+        # Update Context Text
+        word_to_add = best_word.capitalize() if not context_text.strip() else best_word
+        beam_hyps.context_texts[b][k] = f"{context_text} {word_to_add}".strip()
+        
+        # Update Hash
+        beam_hyps.context_texts_hash[b][k] = hash(beam_hyps.context_texts[b][k])
+        
+
+def apply_lm_fusion_post_selection_complex(
+    lm_fusion: NeuralLanguageModelFusion | None,
+    lexicon: 'LexiconConstraint',
+    beam_hyps: 'BatchedBeamHyps',
+    blank_index: int,
+    boundary_token: int,
+    next_labels: torch.Tensor,
+    prev_last_labels: torch.Tensor,
+    token_insertion_bonus: float = 0.0,
     next_indices: torch.Tensor = None
 ) -> None:
     
@@ -311,12 +428,18 @@ def apply_lm_fusion_post_selection(
 
     batch_size, beam_size = beam_hyps.scores.shape
     to_score = []  # (b, k, context_text, candidate_words)
+    
+    
     for b in range(batch_size):
         for k in range(beam_size):
+            
             if beam_hyps.scores[b, k] == float('-inf'):
                 continue
+            
             last_label = int(next_labels[b, k].item())
+            
             prev_last_label = int(prev_last_labels[b, k].item())
+            
             if last_label != boundary_token:
                 continue
             if prev_last_label == boundary_token:
@@ -329,26 +452,73 @@ def apply_lm_fusion_post_selection(
             seq_raw = materialize_beam_transcript(beam_hyps, b, k)
             seq_ctc = collapse_ctc_sequence(seq_raw.tolist(), blank_index)
             _, at_boundary, word_indices = lexicon.get_valid_next_tokens_with_word_info(seq_ctc)
+            
             if not at_boundary or not word_indices:
                 continue
+            
             context_text = beam_hyps.context_texts[b][k]
+                
             candidate_words = [lexicon.word_list[idx] for idx in word_indices]
             to_score.append((b, k, context_text, candidate_words))
+            
     if not to_score:
         return
     
     contexts = [x[2] for x in to_score]
     candidate_lists = [x[3] for x in to_score]
-    all_lm_scores = lm_fusion.score_continuations(contexts, candidate_lists)
     
-    for (b, k, context_text, candidate_words), lm_scores in zip(to_score, all_lm_scores):
-        
-        combined_score = lm_fusion.aggregate_homophone_scores(lm_scores)
-        
-        beam_hyps.scores[b, k] += lm_fusion.weight * combined_score
-        beam_hyps.scores[b, k] += word_insertion_bonus
-        beam_hyps.context_texts[b][k] = f"{context_text} {candidate_words[lm_scores.index(max(lm_scores))]}".strip()
+    all_lm_scores, num_tokens = lm_fusion.score_continuations(contexts, candidate_lists)
+    
+    for (b, k, context_text, candidate_words), lm_scores, num_tokens_beam in zip(to_score, all_lm_scores, num_tokens):
 
+        # 1. Capture the base score (acoustic history) BEFORE modification
+        base_score = beam_hyps.scores[b, k].item()
         
+        # Sort homophones by score (descending)
+        sorted_homophones = sorted(zip(candidate_words, lm_scores, num_tokens_beam), key=lambda x: x[1], reverse=True)
         
+        # 2. Update the primary beam (Best Homophone)
+        best_word, best_score, nt_word = sorted_homophones[0]
+        beam_hyps.scores[b, k] = base_score + (lm_fusion.weight * best_score) + nt_word*token_insertion_bonus
+        
+        # Capitalize if first word in sentence
+        word_to_add = best_word.capitalize() if not context_text.strip() else best_word
+        beam_hyps.context_texts[b][k] = f"{context_text} {word_to_add}".strip()
+        beam_hyps.context_texts_hash[b][k] = hash(beam_hyps.context_texts[b][k])
+
+        # 3. Handle remaining homophones
+        beam_scores = beam_hyps.scores[b].tolist()
+        candidates = [(idx, s) for idx, s in enumerate(beam_scores)]
+        used_beams = {k}
+                
+        for word, score, nt_word in sorted_homophones[1:]:
+            
+            potential_total_score = base_score + (lm_fusion.weight * score) + nt_word*token_insertion_bonus
+
+            min_idx, min_score = min(
+                                            (x for x in candidates if x[0] not in used_beams), 
+                                            key=lambda x: x[1]
+                                        )
+            
+            # Correct Comparison: Compare Total vs Total
+            if potential_total_score > min_score:
+                # Copy attributes from source k to victim min_idx
+                for attr in ['transcript_hash', 'last_label', 'current_lengths_nb', 'current_lengths_wb', 'transcript_wb', 'transcript_wb_prev_ptr']:
+                    getattr(beam_hyps, attr)[b, min_idx] = getattr(beam_hyps, attr)[b, k]
+              
+                # Update Score and Context
+                beam_hyps.scores[b, min_idx] = potential_total_score
+                word_to_add = word.capitalize() if not context_text.strip() else word
+                beam_hyps.context_texts[b][min_idx] = f"{context_text} {word_to_add}".strip()
+                #if beam_hyps.context_texts[b][min_idx] == "Not too":
+                #    print(hash(beam_hyps.context_texts[b][min_idx]))
+                beam_hyps.context_texts_hash[b][min_idx] = hash(beam_hyps.context_texts[b][min_idx])
+                
+                # Update local tracking so we don't replace this beam again
+                beam_scores[min_idx] = potential_total_score
+                
+                used_beams.add(min_idx)
+                
+            else:
+                break
         

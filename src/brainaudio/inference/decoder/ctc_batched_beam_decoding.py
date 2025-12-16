@@ -183,7 +183,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         lexicon: LexiconConstraint = None,
         lm_fusion: NeuralLanguageModelFusion = None,
         lm_beam_limit: Optional[int] = None,
-        word_insertion_bonus: float = 0.0,
+        token_insertion_bonus: float = 0.0,
     ):
         """
         Init method.
@@ -218,7 +218,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         self.state = None
         self.full_graph = None
         self.separate_graphs = None
-        self.word_insertion_bonus = word_insertion_bonus
+        self.token_insertion_bonus = token_insertion_bonus
 
         self.cuda_graphs_mode = None
         self.maybe_enable_cuda_graphs()
@@ -351,7 +351,6 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             log_probs = decoder_outputs[:, frame_idx, :].unsqueeze(1).repeat(1, self.beam_size, 1)
             log_probs += batched_beam_hyps.scores.unsqueeze(-1) # add current beam scores to every token in our beam
             
-
             # step 2.2: updating non-blank and non-repeating token scores with `beam_beta`
             log_probs = torch.where(repeated_or_blank_mask, log_probs, log_probs + self.beam_beta)
 
@@ -426,12 +425,19 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                 lexicon_state = torch.where(inactive_candidate_mask, parent_states, lexicon_state)
                 
             batched_beam_hyps.add_results_(next_indices, next_labels, next_scores)
-            batched_beam_hyps.recombine_hyps_(is_last_step= curr_max_time-1 == frame_idx)
             
+
+                    
+            batched_beam_hyps.recombine_hyps_(is_last_step= curr_max_time-1 == frame_idx)
+
+        
             # Apply LM fusion post-selection (after pruning and recombination)
             if self.lm_fusion is not None and self.lexicon is not None:
+                
                 from .neural_lm_fusion import apply_lm_fusion_post_selection
+                
                 boundary_token = getattr(self.lexicon, "word_boundary_token", None)
+                
                 apply_lm_fusion_post_selection(
                     lm_fusion=self.lm_fusion,
                     lexicon=self.lexicon,
@@ -440,10 +446,10 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                     boundary_token=boundary_token,
                     next_labels=next_labels,
                     prev_last_labels=prev_last_labels,
-                    word_insertion_bonus=self.word_insertion_bonus,
+                    token_insertion_bonus=self.token_insertion_bonus,
                     next_indices=next_indices
                 )
-                
+      
         return batched_beam_hyps
     
  
