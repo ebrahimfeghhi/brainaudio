@@ -429,7 +429,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             # Apply LM fusion post-selection (after pruning and recombination)
             if self.lm_fusion is not None and self.lexicon is not None:
                 
-                from .neural_lm_fusion import apply_lm_fusion_post_selection, apply_lm_fusion_post_selection_complex    
+                from .neural_lm_fusion import apply_lm_fusion_post_selection   
                 
                 boundary_token = getattr(self.lexicon, "word_boundary_token", None)
                 
@@ -440,8 +440,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                     blank_index=self._blank_index,
                     boundary_token=boundary_token,
                     next_labels=next_labels,
-                    prev_last_labels=prev_last_labels,
-                    next_indices=next_indices
+                    prev_last_labels=prev_last_labels
                 )
       
         return batched_beam_hyps

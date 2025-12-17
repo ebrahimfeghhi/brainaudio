@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from .lexicon_constraint import LexiconConstraint
 
 class NeuralLanguageModelFusion(ABC):
+    
     """
     Base class for neural language model fusion during beam search.
     
@@ -167,7 +168,8 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
         homophone_aggregation: str = 'max',
         device: torch.device = None,
         max_context_length: int = 512,
-        token_insertion_bonus: float = 0.0
+        token_insertion_bonus: float = 0.0, 
+        lm_score: float = 1.0
     ):
         """
         Initialize HuggingFace LM fusion.
@@ -186,6 +188,7 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
         self.tokenizer.padding_side = "right"
         self.max_context_length = max_context_length
         self.token_insertion_bonus = token_insertion_bonus
+        self.lm_score = lm_score
         
         self.device = device if device is not None else next(self.model.parameters()).device
         
@@ -294,15 +297,14 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
                 # FIX: Return length of the *candidate word only*
                 n_tokens = valid_seq_len - safe_start
                 
-                beam_scores.append(score + n_tokens + self.token_insertion_bonus)
-                num_tokens_beam.append(n_tokens)
+                beam_scores.append(self.lm_score * score + n_tokens * self.token_insertion_bonus)
                 
                 flat_idx += 1
                 
             final_scores.append(beam_scores)
             final_num_tokens.append(num_tokens_beam)
 
-        return final_scores, final_num_tokens
+        return final_scores
     
     def to(self, device: torch.device):
         """Move model to specified device."""
@@ -317,9 +319,7 @@ def apply_lm_fusion_post_selection(
     blank_index: int,
     boundary_token: int,
     next_labels: torch.Tensor,
-    prev_last_labels: torch.Tensor,
-    token_insertion_bonus: float = 0.0,
-    next_indices: torch.Tensor = None
+    prev_last_labels: torch.Tensor
 ) -> None:
     
     from .beam_helpers import (
@@ -372,23 +372,23 @@ def apply_lm_fusion_post_selection(
     contexts = [x[2] for x in to_score]
     candidate_lists = [x[3] for x in to_score]
     
-    # Returns list of scores per candidate for every beam
-    all_lm_scores, num_tokens = lm_fusion.score_continuations(contexts, candidate_lists)
+    # Returns list of lists, where each element is the scores for that beam's candidates
+    all_lm_scores = lm_fusion.score_continuations(contexts, candidate_lists)
     
     # --- PHASE 3: Update Beams (Best Match Only) ---
-    for (b, k, context_text, candidate_words), lm_scores, num_tokens_beam in zip(to_score, all_lm_scores, num_tokens):
+    for (b, k, context_text, candidate_words), lm_scores in zip(to_score, all_lm_scores):
 
         base_score = beam_hyps.scores[b, k].item()
         
-        # Combine: Candidate Word, LM Score, and Token Count
-        candidates = zip(candidate_words, lm_scores, num_tokens_beam)
+        # Combine: Candidate Word and LM Score
+        candidates = zip(candidate_words, lm_scores)
         
         # Find the single best word based on LM Score (or Combined Score if you preferred)
         # Here we pick the one the LM likes best to replace the acoustic path
-        best_word, best_lm_score, best_nt_word = max(candidates, key=lambda x: x[1])
+        best_word, best_lm_score = max(candidates, key=lambda x: x[1])
         
         # Update Score: Acoustic + (Weight * LM) + (Bonus * Length)
-        beam_hyps.scores[b, k] = base_score + (lm_fusion.weight * best_lm_score) + (best_nt_word * token_insertion_bonus)
+        beam_hyps.scores[b, k] = base_score + best_lm_score
         
         # Update Context Text
         word_to_add = best_word.capitalize() if not context_text.strip() else best_word

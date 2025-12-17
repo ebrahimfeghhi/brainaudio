@@ -7,6 +7,7 @@ import pandas as pd
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import numpy as np
+from datetime import datetime
 
 # Assuming this is available as requested
 from brainaudio.inference.eval_metrics import _cer_and_wer 
@@ -43,23 +44,28 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser("CTC beam search + HF LM fusion loop")
     
     parser.add_argument("--start-trial-idx", type=int, default=0, help="Start index (inclusive)")
-    parser.add_argument("--end-trial-idx", type=int, default=None, help="End index (exclusive); defaults to all trials in logits file")
+    parser.add_argument("--end-trial-idx", type=int, default=100, help="End index (exclusive); defaults to all trials in logits file")
     parser.add_argument("--beam-size", type=int, default=100, help="CTC beam size")
     parser.add_argument("--model", default="google/gemma-3-270m", help="HF causal LM checkpoint")
     parser.add_argument("--hf-token", default=None, help="Optional HF token")
     parser.add_argument("--lm-weight", type=float, default=2, help="Fusion weight")
-    parser.add_argument("--token-insertion-bonus", type=float, default=1.5, help="Bonus at boundaries")
+    parser.add_argument("--token-insertion-bonus", type=float, default=0.75, help="Bonus at boundaries")
     parser.add_argument("--max-context-length", type=int, default=512, help="Token budget")
     parser.add_argument("--device", default="cuda:1", help="Torch device")
     parser.add_argument("--logits", type=Path, default=Path(DEFAULT_LOGITS), help="NPZ logits file")
     parser.add_argument("--tokens", type=Path, default=Path(DEFAULT_TOKENS), help="units file")
     parser.add_argument("--lexicon", type=Path, default=Path(DEFAULT_LEXICON), help="lexicon file")
-    parser.add_argument("--top-k", type=int, default=2, help="Number of top beams to display per trial")
+    parser.add_argument("--top-k", type=int, default=20, help="Number of top beams to display per trial")
     parser.add_argument(
         "--results-filename",
         type=str,
-        default="scratch",
+        default=datetime.now().strftime("%m/%d_%H%M"),
         help="Filename for saving results (will be placed in /home/ebrahim/brainaudio/results directory)"
+    )
+    parser.add_argument(
+        "--disable-wandb",
+        action="store_true",
+        help="Disable W&B logging (default: enabled)"
     )
 
     return parser.parse_args()
@@ -73,18 +79,23 @@ def main():
     # Set CUDA device if available and requested
 
     # Initialize wandb run (before any wandb.log or Table calls)
-    try:
+    if not args.disable_wandb:
         import wandb
+        # REMOVE: wandb.online() 
+        
         wandb.init(
             project="brainaudio-neural-lm-fusion",
             config=vars(args),
-            name=f"{args.results_filename}"
+            name=f"{args.results_filename}",
+            mode="online",    # <--- Force online mode here
+            notes=notes       # <--- Pass notes here so they save as run metadata
         )
+        
         wandb.log({"notes": notes})
-    except Exception as e:
-        print(f"[wandb] Initialization failed: {e}")
+            
+    else:
+        print("[wandb] W&B logging disabled")
 
-    breakpoint()
     device = pick_device(args.device)
     
     K = args.top_k
@@ -207,40 +218,23 @@ def main():
     except Exception as e:
         print(f"\nError computing WER: {e}")
         
-    # Save decoded and ground truth sentences to file in /home/ebrahim/brainaudio/results directory
-    results_dir = Path("/home/ebrahim/brainaudio/results")
-    results_dir.mkdir(exist_ok=True)
-    output_path = results_dir / args.results_filename
-    # Compute WER for file header
-    wer_str = "WER: N/A"
-    if transcripts is not None:
-        try:
-            _, wer, _ = _cer_and_wer(decoded_sentences, ground_truth_sentences)
-            wer_str = f"WER: {wer:.4f}"
-        except Exception as e:
-            wer_str = f"WER: ERROR ({e})"
-    with output_path.open("w", encoding="utf-8") as f:
-        f.write(wer_str + "\n\n")
-        for idx, (gt, pred) in enumerate(zip(ground_truth_sentences, decoded_sentences)):
-            f.write(f"{idx}\n")
-            f.write(f"gt: {gt}\n")
-            f.write(f"pred: {pred}\n\n")
-    print(f"\nSaved decoded and ground truth sentences to {output_path}")
-
     # --- wandb logging ---
-    try:
-        import wandb
-        # Log WER to wandb
-        if 'wer' in locals() and wer is not None:
-            wandb.log({"WER": wer})
-        # Log predicted and ground truth sentences as a table to wandb
-        if decoded_sentences and ground_truth_sentences:
-            data = list(zip(range(len(decoded_sentences)), ground_truth_sentences, decoded_sentences))
-            table = wandb.Table(data=data, columns=["idx", "ground_truth", "predicted"])
-            wandb.log({"predictions_vs_ground_truth": table})
-        wandb.finish()
-    except Exception as e:
-        print(f"[wandb] Logging failed: {e}")
+    if not args.disable_wandb:
+        try:
+            import wandb
+            # Log WER to wandb
+            if 'wer' in locals() and wer is not None:
+                wandb.log({"WER": wer})
+            # Log predicted and ground truth sentences as a table to wandb
+            if decoded_sentences and ground_truth_sentences:
+                data = list(zip(range(len(decoded_sentences)), ground_truth_sentences, decoded_sentences))
+                table = wandb.Table(data=data, columns=["idx", "ground_truth", "predicted"])
+                wandb.log({"predictions_vs_ground_truth": table})
+            wandb.finish()
+        except Exception as e:
+            print(f"[wandb] Logging failed: {e}")
+    else:
+        print("[wandb] Skipping W&B logging (disabled)")
 
 if __name__ == "__main__":
     main()
