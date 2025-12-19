@@ -43,12 +43,12 @@ contexts = [
     ""
 ]
 candidates = [
-    ["As such a high clay content", "Has such a high clay content"]
+    ["Not to much soy sauce", "Not too much soy sauce"]
 ]
 
 print("\nRunning LM Fusion Scorer...")
 start_time = time.perf_counter()
-scores, _ = lm_fusion.score_continuations(contexts, candidates)
+scores = lm_fusion.score_continuations(contexts, candidates)
 elapsed = time.perf_counter() - start_time
 print(f"Scoring took {elapsed:.4f} seconds")
 

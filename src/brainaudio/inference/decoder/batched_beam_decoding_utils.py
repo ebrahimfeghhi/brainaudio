@@ -91,6 +91,7 @@ class BatchedBeamHyps:
         store_prefix_hashes: Optional[bool] = False,
         model_type: Optional[ASRModelTypeEnum | str] = ASRModelTypeEnum.RNNT,
         score_combination: str = "logsumexp",
+        num_homophone_beams: int = 1,
     ):
         """
         Initializes the batched beam hypotheses utility for Transducer decoding (RNN-T and TDT models).
@@ -104,8 +105,11 @@ class BatchedBeamHyps:
             store_prefix_hashes (bool, optional): Whether to store prefix hashes for hypotheses. Defaults to False.
             model_type: (str or ModelTypeEnum, optional): Model type, either 'rnnt', 'tdt' or 'ctc'. Defaults to 'rnnt'.
             score_combination (str, optional): Method for combining scores of equivalent hypotheses.
-                Either 'logsumexp' (mathematically correct, sums probabilities) or 'max' (faster, keeps best). 
+                Either 'logsumexp' (mathematically correct, sums probabilities) or 'max' (faster, keeps best).
                 Defaults to 'logsumexp'.
+            num_homophone_beams (int, optional): Number of text interpretations (homophones) to track per beam.
+                Each beam can maintain K different text sequences to handle homophone ambiguity.
+                Defaults to 1 (single text per beam, original behavior).
         """
 
         if beam_size <= 0:
@@ -128,14 +132,20 @@ class BatchedBeamHyps:
         self.beam_size = beam_size
         self.blank_index = blank_index
         self.batch_size = batch_size
+        self.num_homophone_beams = num_homophone_beams
         self.batch_indices = torch.arange(self.batch_size, device=device)
         self.beam_indices = torch.arange(self.beam_size, device=device)
 
         # Non-blank (non-blank and non-repeating for CTC) and full lengths
         self.current_lengths_nb = torch.zeros([batch_size, self.beam_size], device=device, dtype=torch.long)
         self.current_lengths_wb = torch.zeros([batch_size, self.beam_size], device=device, dtype=torch.long)
-        
-        self.context_texts = [["" for _ in range(self.beam_size)] for _ in range(self.batch_size)]
+
+        # context_texts stores 1 to K text interpretations per beam as List[Tuple[float, str]]
+        # Each tuple is (lm_score_contribution, text_sequence)
+        # Sorted by score descending, index 0 is the best interpretation
+        # Starts with 1 tuple (empty), grows up to num_homophone_beams as homophones are encountered
+        self.context_texts = [[[(0.0, "")] for _ in range(self.beam_size)] for _ in range(self.batch_size)]
+        # Hash is computed from only the best text (index 0) for beam recombination
         self.context_texts_hash = [[0 for _ in range(self.beam_size)] for _ in range(self.batch_size)]
         
         # Initializing tree structure for hypothesis storing
@@ -202,6 +212,10 @@ class BatchedBeamHyps:
         self.transcript_hash.fill_(INIT_HASH_VALUE)
         if self.store_prefix_hashes:
             self.transcript_prefix_hash.fill_(INIT_PREFIX_HASH_VALUE)
+
+        # Reset context texts to initial state (single empty tuple per beam)
+        self.context_texts = [[[(0.0, "")] for _ in range(self.beam_size)] for _ in range(self.batch_size)]
+        self.context_texts_hash = [[0 for _ in range(self.beam_size)] for _ in range(self.batch_size)]
 
         # model specific parameters
         if self.model_type == ASRModelTypeEnum.CTC:
@@ -301,7 +315,8 @@ class BatchedBeamHyps:
             batch_parent_indices = next_indices_cpu[b]
             # Create the new beam list for this batch by picking from the old list
             # logic: new_beam[k] comes from old_beam[ parent_indices[k] ]
-            new_beam_list = [old_context_texts[b][p_idx] for p_idx in batch_parent_indices]
+            # Each element is a list of tuples [(score, text), ...], so we need a shallow copy
+            new_beam_list = [list(old_context_texts[b][p_idx]) for p_idx in batch_parent_indices]
             new_beam_hash_list = [old_context_texts_hash[b][p_idx] for p_idx in batch_parent_indices]
             new_context_texts.append(new_beam_list)
             new_context_texts_hash.append(new_beam_hash_list)

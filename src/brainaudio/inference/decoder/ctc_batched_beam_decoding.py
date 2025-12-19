@@ -82,6 +82,7 @@ class BacthedBeamCTCState:
         device: torch.device,
         float_dtype: torch.dtype,
         blank_index: int,
+        num_homophone_beams: int = 1,
     ):
         """
         Args:
@@ -92,6 +93,7 @@ class BacthedBeamCTCState:
             device: device to store tensors
             float_dtype: default float dtype for tensors (should match projected encoder output)
             blank_index: index of the blank symbol
+            num_homophone_beams: number of text interpretations (homophones) to track per beam
         """
 
         self.device = device
@@ -101,6 +103,7 @@ class BacthedBeamCTCState:
         self.max_time = max_time
         self.blank_index = blank_index
         self.vocab_size = vocab_size
+        self.num_homophone_beams = num_homophone_beams
 
         self.NON_EXISTENT_LABEL = torch.tensor(NON_EXISTENT_LABEL_VALUE, device=self.device, dtype=torch.long)
         self.BLANK_TENSOR = torch.tensor(self.blank_index, device=self.device, dtype=torch.long)
@@ -182,7 +185,8 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         allow_cuda_graphs: bool = True,
         lexicon: LexiconConstraint = None,
         lm_fusion: NeuralLanguageModelFusion = None,
-        lm_beam_limit: Optional[int] = None
+        lm_beam_limit: Optional[int] = None,
+        num_homophone_beams: int = 1,
     ):
         """
         Init method.
@@ -198,6 +202,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             lexicon: optional LexiconConstraint to constrain beam search to valid words. Defaults to None.
             lm_fusion: optional NeuralLanguageModelFusion for word-level LM rescoring. Defaults to None.
             lm_beam_limit: optional cap on how many beams per batch element receive neural LM scoring at a word boundary.
+            num_homophone_beams: number of text interpretations (homophones) to track per beam. Defaults to 1.
         """
 
         super().__init__()
@@ -224,6 +229,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         self.lexicon = lexicon
         self.lm_fusion = lm_fusion
         self.lm_beam_limit = lm_beam_limit
+        self.num_homophone_beams = num_homophone_beams
         
         # Warn if lm_fusion is used without lexicon
         if self.lm_fusion is not None and self.lexicon is None:
@@ -326,6 +332,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             device=decoder_outputs.device,
             float_dtype=decoder_outputs.dtype,
             model_type='ctc',
+            num_homophone_beams=self.num_homophone_beams,
         )
 
         # Main decoding loop: process one acoustic frame at a time

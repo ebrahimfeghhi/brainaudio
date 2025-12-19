@@ -49,13 +49,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model", default="google/gemma-3-270m", help="HF causal LM checkpoint")
     parser.add_argument("--hf-token", default=None, help="Optional HF token")
     parser.add_argument("--lm-weight", type=float, default=2, help="Fusion weight")
-    parser.add_argument("--token-insertion-bonus", type=float, default=0.75, help="Bonus at boundaries")
+    parser.add_argument("--word-insertion-bonus", type=float, default=0.75, help="Bonus at boundaries")
     parser.add_argument("--max-context-length", type=int, default=512, help="Token budget")
     parser.add_argument("--device", default="cuda:1", help="Torch device")
     parser.add_argument("--logits", type=Path, default=Path(DEFAULT_LOGITS), help="NPZ logits file")
     parser.add_argument("--tokens", type=Path, default=Path(DEFAULT_TOKENS), help="units file")
     parser.add_argument("--lexicon", type=Path, default=Path(DEFAULT_LEXICON), help="lexicon file")
-    parser.add_argument("--top-k", type=int, default=20, help="Number of top beams to display per trial")
+    parser.add_argument("--top-k", type=int, default=3, help="Number of top beams to display per trial")
+    parser.add_argument("--num-homophone-beams", type=int, default=2, help="Number of text interpretations (homophones) to track per beam")
     parser.add_argument(
         "--results-filename",
         type=str,
@@ -132,7 +133,7 @@ def main():
         homophone_aggregation="max",
         device=device,
         max_context_length=args.max_context_length,
-        token_insertion_bonus=args.token_insertion_bonus
+        word_insertion_bonus=args.word_insertion_bonus
     )
 
     decoder = BatchedBeamCTCComputer(
@@ -140,7 +141,8 @@ def main():
         beam_size=args.beam_size,
         lexicon=lexicon,
         lm_fusion=lm_fusion,
-        allow_cuda_graphs=False
+        allow_cuda_graphs=False,
+        num_homophone_beams=args.num_homophone_beams,
     )
 
     transcripts = None
@@ -179,7 +181,8 @@ def main():
         # Sort valid indices by descending score
         valid_indices_sorted = sorted(valid_indices, key=lambda i: scores[i], reverse=True)
         topk_indices = valid_indices_sorted[:K]
-        decoded_beams = [result.context_texts[0][i] for i in topk_indices]
+        # context_texts[batch][beam] is now List[Tuple[float, str]], get best text (index 0)
+        decoded_beams = [result.context_texts[0][i][0][1] for i in topk_indices]
         best_text = decoded_beams[0] if decoded_beams else ""
         decoded_sentences.append(best_text)
 
@@ -198,17 +201,20 @@ def main():
         print(f"Trial {trial_idx:3d} | {trial_elapsed*1000:.1f}ms | Score: {best_score:.2f}")
         print(f"  GT:   {ground_truth}")
         print(f"  Best: {best_text}")
-        print("   Top beams:")
+        print(f"  Top {K} beams (with {args.num_homophone_beams} homophone interpretations each):")
         for rank, i in enumerate(topk_indices):
             beam_score = result.scores[0, i].item()
-            beam_text = result.context_texts[0][i]
-            print(f"#{rank:02d} | log {beam_score:.4f} | {beam_text}")
-        print("-" * 40)
+            all_texts = result.context_texts[0][i]  # List of (lm_score, text) tuples
+            print(f"  #{rank:02d} | beam_score={beam_score:.4f}")
+            for k_idx, (lm_score, text) in enumerate(all_texts):
+                print(f"       H{k_idx}: lm={lm_score:.4f} | {text}")
+        print("-" * 60)
 
     total_elapsed = time.perf_counter() - total_start_time
 
     print("\n=== Final Results Summary ===")
     print(f"Processed {len(decoded_sentences)} trials in {total_elapsed:.2f}s")
+    print(f"Beam size: {args.beam_size}, Homophone beams: {args.num_homophone_beams}")
 
 # Compute Metrics
     try:

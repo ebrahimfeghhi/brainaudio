@@ -168,7 +168,7 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
         homophone_aggregation: str = 'max',
         device: torch.device = None,
         max_context_length: int = 512,
-        token_insertion_bonus: float = 0.0, 
+        word_insertion_bonus: float = 0.0, 
         lm_score: float = 1.0
     ):
         """
@@ -187,7 +187,7 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
         self.tokenizer = tokenizer
         self.tokenizer.padding_side = "right"
         self.max_context_length = max_context_length
-        self.token_insertion_bonus = token_insertion_bonus
+        self.word_insertion_bonus = word_insertion_bonus
         self.lm_score = lm_score
         
         self.device = device if device is not None else next(self.model.parameters()).device
@@ -297,7 +297,7 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
                 # FIX: Return length of the *candidate word only*
                 n_tokens = valid_seq_len - safe_start
                 
-                beam_scores.append(self.lm_score * score + n_tokens * self.token_insertion_bonus)
+                beam_scores.append(self.lm_score * score + self.word_insertion_bonus)
                 
                 flat_idx += 1
                 
@@ -360,173 +360,85 @@ def apply_lm_fusion_post_selection(
             if not at_boundary or not word_indices:
                 continue
             
-            context_text = beam_hyps.context_texts[b][k]
+            # Get the list of text interpretations for this beam
+            # context_text_tuples: List[Tuple[float, str]] where each tuple is (lm_score, text)
+            # Currently this list has 1 element (will grow up to K when homophones are encountered)
+            context_text_tuples = beam_hyps.context_texts[b][k]
             candidate_words = [lexicon.word_list[idx] for idx in word_indices]
-            
-            to_score.append((b, k, context_text, candidate_words))
-            
+
+            to_score.append((b, k, context_text_tuples, candidate_words))
+
     if not to_score:
         return
-    
+
     # --- PHASE 2: Batch LM Scoring ---
-    contexts = [x[2] for x in to_score]
-    candidate_lists = [x[3] for x in to_score]
-    
-    # Returns list of lists, where each element is the scores for that beam's candidates
-    all_lm_scores = lm_fusion.score_continuations(contexts, candidate_lists)
-    
-    # --- PHASE 3: Update Beams (Best Match Only) ---
-    for (b, k, context_text, candidate_words), lm_scores in zip(to_score, all_lm_scores):
+    # We need to score EACH text interpretation from each beam against all its homophones.
+    # Example: beam (b=0, k=3) has 2 text interpretations and 3 candidate homophones
+    #          -> we need 2 LM calls for this beam (one per text interpretation)
+    #
+    # Flatten all texts into a single list for one batched LM call:
+    # - flat_contexts[i] = text string to use as context
+    # - flat_candidates[i] = list of candidate words to score
+    # - beam_mapping[i] = (b, k, tuple_idx) to know where to put the results back
+    flat_contexts = []
+    flat_candidates = []
+    beam_mapping = []  # Maps flat index -> (batch_idx, beam_idx, tuple_idx)
 
+    for (b, k, context_text_tuples, candidate_words) in to_score:
+        for tuple_idx, (lm_score, text) in enumerate(context_text_tuples):
+            flat_contexts.append(text)
+            flat_candidates.append(candidate_words)
+            beam_mapping.append((b, k, tuple_idx))
+
+    # Single batched LM call - scores all contexts against their candidate words
+    all_lm_scores = lm_fusion.score_continuations(flat_contexts, flat_candidates)
+
+    # Reorganize results back by (b, k) for easy lookup
+    # scores_by_beam[(b, k)][tuple_idx] = list of scores for each candidate word
+    scores_by_beam = {}
+    for flat_idx, (b, k, tuple_idx) in enumerate(beam_mapping):
+        key = (b, k)
+        if key not in scores_by_beam:
+            scores_by_beam[key] = {}
+        scores_by_beam[key][tuple_idx] = all_lm_scores[flat_idx]
+    
+    # --- PHASE 3: Update Beams ---
+    # For each beam, combine each text interpretation with each homophone candidate.
+    # Keep top K candidates (sorted by LM score for this word).
+    # Update beam's acoustic score by adding the best candidate's LM score.
+    num_homophone_beams = beam_hyps.num_homophone_beams
+
+    for (b, k, context_text_tuples, candidate_words) in to_score:
         base_score = beam_hyps.scores[b, k].item()
-        
-        # Combine: Candidate Word and LM Score
-        candidates = zip(candidate_words, lm_scores)
-        
-        # Find the single best word based on LM Score (or Combined Score if you preferred)
-        # Here we pick the one the LM likes best to replace the acoustic path
-        best_word, best_lm_score = max(candidates, key=lambda x: x[1])
-        
-        # Update Score: Acoustic + (Weight * LM) + (Bonus * Length)
-        beam_hyps.scores[b, k] = base_score + best_lm_score
-        
-        # Update Context Text
-        word_to_add = best_word.capitalize() if not context_text.strip() else best_word
-        beam_hyps.context_texts[b][k] = f"{context_text} {word_to_add}".strip()
-        
-        # Update Hash
-        beam_hyps.context_texts_hash[b][k] = hash(beam_hyps.context_texts[b][k])
-        
-def apply_lm_fusion_post_selection_complex(
-    lm_fusion: NeuralLanguageModelFusion | None,
-    lexicon: 'LexiconConstraint',
-    beam_hyps: 'BatchedBeamHyps',
-    blank_index: int,
-    boundary_token: int,
-    next_labels: torch.Tensor,
-    prev_last_labels: torch.Tensor,
-    token_insertion_bonus: float = 0.0,
-    next_indices: torch.Tensor = None
-) -> None:
-    
-    from .beam_helpers import (
-        materialize_beam_transcript,
-        collapse_ctc_sequence
-    )
-    
-    # CONFIG: How many slots at the end are reserved for homophones?
-    NUM_RESERVED = 20
-    
-    if lm_fusion is None:
-        return
+        lm_scores_dict = scores_by_beam[(b, k)]
 
-    batch_size, beam_size = beam_hyps.scores.shape
-    
-    # Safety: Don't reserve more than we have
-    if NUM_RESERVED >= beam_size:
-        NUM_RESERVED = beam_size // 2
+        # Collect all (lm_score, text) candidates by combining each text with each homophone
+        # Accumulate LM scores so we track full sequence probability
+        all_candidates = []
+        for tuple_idx, (prev_lm_score, prev_text) in enumerate(context_text_tuples):
+            lm_scores_for_tuple = lm_scores_dict[tuple_idx]
+            for word, word_lm_score in zip(candidate_words, lm_scores_for_tuple):
+                # Accumulate: new score = previous accumulated LM + this word's LM score
+                new_lm_score = prev_lm_score + word_lm_score
+                w_add = word.capitalize() if not prev_text.strip() else word
+                new_text = f"{prev_text} {w_add}".strip()
+                all_candidates.append((new_lm_score, new_text))
 
-    # Identify candidates (Standard Logic)
-    to_score = []
-    for b in range(batch_size):
-        for k in range(beam_size):
-            if beam_hyps.scores[b, k] == float('-inf'): continue
-            
-            last_label = int(next_labels[b, k].item())
-            prev_last_label = int(prev_last_labels[b, k].item())
-            if last_label != boundary_token: continue
-            if prev_last_label == boundary_token: continue
-            
-            seq_raw = materialize_beam_transcript(beam_hyps, b, k)
-            seq_ctc = collapse_ctc_sequence(seq_raw.tolist(), blank_index)
-            _, at_boundary, word_indices = lexicon.get_valid_next_tokens_with_word_info(seq_ctc)
-            
-            if not at_boundary or not word_indices: continue
-            
-            context_text = beam_hyps.context_texts[b][k]
-            candidate_words = [lexicon.word_list[idx] for idx in word_indices]
-            to_score.append((b, k, context_text, candidate_words))
-            
-    if not to_score: return
-    
-    # Score
-    contexts = [x[2] for x in to_score]
-    candidate_lists = [x[3] for x in to_score]
-    all_lm_scores, num_tokens = lm_fusion.score_continuations(contexts, candidate_lists)
+        # Sort by accumulated LM score (descending) and keep top K
+        all_candidates.sort(key=lambda x: x[0], reverse=True)
+        new_tuples = all_candidates[:num_homophone_beams]
 
-    # Organize by Batch
-    from collections import defaultdict
-    batch_results = defaultdict(list)
-    for i, item in enumerate(to_score):
-        # Store essential info
-        batch_results[item[0]].append((item, all_lm_scores[i], num_tokens[i]))
+        # Update beam score: add delta between new and old best LM scores
+        # beam_hyps.scores contains acoustic + previous LM, so we add only the new LM contribution
+        old_best_lm_score = context_text_tuples[0][0] if context_text_tuples else 0.0
+        new_best_lm_score = new_tuples[0][0]
+        lm_score_delta = new_best_lm_score - old_best_lm_score
+        beam_hyps.scores[b, k] = base_score + lm_score_delta
 
-    # --- SIMPLIFIED UPDATE LOGIC ---
-    for b, items in batch_results.items():
-        
-        # 1. Snapshot Map (Prevent Dirty Reads)
-        original_context_map = {item[1]: item[2] for item, _, _ in items}
-        
-        overflow_candidates = []
-        
-        # 2. Main Pass: Update everyone with their BEST word
-        for (b_idx, k, context_text, candidate_words), lm_scores, num_tokens_beam in items:
-            
-            base_score = beam_hyps.scores[b, k].item()
-            candidates = sorted(zip(candidate_words, lm_scores, num_tokens_beam), key=lambda x: x[1], reverse=True)
-            
-            # Update current beam with WINNER
-            best_word, best_score, best_nt = candidates[0]
-            beam_hyps.scores[b, k] = base_score + (lm_fusion.weight * best_score) + (best_nt * token_insertion_bonus)
-            
-            w_add = best_word.capitalize() if not context_text.strip() else best_word
-            beam_hyps.context_texts[b][k] = f"{context_text} {w_add}".strip()
-            beam_hyps.context_texts_hash[b][k] = hash(beam_hyps.context_texts[b][k])
-            
-            # Save LOSERS for the reserved slots
-            for word, score, nt in candidates[1:]:
-                total_score = base_score + (lm_fusion.weight * score) + (nt * token_insertion_bonus)
-                overflow_candidates.append((total_score, word, k))
-        
-        # 3. Reserved Pass: Fill the bottom N slots with top overflow candidates
-        if overflow_candidates:
-            # Sort all overflow candidates by score
-            overflow_candidates.sort(key=lambda x: x[0], reverse=True)
-            
-            # Target Indices: The last N beams (e.g., indices 7, 8, 9 for size 10)
-            # We iterate backwards from the end
-            start_reserved = beam_size - 1
-            end_reserved = beam_size - 1 - NUM_RESERVED
-            
-            cand_ptr = 0
-            
-            for victim_idx in range(start_reserved, end_reserved, -1):
-                
-                if cand_ptr >= len(overflow_candidates):
-                    break
-                    
-                score, word, parent_k = overflow_candidates[cand_ptr]
-                
-                # SKIP if we are about to overwrite the parent of this candidate 
-                # (Can happen if parent is already in the bottom N)
-                if victim_idx == parent_k:
-                    # We can't put "Two" into the slot that holds "Too"
-                    # Just skip this slot and try the next one
-                    continue
-                
-                # --- BLIND OVERWRITE ---
-                # Copy Tensor Attributes
-                attributes_to_copy = ['last_label', 'current_lengths_nb', 'current_lengths_wb', 'transcript_wb', 'transcript_wb_prev_ptr']
-                for attr in attributes_to_copy:
-                    if hasattr(beam_hyps, attr):
-                        getattr(beam_hyps, attr)[b, victim_idx] = getattr(beam_hyps, attr)[b, parent_k]
+        # Update context_texts with new tuples
+        beam_hyps.context_texts[b][k] = new_tuples
 
-                # Set Score & Text
-                beam_hyps.scores[b, victim_idx] = score
-                
-                original_context = original_context_map[parent_k]
-                w_add = word.capitalize() if not original_context.strip() else word
-                beam_hyps.context_texts[b][victim_idx] = f"{original_context} {w_add}".strip()
-                beam_hyps.context_texts_hash[b][victim_idx] = hash(beam_hyps.context_texts[b][victim_idx])
-                
-                cand_ptr += 1
+        # Update hash based on best text (index 0)
+        beam_hyps.context_texts_hash[b][k] = hash(new_tuples[0][1])
+
+   
