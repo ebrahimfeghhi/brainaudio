@@ -46,7 +46,7 @@ def parse_args() -> argparse.Namespace:
     
     parser.add_argument("--start-trial-idx", type=int, default=0
                         , help="Start index (inclusive)")
-    parser.add_argument("--end-trial-idx", type=int, default=100, help="End index (exclusive); defaults to all trials in logits file")
+    parser.add_argument("--end-trial-idx", type=int, default=None, help="End index (exclusive); defaults to all trials in logits file")
     parser.add_argument("--beam-size", type=int, default=100, help="CTC beam size")
     parser.add_argument("--model", default="google/gemma-3-270m", help="HF causal LM checkpoint")
     parser.add_argument("--hf-token", default=None, help="Optional HF token")
@@ -59,7 +59,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lexicon", type=Path, default=Path(DEFAULT_LEXICON), help="lexicon file")
     parser.add_argument("--top-k", type=int, default=3, help="Number of top beams to display per trial")
     parser.add_argument("--num-homophone-beams", type=int, default=2, help="Number of text interpretations (homophones) to track per beam")
-    parser.add_argument("--beam-prune-threshold", type=float, default=25.0, help="Prune beams that are more than this many log-prob points below the best.")
+    parser.add_argument("--beam-prune-threshold", type=float, default=20, help="Prune beams that are more than this many log-prob points below the best.")
     parser.add_argument("--homophone-prune-threshold", type=float, default=10.0, help="Prune homophones more than this many log-prob points below the best.")
     parser.add_argument(
         "--results-filename",

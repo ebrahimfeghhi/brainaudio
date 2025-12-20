@@ -57,7 +57,7 @@ contexts = [
     ""
 ]
 candidates = [
-    ["I'm originally from maine ", "I'm originally from man "]
+    ["I'm originally from maine.", "I'm originally from man."]
 ]
 
 print("\nRunning LM Fusion Scorer...")

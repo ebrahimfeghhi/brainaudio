@@ -229,6 +229,8 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
                 else:
                     full_text = f"{context} {word}"
 
+                # Add trailing space so LLM scores complete word probability
+
                 flat_texts.append(full_text)
                 candidate_start_indices.append(start_idx)
 
@@ -442,4 +444,60 @@ def apply_lm_fusion_post_selection(
         # Update hash based on best text (index 0)
         beam_hyps.context_texts_hash[b][k] = hash(new_tuples[0][1])
 
-   
+
+def apply_lm_end_of_sentence_scoring(
+    lm_fusion: NeuralLanguageModelFusion | None,
+    beam_hyps: 'BatchedBeamHyps',
+) -> None:
+    """
+    Add end-of-sentence probability to beam scores.
+
+    For each beam, scores the probability of a period "." following the
+    current context text and adds it to the beam score. This helps the LM
+    prefer complete, well-formed sentences.
+
+    Args:
+        lm_fusion: The neural LM fusion module (or None to skip).
+        beam_hyps: The beam hypotheses to update in-place.
+    """
+    if lm_fusion is None:
+        return
+
+    batch_size, beam_size = beam_hyps.scores.shape
+
+    # Collect all contexts that need EOS scoring
+    contexts = []
+    beam_indices = []  # Track (batch_idx, beam_idx) for each context
+
+    for b in range(batch_size):
+        for k in range(beam_size):
+            # Skip pruned beams
+            if beam_hyps.scores[b, k] == float('-inf'):
+                continue
+
+            # Get the best text interpretation for this beam
+            context_tuples = beam_hyps.context_texts[b][k]
+            if not context_tuples:
+                continue
+
+            # Use the best (first) text interpretation
+            _, text = context_tuples[0]
+
+            # Skip if text already ends with a period
+            if text.rstrip().endswith('.'):
+                continue
+
+            contexts.append(text)
+            beam_indices.append((b, k))
+
+    if not contexts:
+        return
+
+    # Score "." for all contexts in one batched call
+    candidate_words = [["."]] * len(contexts)
+    eos_scores = lm_fusion.score_continuations(contexts, candidate_words)
+
+    # Add EOS scores to beam scores
+    for (b, k), scores in zip(beam_indices, eos_scores):
+        eos_score = scores[0]  # Only one candidate (".")
+        beam_hyps.scores[b, k] += eos_score

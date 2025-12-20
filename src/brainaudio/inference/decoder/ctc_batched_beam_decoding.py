@@ -439,11 +439,11 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         
             # Apply LM fusion post-selection (after pruning and recombination)
             if self.lm_fusion is not None and self.lexicon is not None:
-                
-                from .neural_lm_fusion import apply_lm_fusion_post_selection   
-                
+
+                from .neural_lm_fusion import apply_lm_fusion_post_selection
+
                 boundary_token = getattr(self.lexicon, "word_boundary_token", None)
-                
+
                 apply_lm_fusion_post_selection(
                     lm_fusion=self.lm_fusion,
                     lexicon=self.lexicon,
@@ -454,7 +454,15 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                     prev_last_labels=prev_last_labels,
                     homophone_prune_threshold=self.homophone_prune_threshold,
                 )
-      
+
+        # After decoding is complete, add end-of-sentence probability
+        if self.lm_fusion is not None:
+            from .neural_lm_fusion import apply_lm_end_of_sentence_scoring
+            apply_lm_end_of_sentence_scoring(
+                lm_fusion=self.lm_fusion,
+                beam_hyps=batched_beam_hyps,
+            )
+
         return batched_beam_hyps
     
  

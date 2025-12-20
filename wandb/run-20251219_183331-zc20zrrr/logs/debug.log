@@ -19,3 +19,8 @@ config: {'start_trial_idx': 0, 'end_trial_idx': 100, 'beam_size': 100, 'model': 
 2025-12-19 18:33:32,171 INFO    MainThread:187999 [wandb_run.py:_redirect():2423] Wrapping output streams.
 2025-12-19 18:33:32,171 INFO    MainThread:187999 [wandb_run.py:_redirect():2446] Redirects installed.
 2025-12-19 18:33:32,173 INFO    MainThread:187999 [wandb_init.py:init():1076] run started, returning control to user process
+2025-12-19 18:36:38,952 INFO    MainThread:187999 [wandb_run.py:_finish():2272] finishing run lionelhu926-ucla/brainaudio-neural-lm-fusion/zc20zrrr
+2025-12-19 18:36:38,952 INFO    MainThread:187999 [wandb_run.py:_atexit_cleanup():2471] got exitcode: 0
+2025-12-19 18:36:38,952 INFO    MainThread:187999 [wandb_run.py:_restore():2453] restore
+2025-12-19 18:36:38,952 INFO    MainThread:187999 [wandb_run.py:_restore():2459] restore done
+2025-12-19 18:36:40,204 INFO    MainThread:187999 [wandb_run.py:_footer_sync_info():3869] logging synced files

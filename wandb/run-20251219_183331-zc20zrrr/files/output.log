@@ -1048,3 +1048,211 @@ Trial  83 | 1434.3ms | Score: -37.04
   #02 | beam_score=-47.6130
        H0: lm=-24.3372 | It was reckoned many years ago
 ------------------------------------------------------------
+Trial  84 | 4382.7ms | Score: -40.56
+  GT:   do you go by the ads when you look at them
+  Best: Do you go by the hands when you look at them
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-40.5557
+       H0: lm=-34.5699 | Do you go by the hands when you look at them
+       H1: lm=-41.8250 | Do you go by the hands when u look at them
+  #01 | beam_score=-41.1134
+       H0: lm=-36.0642 | Do you go by the ads when you look at them
+       H1: lm=-38.9437 | Do you go by the ad's when you look at them
+  #02 | beam_score=-43.2042
+       H0: lm=-37.3088 | Do you go by the ants when you look at them
+       H1: lm=-44.1871 | Do you go by the aunts when you look at them
+------------------------------------------------------------
+Trial  85 | 1320.5ms | Score: -22.87
+  GT:   do you get cable
+  Best: Do you get cable
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-22.8706
+       H0: lm=-22.0587 | Do you get cable
+       H1: lm=-27.4113 | Do u get cable
+  #01 | beam_score=-30.7864
+       H0: lm=-17.1681 | Do you get people
+       H1: lm=-24.3462 | Do u get people
+  #02 | beam_score=-33.0749
+       H0: lm=-25.8503 | Do you get kibble
+       H1: lm=-31.1212 | Do you get kibbel
+------------------------------------------------------------
+Trial  86 | 1644.8ms | Score: -37.13
+  GT:   and this gets back to capital punishment
+  Best: And this gets back to capital punishment
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-37.1322
+       H0: lm=-33.5321 | And this gets back to capital punishment
+       H1: lm=-41.8372 | And this gets back to capitol punishment
+------------------------------------------------------------
+Trial  87 | 1912.9ms | Score: -19.02
+  GT:   here are some key points from the briefing
+  Best: Here are some key points from the briefing
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-19.0162
+       H0: lm=-18.6057 | Here are some key points from the briefing
+  #01 | beam_score=-34.8559
+       H0: lm=-20.4293 | Here are some key points from a briefing
+  #02 | beam_score=-36.6894
+       H0: lm=-28.1199 | Here are some key point from the briefing
+------------------------------------------------------------
+Trial  88 | 1649.1ms | Score: -44.38
+  GT:   ninety seven cents a week
+  Best: Ninety seven cents a week
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-44.3817
+       H0: lm=-28.4293 | Ninety seven cents a week
+  #01 | beam_score=-50.4936
+       H0: lm=-36.1106 | Ninety seven seats a week
+       H1: lm=-43.2133 | Ninety seven seats a weak
+  #02 | beam_score=-50.9958
+       H0: lm=-37.8949 | Ninety seven sits a week
+       H1: lm=-38.1182 | Ninety seven sitts a week
+------------------------------------------------------------
+Trial  89 | 2531.4ms | Score: -41.64
+  GT:   i think the roles now are less defined
+  Best: I think the roles now are less defined
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-41.6411
+       H0: lm=-31.9111 | I think the roles now are less defined
+  #01 | beam_score=-49.3970
+       H0: lm=-46.2903 | I think the rows now are last defined
+       H1: lm=-53.6104 | I think the rose now are last defined
+  #02 | beam_score=-49.5094
+       H0: lm=-41.8910 | I think the roles now are least defined
+       H1: lm=-50.7274 | I think the roles now are leased defined
+------------------------------------------------------------
+Trial  90 | 774.3ms | Score: -27.82
+  GT:   we started taking her
+  Best: We started taking her
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-27.8183
+       H0: lm=-19.0794 | We started taking her
+  #01 | beam_score=-44.3925
+       H0: lm=-24.0576 | We started taking er
+       H1: lm=-25.3469 | We started taking ur
+  #02 | beam_score=-47.8357
+       H0: lm=-30.7378 | We started tacking her
+       H1: lm=-39.1606 | We started tacking hur
+------------------------------------------------------------
+Trial  91 | 1854.1ms | Score: -34.85
+  GT:   so thank you for not using the exploit
+  Best: So thank you for not using the exploit
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-34.8535
+       H0: lm=-34.5010 | So thank you for not using the exploit
+       H1: lm=-39.7609 | So thank u for not using the exploit
+  #01 | beam_score=-45.0937
+       H0: lm=-36.6358 | So thank you for not losing the exploit
+       H1: lm=-41.7743 | So thank u for not losing the exploit
+  #02 | beam_score=-50.3714
+       H0: lm=-38.5823 | So thank you for not using a exploit
+       H1: lm=-42.9719 | So thank u for not using a exploit
+------------------------------------------------------------
+Trial  92 | 1635.2ms | Score: -61.87
+  GT:   their economy's a little bit weak
+  Best: There economists a little bit weak
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-61.8738
+       H0: lm=-47.1916 | There economists a little bit weak
+       H1: lm=-47.4907 | They're economists a little bit weak
+  #01 | beam_score=-62.7655
+       H0: lm=-38.2377 | There economy's a little bit weak
+       H1: lm=-43.5543 | There economies a little bit weak
+  #02 | beam_score=-63.2878
+       H0: lm=-38.7507 | There economy a little bit weak
+       H1: lm=-43.8488 | There economy a little bit week
+------------------------------------------------------------
+Trial  93 | 2228.7ms | Score: -42.90
+  GT:   employees will not get any severance pay
+  Best: Employees will not get any severance pay
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-42.8994
+       H0: lm=-27.8045 | Employees will not get any severance pay
+       H1: lm=-35.0317 | Employee's will not get any severance pay
+  #01 | beam_score=-51.8731
+       H0: lm=-36.2986 | Employees will not get any service pay
+       H1: lm=-42.2598 | Employee's will not get any service pay
+  #02 | beam_score=-58.2759
+       H0: lm=-36.9958 | Employees will not get any severance day
+       H1: lm=-43.4962 | Employee's will not get any severance day
+------------------------------------------------------------
+Trial  94 | 2812.9ms | Score: -26.75
+  GT:   i really feel bad for the people i see there
+  Best: I really feel bad for the people i see there
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-26.7514
+       H0: lm=-26.7174 | I really feel bad for the people i see there
+       H1: lm=-30.2132 | I really feel bad for the people i see their
+  #01 | beam_score=-43.6837
+       H0: lm=-31.1750 | I really feel bad for the people i seen there
+       H1: lm=-33.2093 | I really feel bad for the people i seen their
+  #02 | beam_score=-47.6039
+       H0: lm=-30.6913 | I really feel bad for the people i say there
+       H1: lm=-31.3216 | I really feel bad for the people i say their
+------------------------------------------------------------
+Trial  95 | 703.0ms | Score: -17.25
+  GT:   even in my case
+  Best: Even in my case
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-17.2467
+       H0: lm=-17.2439 | Even in my case
+  #01 | beam_score=-37.9810
+       H0: lm=-21.2899 | Even in my face
+  #02 | beam_score=-38.1877
+       H0: lm=-26.8668 | Even in my cas
+       H1: lm=-32.3784 | Even in my cass
+------------------------------------------------------------
+Trial  96 | 827.3ms | Score: -24.56
+  GT:   according to the judicial system
+  Best: According to the judicial system
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-24.5620
+       H0: lm=-19.6637 | According to the judicial system
+  #01 | beam_score=-41.4111
+       H0: lm=-24.9662 | According to a judicial system
+  #02 | beam_score=-44.2161
+       H0: lm=-24.5952 | According to the judicial systems
+       H1: lm=-25.9367 | According to the judicial system's
+------------------------------------------------------------
+Trial  97 | 1789.1ms | Score: -53.11
+  GT:   afford the payments on a used car
+  Best: Afford the payments on a used car
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-53.1129
+       H0: lm=-50.3401 | Afford the payments on a used car
+  #01 | beam_score=-58.5176
+       H0: lm=-41.0859 | Avoid the payments on a used car
+  #02 | beam_score=-58.6194
+       H0: lm=-46.8715 | Afford the payment on a used car
+------------------------------------------------------------
+Trial  98 | 1319.7ms | Score: -38.36
+  GT:   couple of hundred kids in the band
+  Best: Couple of hundred kids in the band
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-38.3581
+       H0: lm=-36.6841 | Couple of hundred kids in the band
+       H1: lm=-44.1156 | Couple of hundred kids' in the band
+  #01 | beam_score=-41.6636
+       H0: lm=-37.9995 | Couple of hundred kids in the bed
+       H1: lm=-45.8839 | Couple of hundred kids' in the bed
+  #02 | beam_score=-42.7995
+       H0: lm=-39.9425 | Couple of hundred kids in the bad
+       H1: lm=-47.4116 | Couple of hundred kids' in the bad
+------------------------------------------------------------
+Trial  99 | 853.5ms | Score: -21.77
+  GT:   i found that really helps
+  Best: I found that really helps
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-21.7709
+       H0: lm=-21.7297 | I found that really helps
+  #01 | beam_score=-31.1047
+       H0: lm=-20.9423 | I find that really helps
+  #02 | beam_score=-32.7542
+       H0: lm=-22.9568 | I found that really help
+------------------------------------------------------------
+
+=== Final Results Summary ===
+Processed 100 trials in 180.38s
+Beam size: 100, Homophone beams: 2, Prune threshold: 10.0
+
+Aggregate WER: 0.0440
