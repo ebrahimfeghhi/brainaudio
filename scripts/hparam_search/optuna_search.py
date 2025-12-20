@@ -16,10 +16,10 @@ import glob
 #                       1. CONFIGURATION
 # ===================================================================
 
-CONFIGS_DIR = "/data2/brain2text/hpo/hpo_configs/baseline_hpo_tpe_b2t_25"  # Pre-saved HPO configs
-HPO_PROJECT_NAME = "transformer-tpe-search"
+CONFIGS_DIR = "/data2/brain2text/hpo/hpo_configs/refined_hpo_search_combined"  # Pre-saved HPO configs
+HPO_PROJECT_NAME = "transformer-qmc-search"
 MODEL_NAME = None  # Will be extracted from first config
-device = "cuda:1"
+device = "cuda:0"
 
 
 # ===================================================================

@@ -6,7 +6,7 @@ from brainaudio.models.transformer_chunking import TransformerModel
 from brainaudio.training.trainer import trainModel
 
 
-config_path = "fully_chunked_25_trial_38.yaml"
+config_path = "baseline_gru_b2t_25.yaml"
 config_file = f"../src/brainaudio/training/utils/custom_configs/{config_path}"
 device = "cuda:0"
 
