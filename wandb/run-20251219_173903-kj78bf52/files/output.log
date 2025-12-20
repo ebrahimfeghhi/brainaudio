@@ -1,0 +1,18 @@
+Loading resources on cuda:1...
+`torch_dtype` is deprecated! Use `dtype` instead!
+[INFO] Loaded google/gemma-3-270m (full precision) on cuda:1
+
+=== Starting Decode Loop: Trials 0 to 0 ===
+[INFO] Decoding from start-trial-idx=0 to end-trial-idx=0
+
+=== Final Results Summary ===
+Processed 0 trials in 0.00s
+Beam size: 100, Homophone beams: 2, Prune threshold: 10.0
+[NeMo W 2025-12-19 17:39:09 nemo_logging:364] /home/ebrahim/brainaudio/src/brainaudio/inference/eval_metrics.py:107: RuntimeWarning: invalid value encountered in scalar divide
+      cer = np.sum(allCharErr) / np.sum(allChar)
+
+[NeMo W 2025-12-19 17:39:09 nemo_logging:364] /home/ebrahim/brainaudio/src/brainaudio/inference/eval_metrics.py:108: RuntimeWarning: invalid value encountered in scalar divide
+      wer = np.sum(allWordErr) / np.sum(allWord)
+
+
+Aggregate WER: nan

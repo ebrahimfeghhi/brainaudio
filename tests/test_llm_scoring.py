@@ -1,29 +1,41 @@
 import torch
 import torch.nn.functional as F
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 from typing import List
 from brainaudio.inference.decoder.neural_lm_fusion import HuggingFaceLMFusion
 import time
-from unsloth import FastModel
 
 # ==========================================
 # 1. Using HuggingFaceLMFusion from decoder
 # ==========================================
 
-# Replace with the quantized model
-MODEL_NAME = "google/gemma-3-270m" 
+MODEL_NAME = "google/gemma-3-270m"
+USE_4BIT = False  # Toggle this to switch between quantized and full precision
 
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
-print(f"Loading {MODEL_NAME} on {device}...")
+print(f"Loading {MODEL_NAME} on {device} (4-bit: {USE_4BIT})...")
 
 try:
-       
-    
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-    model = AutoModelForCausalLM.from_pretrained(
-        MODEL_NAME,
-        dtype=torch.float32
-    ).to(device)
+
+    if USE_4BIT:
+        quantization_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_compute_dtype=torch.bfloat16,
+            bnb_4bit_quant_type="nf4",
+        )
+        model = AutoModelForCausalLM.from_pretrained(
+            MODEL_NAME,
+            quantization_config=quantization_config,
+            torch_dtype=torch.bfloat16,
+            device_map={"": device},
+        )
+    else:
+        model = AutoModelForCausalLM.from_pretrained(
+            MODEL_NAME,
+            torch_dtype=torch.float32,
+        ).to(device)
+
 
 except OSError:
     print(f"\n[Error] Could not load {MODEL_NAME}.")
@@ -36,6 +48,8 @@ if tokenizer.pad_token is None:
 
 lm_fusion = HuggingFaceLMFusion(model, tokenizer, weight=1.0, device=None)
 
+
+
 # ==========================================
 # 3. The Tests
 # ==========================================
@@ -43,7 +57,7 @@ contexts = [
     ""
 ]
 candidates = [
-    ["Not to much soy sauce", "Not too much soy sauce"]
+    ["I'm originally from maine ", "I'm originally from man "]
 ]
 
 print("\nRunning LM Fusion Scorer...")

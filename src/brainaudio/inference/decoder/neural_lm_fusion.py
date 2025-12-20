@@ -66,28 +66,27 @@ class NeuralLanguageModelFusion(ABC):
     
     @abstractmethod
     def score_continuations(
-        self, 
-        contexts: List[str], 
+        self,
+        contexts: List[str],
         candidate_words: List[List[str]]
-    ) -> tuple[List[List[float]], List[List[int]]]:
+    ) -> List[List[float]]:
         """
         Score candidate words given context.
-        
+
         This is the main method that subclasses must implement. It queries the
         neural LM to get log-probabilities for each candidate word continuation.
-        
+
         Args:
             contexts: List of text contexts (one per beam).
                      Example: ["I saw my", "picnic with"]
             candidate_words: List of candidate word lists (one list per beam).
                            Example: [["aunt", "ant"], ["aunt", "ant"]]
-                           
+
         Returns:
             scores: List of score lists matching structure of candidate_words.
                    Each score is a log-probability (negative values, higher is better).
-                   Example: [[0.7, 0.01], [0.3, 0.6]] for the inputs above.
-            num_tokens: List of lists of token counts for each candidate word.
-                   
+                   Example: [[-0.3, -4.6], [-1.2, -0.5]] for the inputs above.
+
         Notes:
             - Return scores in the same order as candidate_words
             - Use log-probabilities (not raw probs)
@@ -138,14 +137,13 @@ class DummyLMFusion(NeuralLanguageModelFusion):
     """
     
     def score_continuations(
-        self, 
-        contexts: List[str], 
+        self,
+        contexts: List[str],
         candidate_words: List[List[str]]
-    ) -> tuple[List[List[float]], List[List[int]]]:
-        """Return uniform (zero) log-probability for all candidates and zero token counts."""
+    ) -> List[List[float]]:
+        """Return uniform (zero) log-probability for all candidates."""
         scores = [[0.0 for _ in words] for words in candidate_words]
-        num_tokens = [[0 for _ in words] for words in candidate_words]
-        return scores, num_tokens
+        return scores
 
 
 class HuggingFaceLMFusion(NeuralLanguageModelFusion):
@@ -168,12 +166,12 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
         homophone_aggregation: str = 'max',
         device: torch.device = None,
         max_context_length: int = 512,
-        word_insertion_bonus: float = 0.0, 
-        lm_score: float = 1.0
+        word_insertion_bonus: float = 0.0,
+        scoring_chunk_size: int = 32,
     ):
         """
         Initialize HuggingFace LM fusion.
-        
+
         Args:
             model: HuggingFace causal LM model (e.g., GPT2LMHeadModel)
             tokenizer: Corresponding tokenizer
@@ -181,6 +179,8 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
             homophone_aggregation: 'max' or 'logsumexp'
             device: Device for inference
             max_context_length: Maximum context length in tokens (truncate if longer)
+            scoring_chunk_size: Maximum number of sequences to score in one forward pass.
+                Reduces peak memory usage at the cost of slightly more compute. Default 32.
         """
         super().__init__(weight, homophone_aggregation, device)
         self.model = model
@@ -188,7 +188,7 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
         self.tokenizer.padding_side = "right"
         self.max_context_length = max_context_length
         self.word_insertion_bonus = word_insertion_bonus
-        self.lm_score = lm_score
+        self.scoring_chunk_size = scoring_chunk_size
         
         self.device = device if device is not None else next(self.model.parameters()).device
         
@@ -202,31 +202,24 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
         
 
     @torch.no_grad()
-    def score_continuations(self, contexts: List[str], candidate_words: List[List[str]]) -> tuple[List[List[float]], List[List[int]]]:
-        
+    def score_continuations(self, contexts: List[str], candidate_words: List[List[str]]) -> List[List[float]]:
+        """
+        Score candidate words given contexts using chunked processing to limit memory usage.
+
+        Processes sequences in chunks of size `self.scoring_chunk_size` to prevent
+        OOM errors when scoring many sequences at once.
+        """
         flat_texts = []
         # Store where the candidate word starts for each entry
-        candidate_start_indices = [] 
-        
+        candidate_start_indices = []
+
         # 1. Prepare Texts
         for context, candidates in zip(contexts, candidate_words):
-            
-            # Robust Logic: Determine prefix length including Special Tokens
-            # We assume the tokenizer adds BOS if configured to do so.
-            # Note: We must replicate the 'add_special_tokens' behavior of the batch call.
+            # Determine prefix length including Special Tokens
             prefix_ids = self.tokenizer.encode(context, add_special_tokens=True)
-            
-            # The model predicts the NEXT token.
-            # If prefix is [BOS, A, B], logits at last position predict C.
-            # We want the scores starting FROM the prediction of the first candidate token.
-            # Length of prefix is exactly the start index for the shifted logits.
-            # e.g., Prefix len 3 ([BOS, A, B]). 
-            # Shifted Labels: [A, B, C]. 
-            # Indices: 0->A, 1->B, 2->C.
-            # We want index 2 (C).
-            # So start_idx = len(prefix_ids) - 1.
+            # start_idx = len(prefix_ids) - 1 because we want scores starting from first candidate token
             start_idx = len(prefix_ids) - 1
-            
+
             for word in candidates:
                 # Construct full text
                 if not context:
@@ -235,74 +228,73 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
                     full_text = f"{context}{word}"
                 else:
                     full_text = f"{context} {word}"
-                
+
                 flat_texts.append(full_text)
                 candidate_start_indices.append(start_idx)
 
         if not flat_texts:
-            return [], []
+            return []
 
-        # 2. Batch Tokenize
-        inputs = self.tokenizer(
-            flat_texts,
-            return_tensors="pt",
-            padding=True,
-            add_special_tokens=True 
-        ).to(self.device)
-        
-        input_ids = inputs.input_ids 
-        attention_mask = inputs.attention_mask 
+        # 2. Collect scores for each flat text (will be filled in by chunks)
+        flat_scores = [0.0] * len(flat_texts)
 
-        # 3. Forward Pass
-        outputs = self.model(input_ids, attention_mask=attention_mask)
-        
-        # 4. Shift and Gather
-        # Logits[i] predicts Token[i+1]
-        shift_logits = outputs.logits[..., :-1, :].contiguous() 
-        shift_labels = input_ids[..., 1:].contiguous()
-        
-        log_probs = F.log_softmax(shift_logits, dim=-1)
-        
-        # gathered_probs[b, t] is the log-prob of token t+1 given 0..t
-        gathered_probs = torch.gather(
-            log_probs, 
-            dim=2, 
-            index=shift_labels.unsqueeze(-1)
-        ).squeeze(-1) 
-        
-        # 5. Extract Scores
+        # 3. Process in chunks to limit memory usage
+        chunk_size = self.scoring_chunk_size
+        num_sequences = len(flat_texts)
+
+        for chunk_start in range(0, num_sequences, chunk_size):
+            chunk_end = min(chunk_start + chunk_size, num_sequences)
+            chunk_texts = flat_texts[chunk_start:chunk_end]
+            chunk_start_indices = candidate_start_indices[chunk_start:chunk_end]
+
+            # Tokenize this chunk
+            inputs = self.tokenizer(
+                chunk_texts,
+                return_tensors="pt",
+                padding=True,
+                add_special_tokens=True
+            ).to(self.device)
+
+            input_ids = inputs.input_ids
+            attention_mask = inputs.attention_mask
+
+            # Forward pass for this chunk
+            outputs = self.model(input_ids, attention_mask=attention_mask)
+
+            # Shift and Gather
+            shift_logits = outputs.logits[..., :-1, :].contiguous()
+            shift_labels = input_ids[..., 1:].contiguous()
+
+            log_probs = F.log_softmax(shift_logits, dim=-1)
+
+            gathered_probs = torch.gather(
+                log_probs,
+                dim=2,
+                index=shift_labels.unsqueeze(-1)
+            ).squeeze(-1)
+
+            # Extract scores for this chunk
+            for i, (start_idx, attn) in enumerate(zip(chunk_start_indices, attention_mask)):
+                valid_seq_len = attn.sum().item() - 1
+                safe_start = min(start_idx, valid_seq_len)
+                word_log_probs = gathered_probs[i, safe_start:valid_seq_len]
+                score = word_log_probs.sum().item()
+                flat_scores[chunk_start + i] = self.weight * score + self.word_insertion_bonus
+
+            # Free memory immediately after processing each chunk
+            del outputs, log_probs, gathered_probs, shift_logits, shift_labels
+            del inputs, input_ids, attention_mask
+            torch.cuda.empty_cache()
+
+        # 4. Reshape flat_scores back to match candidate_words structure
         final_scores = []
-        final_num_tokens = []
         flat_idx = 0
-        
         for candidates in candidate_words:
             beam_scores = []
-            num_tokens_beam = []
-            
             for _ in candidates:
-                start_idx = candidate_start_indices[flat_idx]
-                
-                # Find the end of the valid sequence (ignoring padding)
-                # -1 because gathered_probs is 1 shorter than input
-                valid_seq_len = attention_mask[flat_idx].sum().item() - 1
-                
-                # Safety clamp (in case context + candidate merged weirdly and became shorter than context)
-                safe_start = min(start_idx, valid_seq_len)
-                
-                # Slice: From end of context -> End of word
-                word_log_probs = gathered_probs[flat_idx, safe_start:valid_seq_len]
-                
-                score = word_log_probs.sum().item()
-                
-                # FIX: Return length of the *candidate word only*
-                n_tokens = valid_seq_len - safe_start
-                
-                beam_scores.append(self.lm_score * score + self.word_insertion_bonus)
-                
+                beam_scores.append(flat_scores[flat_idx])
                 flat_idx += 1
-                
             final_scores.append(beam_scores)
-            final_num_tokens.append(num_tokens_beam)
 
         return final_scores
     
@@ -319,7 +311,8 @@ def apply_lm_fusion_post_selection(
     blank_index: int,
     boundary_token: int,
     next_labels: torch.Tensor,
-    prev_last_labels: torch.Tensor
+    prev_last_labels: torch.Tensor,
+    homophone_prune_threshold: float | None = 10.0,
 ) -> None:
     
     from .beam_helpers import (
@@ -424,8 +417,16 @@ def apply_lm_fusion_post_selection(
                 new_text = f"{prev_text} {w_add}".strip()
                 all_candidates.append((new_lm_score, new_text))
 
-        # Sort by accumulated LM score (descending) and keep top K
+        # Sort by accumulated LM score (descending)
         all_candidates.sort(key=lambda x: x[0], reverse=True)
+
+        # Prune candidates that are too far below the best
+        # This saves memory/compute by not tracking very unlikely homophones
+        if homophone_prune_threshold is not None and all_candidates:
+            best_score = all_candidates[0][0]
+            all_candidates = [c for c in all_candidates if best_score - c[0] <= homophone_prune_threshold]
+
+        # Keep top K (after pruning)
         new_tuples = all_candidates[:num_homophone_beams]
 
         # Update beam score: add delta between new and old best LM scores

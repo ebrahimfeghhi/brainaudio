@@ -1,0 +1,12 @@
+{"time":"2025-12-19T18:27:15.165946568-08:00","level":"INFO","msg":"stream: starting","core version":"0.22.1"}
+{"time":"2025-12-19T18:27:15.335176638-08:00","level":"INFO","msg":"stream: created new stream","id":"2ipve94q"}
+{"time":"2025-12-19T18:27:15.335215972-08:00","level":"INFO","msg":"handler: started","stream_id":"2ipve94q"}
+{"time":"2025-12-19T18:27:15.335243905-08:00","level":"INFO","msg":"stream: started","id":"2ipve94q"}
+{"time":"2025-12-19T18:27:15.33527316-08:00","level":"INFO","msg":"sender: started","stream_id":"2ipve94q"}
+{"time":"2025-12-19T18:27:15.33527836-08:00","level":"INFO","msg":"writer: started","stream_id":"2ipve94q"}
+{"time":"2025-12-19T18:29:44.661737035-08:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading artifact run-2ipve94q-predictions_vs_ground_truth","runtime_seconds":0.329036334},{"desc":"uploading media/table/predictions_vs_ground_truth_2_3b25ca0fcc64dce6a742.table.json","runtime_seconds":0.031510837,"progress":"7.2KB/7.2KB"},{"desc":"updating run metadata","runtime_seconds":0.000469144}],"total_operations":3}}
+{"time":"2025-12-19T18:29:45.571013595-08:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-12-19T18:29:45.72365181-08:00","level":"INFO","msg":"stream: closing","id":"2ipve94q"}
+{"time":"2025-12-19T18:29:45.723659405-08:00","level":"INFO","msg":"handler: closed","stream_id":"2ipve94q"}
+{"time":"2025-12-19T18:29:45.723702376-08:00","level":"INFO","msg":"sender: closed","stream_id":"2ipve94q"}
+{"time":"2025-12-19T18:29:45.723706754-08:00","level":"INFO","msg":"stream: closed","id":"2ipve94q"}

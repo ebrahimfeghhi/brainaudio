@@ -1,11 +1,12 @@
 
 
 import argparse
+import gc
 import time
 from pathlib import Path
 import pandas as pd
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 import numpy as np
 from datetime import datetime
 
@@ -43,13 +44,14 @@ TRANSCRIPTS_PKL = Path("/data2/brain2text/b2t_25/transcripts_val_cleaned.pkl")
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser("CTC beam search + HF LM fusion loop")
     
-    parser.add_argument("--start-trial-idx", type=int, default=0, help="Start index (inclusive)")
+    parser.add_argument("--start-trial-idx", type=int, default=0
+                        , help="Start index (inclusive)")
     parser.add_argument("--end-trial-idx", type=int, default=100, help="End index (exclusive); defaults to all trials in logits file")
     parser.add_argument("--beam-size", type=int, default=100, help="CTC beam size")
     parser.add_argument("--model", default="google/gemma-3-270m", help="HF causal LM checkpoint")
     parser.add_argument("--hf-token", default=None, help="Optional HF token")
-    parser.add_argument("--lm-weight", type=float, default=2, help="Fusion weight")
-    parser.add_argument("--word-insertion-bonus", type=float, default=0.75, help="Bonus at boundaries")
+    parser.add_argument("--lm-weight", type=float, default=1, help="Fusion weight")
+    parser.add_argument("--word-insertion-bonus", type=float, default=1, help="Bonus at boundaries")
     parser.add_argument("--max-context-length", type=int, default=512, help="Token budget")
     parser.add_argument("--device", default="cuda:1", help="Torch device")
     parser.add_argument("--logits", type=Path, default=Path(DEFAULT_LOGITS), help="NPZ logits file")
@@ -57,16 +59,24 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lexicon", type=Path, default=Path(DEFAULT_LEXICON), help="lexicon file")
     parser.add_argument("--top-k", type=int, default=3, help="Number of top beams to display per trial")
     parser.add_argument("--num-homophone-beams", type=int, default=2, help="Number of text interpretations (homophones) to track per beam")
+    parser.add_argument("--beam-prune-threshold", type=float, default=25.0, help="Prune beams that are more than this many log-prob points below the best.")
+    parser.add_argument("--homophone-prune-threshold", type=float, default=10.0, help="Prune homophones more than this many log-prob points below the best.")
     parser.add_argument(
         "--results-filename",
         type=str,
         default=datetime.now().strftime("%m/%d_%H%M"),
         help="Filename for saving results (will be placed in /home/ebrahim/brainaudio/results directory)"
     )
+    
     parser.add_argument(
         "--disable-wandb",
         action="store_true",
         help="Disable W&B logging (default: enabled)"
+    )
+    parser.add_argument(
+        "--load-in-4bit",
+        action="store_true",
+        help="Load model in 4-bit quantization (requires bitsandbytes)"
     )
 
     return parser.parse_args()
@@ -120,11 +130,31 @@ def main():
     )
     
     tokenizer = AutoTokenizer.from_pretrained(args.model, token=args.hf_token)
-    model = AutoModelForCausalLM.from_pretrained(
-        args.model,
-        dtype=torch.float32,
-        token=args.hf_token,
-    ).to(device)
+
+    if args.load_in_4bit:
+        # 4-bit quantization: device must be set via device_map at load time
+        # Use bfloat16 for compute dtype - float16 can cause NaN with some models
+        quantization_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_compute_dtype=torch.bfloat16,
+            bnb_4bit_quant_type="nf4",
+        )
+        model = AutoModelForCausalLM.from_pretrained(
+            args.model,
+            quantization_config=quantization_config,
+            torch_dtype=torch.bfloat16,
+            device_map={"": device},  # place entire model on specified device
+            token=args.hf_token,
+        )
+        print(f"[INFO] Loaded {args.model} in 4-bit quantization on {device}")
+    else:
+        # Standard loading: load then move to device
+        model = AutoModelForCausalLM.from_pretrained(
+            args.model,
+            torch_dtype=torch.float32,
+            token=args.hf_token,
+        ).to(device)
+        print(f"[INFO] Loaded {args.model} (full precision) on {device}")
 
     lm_fusion = HuggingFaceLMFusion(
         model=model,
@@ -143,6 +173,8 @@ def main():
         lm_fusion=lm_fusion,
         allow_cuda_graphs=False,
         num_homophone_beams=args.num_homophone_beams,
+        beam_threshold=args.beam_prune_threshold,
+        homophone_prune_threshold=args.homophone_prune_threshold,
     )
 
     transcripts = None
@@ -210,11 +242,17 @@ def main():
                 print(f"       H{k_idx}: lm={lm_score:.4f} | {text}")
         print("-" * 60)
 
+        # Explicit memory cleanup to prevent accumulation across trials
+        del result
+        del log_probs
+        gc.collect()
+        torch.cuda.empty_cache()
+
     total_elapsed = time.perf_counter() - total_start_time
 
     print("\n=== Final Results Summary ===")
     print(f"Processed {len(decoded_sentences)} trials in {total_elapsed:.2f}s")
-    print(f"Beam size: {args.beam_size}, Homophone beams: {args.num_homophone_beams}")
+    print(f"Beam size: {args.beam_size}, Homophone beams: {args.num_homophone_beams}, Prune threshold: {args.homophone_prune_threshold}")
 
 # Compute Metrics
     try:

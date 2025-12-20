@@ -181,12 +181,13 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         preserve_alignments=False,
         compute_timestamps: bool = False,
         beam_beta: float = 0.0,
-        beam_threshold: float = 1e3,
+        beam_threshold: float = 10.0,
         allow_cuda_graphs: bool = True,
         lexicon: LexiconConstraint = None,
         lm_fusion: NeuralLanguageModelFusion = None,
         lm_beam_limit: Optional[int] = None,
         num_homophone_beams: int = 1,
+        homophone_prune_threshold: Optional[float] = 10.0,
     ):
         """
         Init method.
@@ -203,6 +204,8 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             lm_fusion: optional NeuralLanguageModelFusion for word-level LM rescoring. Defaults to None.
             lm_beam_limit: optional cap on how many beams per batch element receive neural LM scoring at a word boundary.
             num_homophone_beams: number of text interpretations (homophones) to track per beam. Defaults to 1.
+            homophone_prune_threshold: if set, prune homophone candidates whose LM score is more than this
+                many log-prob points below the best candidate. Defaults to 10.0. Set to None to disable.
         """
 
         super().__init__()
@@ -230,6 +233,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         self.lm_fusion = lm_fusion
         self.lm_beam_limit = lm_beam_limit
         self.num_homophone_beams = num_homophone_beams
+        self.homophone_prune_threshold = homophone_prune_threshold
         
         # Warn if lm_fusion is used without lexicon
         if self.lm_fusion is not None and self.lexicon is None:
@@ -392,7 +396,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             next_indices = next_candidates_indices // vocab_size # indices of beams being extended
             next_labels = next_candidates_indices % vocab_size # label indices
         
-            # step 2.3: pruning candidates with threshold `beam_threshold`
+            # step 2.3: pruning candidates with threshold `
             batch_next_scores = next_scores.view(curr_batch_size, -1)
             max_next_score = batch_next_scores.max(dim=-1, keepdim=True).values
             batch_next_scores.masked_fill_(batch_next_scores <= max_next_score - self.beam_threshold, INACTIVE_SCORE)
@@ -447,7 +451,8 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                     blank_index=self._blank_index,
                     boundary_token=boundary_token,
                     next_labels=next_labels,
-                    prev_last_labels=prev_last_labels
+                    prev_last_labels=prev_last_labels,
+                    homophone_prune_threshold=self.homophone_prune_threshold,
                 )
       
         return batched_beam_hyps

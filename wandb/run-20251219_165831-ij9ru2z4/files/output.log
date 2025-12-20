@@ -1,0 +1,24 @@
+Loading resources on cuda:1...
+`torch_dtype` is deprecated! Use `dtype` instead!
+Loading checkpoint shards: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 2/2 [00:02<00:00,  1.10s/it]
+[INFO] Loaded google/gemma-3-4b-pt in 4-bit quantization on cuda:1
+
+=== Starting Decode Loop: Trials 1412 to 1413 ===
+[INFO] Decoding from start-trial-idx=1412 to end-trial-idx=1413
+Trial 1412 | 3029.4ms | Score: -49.82
+  GT:   this is an invasion of privacy issue
+  Best: This is an invasion of privacy into
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-49.8152
+       H0: lm=-31.3238 | This is an invasion of privacy into
+  #01 | beam_score=-50.5050
+       H0: lm=-26.0645 | This is an invasion of privacy issue
+  #02 | beam_score=-52.7907
+       H0: lm=-43.0199 | This is an invasion of prophecy into
+------------------------------------------------------------
+
+=== Final Results Summary ===
+Processed 1 trials in 3.41s
+Beam size: 100, Homophone beams: 2, Prune threshold: 10.0
+
+Aggregate WER: 0.1429

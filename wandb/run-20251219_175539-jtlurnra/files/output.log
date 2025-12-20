@@ -1,0 +1,10 @@
+Loading resources on cuda:1...
+`torch_dtype` is deprecated! Use `dtype` instead!
+[INFO] Loaded google/gemma-3-270m (full precision) on cuda:1
+Traceback (most recent call last):
+  File "/home/ebrahim/brainaudio/scripts/test_neural_lm_fusion_single_trial.py", line 284, in <module>
+    main()
+  File "/home/ebrahim/brainaudio/scripts/test_neural_lm_fusion_single_trial.py", line 169, in main
+    decoder = BatchedBeamCTCComputer(
+              ^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: BatchedBeamCTCComputer.__init__() got an unexpected keyword argument 'bream_prune_threshold'

@@ -1,0 +1,123 @@
+_wandb:
+    value:
+        cli_version: 0.22.1
+        e:
+            tx5ag3ez2t8knu9hp22c14tmx80wefz8:
+                codePath: scripts/test_neural_lm_fusion_single_trial.py
+                codePathLocal: scripts/test_neural_lm_fusion_single_trial.py
+                cpu_count: 12
+                cpu_count_logical: 24
+                cudaVersion: "13.0"
+                disk:
+                    /:
+                        total: "1966736678912"
+                        used: "698660024320"
+                email: efeghhi@gmail.com
+                executable: /home/ebrahim/brainaudio/.venv/bin/python3
+                git:
+                    commit: a21bac42d634fd5117bf01a261bf45c914181a7c
+                    remote: https://github.com/ebrahimfeghhi/brainaudio.git
+                gpu: NVIDIA GeForce RTX 5090
+                gpu_count: 2
+                gpu_nvidia:
+                    - architecture: Blackwell
+                      cudaCores: 21760
+                      memoryTotal: "34190917632"
+                      name: NVIDIA GeForce RTX 5090
+                      uuid: GPU-36da6282-1add-1bc5-4de9-488fbb9180ac
+                    - architecture: Blackwell
+                      cudaCores: 21760
+                      memoryTotal: "34190917632"
+                      name: NVIDIA GeForce RTX 5090
+                      uuid: GPU-65e27b4e-b895-716f-c281-b2924f1d23de
+                host: jarjar
+                memory:
+                    total: "132541640704"
+                os: Linux-6.14.0-37-generic-x86_64-with-glibc2.39
+                program: /home/ebrahim/brainaudio/scripts/test_neural_lm_fusion_single_trial.py
+                python: CPython 3.12.3
+                root: /home/ebrahim/brainaudio
+                startedAt: "2025-12-20T01:59:27.628760Z"
+                writerId: tx5ag3ez2t8knu9hp22c14tmx80wefz8
+        m: []
+        python_version: 3.12.3
+        t:
+            "1":
+                - 1
+                - 5
+                - 9
+                - 11
+                - 41
+                - 49
+                - 50
+                - 51
+                - 53
+                - 71
+                - 83
+                - 84
+                - 98
+                - 103
+                - 106
+            "2":
+                - 1
+                - 5
+                - 9
+                - 11
+                - 41
+                - 49
+                - 50
+                - 51
+                - 53
+                - 71
+                - 83
+                - 84
+                - 98
+                - 103
+                - 106
+            "3":
+                - 2
+                - 13
+                - 16
+            "4": 3.12.3
+            "5": 0.22.1
+            "6": 4.57.3
+            "12": 0.22.1
+            "13": linux-x86_64
+beam_prune_threshold:
+    value: 10
+beam_size:
+    value: 100
+device:
+    value: cuda:1
+disable_wandb:
+    value: false
+end_trial_idx:
+    value: 100
+hf_token:
+    value: null
+homophone_prune_threshold:
+    value: 10
+lexicon:
+    value: /data2/brain2text/lm/lexicon_phonemes.txt
+lm_weight:
+    value: 1
+load_in_4bit:
+    value: false
+logits:
+    value: /data2/brain2text/b2t_25/logits/tm_transformer_b2t_24+25_large_wide_bidir_grad_clip_cosine_decay/logits_val.npz
+max_context_length:
+    value: 512
+model:
+    value: google/gemma-3-270m
+num_homophone_beams:
+    value: 2
+results_filename:
+    value: 12/19_1759
+start_trial_idx:
+    value: 0
+tokens:
+    value: /data2/brain2text/lm/units_pytorch.txt
+top_k:
+    value: 3
+word_insertion_bonus:
+    value: 1
