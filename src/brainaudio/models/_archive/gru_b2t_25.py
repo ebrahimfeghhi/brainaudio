@@ -24,7 +24,7 @@ class GRU_25(BaseTimeMaskedModel):
                  num_masks = 0
                  ):
         
-        """GRU‑based speech encoder.
+        """GRU-based speech encoder.
         
         Parameters
         ----------

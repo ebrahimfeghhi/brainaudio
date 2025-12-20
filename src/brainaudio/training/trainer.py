@@ -108,7 +108,7 @@ def trainModel(args, model):
     imagineville_vocab_phoneme = "/data2/brain2text/lm/vocab_lower_100k_pytorch_phoneme.txt"
     decoder = ctc_decoder(tokens=units_txt_file_pytorch, lexicon=imagineville_vocab_phoneme, 
                     beam_size=args["beam_size"], nbest=1, lm="/data2/brain2text/lm/lm_dec19_huge_4gram.kenlm", 
-                    lm_weight=args["lm_weight"], word_score=args["word_score"])
+                    lm_weight=args["lm_weight"], word_score=args["word_score"]) if args["evaluate_wer"] else None
     
     no_improvement_count = 0
     
@@ -172,8 +172,10 @@ def trainModel(args, model):
                     X = gauss_smooth(inputs=X, device=args['device'], smooth_kernel_size=args['smooth_kernel_size'], smooth_kernel_std=args['gaussianSmoothWidth'])
                     
                     adjustedLens = model.compute_length(X_len)
-            
-                    pred = model.forward(X, X_len, participant_id, dayIdx)
+                    if args["modelType"] == "gru":
+                        pred = model.forward(X, X_len, dayIdx)
+                    elif args["modelType"] == "transformer":
+                        pred = model.forward(X, X_len, participant_id, dayIdx)
                     loss = forward_ctc(pred, adjustedLens, y, y_len)  
                     train_loss.append(loss.cpu().detach().numpy())    
                     
@@ -193,7 +195,7 @@ def trainModel(args, model):
         avgTrainLoss = np.mean(train_loss)
         
         loss_array = []
-        wer_array = []
+        wer_array = [] 
         per_array = []
         
         current_lr = optimizer.param_groups[0]['lr']
@@ -206,61 +208,84 @@ def trainModel(args, model):
                 
                 loss, wer, per = evaluate(valLoader, model, participant_id, forward_ctc, args, decoder)
                 loss_array.append(loss)
-                wer_array.append(wer)
+                if wer is not None:
+                    wer_array.append(wer)
                 per_array.append(per)
             
             endTime = time.time()
             
             # Log the metrics to wandb
-            log_dict = {
-                "train_ctc_Loss": avgTrainLoss,
-                "ctc_loss": loss_array[0],
-                "wer": wer_array[0],
-                "per": per_array[0],
-                "learning_rate": current_lr, 
-                "grad_norm": np.mean(grad_norm_store), 
-                "time_per_epoch": (endTime - startTime) / 100
-            }
+            if args["evaluate_wer"]:
+                log_dict = {
+                    "train_ctc_Loss": avgTrainLoss,
+                    "ctc_loss": loss_array[0],
+                    "wer": wer_array[0],
+                    "per": per_array[0],
+                    "learning_rate": current_lr, 
+                    "grad_norm": np.mean(grad_norm_store), 
+                    "time_per_epoch": (endTime - startTime) / 100
+                }
+            else:
+                log_dict = {
+                    "train_ctc_Loss": avgTrainLoss,
+                    "ctc_loss": loss_array[0],
+                    "per": per_array[0],
+                    "learning_rate": current_lr, 
+                    "grad_norm": np.mean(grad_norm_store), 
+                    "time_per_epoch": (endTime - startTime) / 100
+                }
+
             
             if len(loss_array) > 0:
-                
-                for pid, (avgDayLoss, wer, per) in enumerate(zip(loss_array[1:], wer_array[1:], per_array[1:])):
-                    
-                    log_dict[f"ctc_loss_{pid}"] = avgDayLoss
-                    log_dict[f"wer_{pid}"] = wer
-                    log_dict[f"per_{pid}"] = per
+                if args["evaluate_wer"]:
+                    for pid, (avgDayLoss, wer, per) in enumerate(zip(loss_array[1:], wer_array[1:], per_array[1:])):
+                        log_dict[f"ctc_loss_{pid}"] = avgDayLoss
+                        log_dict[f"wer_{pid}"] = wer
+                        log_dict[f"per_{pid}"] = per
+                else:
+                    for pid, (avgDayLoss, per) in enumerate(zip(loss_array[1:], per_array[1:])):
+                        log_dict[f"ctc_loss_{pid}"] = avgDayLoss
+                        log_dict[f"per_{pid}"] = per
+
                     
 
             wandb.log(log_dict)
             
             # Save best models for mean across participants
-            if len(valWER) > 0 and np.mean(wer_array) < np.min(valWER):
+            if args["evaluate_wer"] and len(valWER) > 0 and np.mean(wer_array) < np.min(valWER):
                 torch.save(model.state_dict(), outputDir + "/modelWeights_WER")
                 
             if len(valPER) > 0 and np.mean(per_array) < np.min(valPER):
                 torch.save(model.state_dict(), outputDir + "/modelWeights_PER")
             
             # Save best models per participant
-            for pid in range(len(wer_array)):
+            for pid in range(len(loss_array)):
                 suffix = get_participant_suffix(pid)
-                
-                if pid not in best_wer_by_participant or wer_array[pid] < best_wer_by_participant[pid]:
-                    best_wer_by_participant[pid] = wer_array[pid]
-                    torch.save(model.state_dict(), outputDir + f"/modelWeights_WER{suffix}")
+                if args["evaluate_wer"]:
+                    if pid not in best_wer_by_participant or wer_array[pid] < best_wer_by_participant[pid]:
+                        best_wer_by_participant[pid] = wer_array[pid]
+                        torch.save(model.state_dict(), outputDir + f"/modelWeights_WER{suffix}")
                 
                 if pid not in best_per_by_participant or per_array[pid] < best_per_by_participant[pid]:
                     best_per_by_participant[pid] = per_array[pid]
                     torch.save(model.state_dict(), outputDir + f"/modelWeights_PER{suffix}")
                 
             valLoss.append(np.mean(loss_array))
-            valWER.append(np.mean(wer_array))
+            if args["evaluate_wer"]:
+                valWER.append(np.mean(wer_array)) 
             valPER.append(np.mean(per_array))
             
         
-            if np.mean(wer_array) > np.min(valWER):
-                no_improvement_count += 1
+            if args["evaluate_wer"]: 
+                if np.mean(wer_array) > np.min(valWER):
+                    no_improvement_count += 1
+                else:
+                    no_improvement_count = 0
             else:
-                no_improvement_count = 0
+                if np.mean(per_array) > np.min(valPER):
+                    no_improvement_count += 1
+                else:
+                    no_improvement_count = 0
                     
                     
             if args["early_stopping_enabled"]:
