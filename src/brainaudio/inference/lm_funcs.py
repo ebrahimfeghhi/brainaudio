@@ -162,7 +162,6 @@ def compute_wer_from_logits(
 
             if not trial_beams:
                 trial_beams.append("")
-
             beam_search_transcript_char = trial_beams[0]
             ground_truth_sentence = val_transcripts[idx]
             ground_truth_arr.append(ground_truth_sentence)

@@ -90,8 +90,11 @@ def evaluate(val_loader, model, participant_id, forward_ctc, args, beam_search_d
 
             X = gauss_smooth(X, device=device, smooth_kernel_size=args['smooth_kernel_size'], smooth_kernel_std=args['gaussianSmoothWidth'])
             adjusted_lens = model.compute_length(X_len)
+            if args["modelType"] == "gru":
+                pred = model.forward(X, X_len, testDayIdx)
+            elif args["modelType"] == "transformer":
+                pred = model.forward(X, X_len, participant_id, testDayIdx)
 
-            pred = model.forward(X, X_len, participant_id, testDayIdx)
             
             # --- Decode and Calculate PER ---
             for i in range(pred.shape[0]):
@@ -116,15 +119,18 @@ def evaluate(val_loader, model, participant_id, forward_ctc, args, beam_search_d
             
             # Use .item() to get the scalar value of the loss
             all_losses.append(loss.item())
-            
-            beam_out = beam_search_decoder(pred.to("cpu")*args["acoustic_scale"])
-            beam_search_transcript = normalize_shorthand(" ".join(beam_out[0][0].words).strip())
-            pred_arr.append(clean_string(beam_search_transcript))
+            if beam_search_decoder is not None:
+                beam_out = beam_search_decoder(pred.to("cpu")*args["acoustic_scale"])
+                beam_search_transcript = normalize_shorthand(" ".join(beam_out[0][0].words).strip())
+                pred_arr.append(clean_string(beam_search_transcript))
            
 
     # --- Calculate Final Metrics ---
     avg_loss = np.mean(all_losses) if all_losses else 0.0
-    _, wer, _= _cer_and_wer(pred_arr, val_transcripts)
+    if pred_arr:
+        _, wer, _= _cer_and_wer(pred_arr, val_transcripts)
+    else:
+        wer = None
     per = total_edit_distance / total_seq_length if total_seq_length > 0 else float('nan')
     
     print("WER: ", wer, "PER: ", per)

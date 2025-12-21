@@ -17,8 +17,8 @@ import torch
 from torch.nn.utils.rnn import pad_sequence
 
 parser = argparse.ArgumentParser()
-parser.add_argument("start", type=int, nargs="?", default=0, help="Start Index (default: 0)")
-parser.add_argument("end", type=int, nargs="?", default=1400, help="End Index (default: 1400)")
+parser.add_argument("--start", type=int, nargs="?", default=0, help="Start Index (default: 0)")
+parser.add_argument("--end", type=int, nargs="?", default=1400, help="End Index (default: 1400)")
 parser.add_argument("--no-lexicon", action="store_true", help="Disable lexicon constraint")
 parser.add_argument("--beam-size", type=int, default=1, help="Beam size for CTC decoding (default: 1)")
 parser.add_argument(

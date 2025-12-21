@@ -15,27 +15,31 @@ import random
 # ===================================================================
 HPO_RANGES = {
     # Optimizer params (log scale)
-    "learning_rate": ("float", [5e-4, 3e-3], {"log": False}),
+    "learning_rate": ("float", [1.5e-3, 3.0e-3], {"log": False}),
+    "l2_decay": ("float", [1.0e-6, 1.0e-4], {}),
     
     # Regularization (time masking provides augmentation; input_dropout, white noise, baseline shift removed)
-    "dropout": ("float", [0.1, 0.4], {}),
+    "dropout": ("float", [0.1, 0.3], {}),
     
     # White Noise
-    "whiteNoiseSD": ("float", [0.0, 0.3], {}),
-    "constantOffsetSD": ("float", [0.0, 0.1], {}),
+    "whiteNoiseSD": ("float", [0.15, 0.30], {}),
+    "constantOffsetSD": ("float", [0.05, 0.095], {}),
 
     # Transformer Architecture
-    "dim_head": ("int", [48,64], {}),  # Model dimension (will derive n_heads from this)
-    "n_heads": ("int", [6, 9], {}),
-    "depth": ("int", [4,6], {}),
+    "dim_head": ("int", [48, 72], {}),  # Model dimension (will derive n_heads from this)
+    "n_heads": ("int", [6, 10], {}),
+    "depth": ("int", [6, 9], {}),
 
     # Time Masking (core augmentation strategy)
-    "total_mask_intensity": ("float", [0.5, 2], {})
+    "total_mask_intensity": ("float", [0.4, 0.9], {}),
+
+    # Chunking
+    "chunkwise_prob": ("float", [0.6, 0.95], {})
 }
 
-BASE_CONFIG_PATH = "../src/brainaudio/training/utils/custom_configs/baseline_hpo_tpe_b2t_25.yaml"
+BASE_CONFIG_PATH = "../src/brainaudio/training/utils/custom_configs/refined_hpo_combined.yaml"
 N_TRIALS = 50
-HPO_PROJECT_NAME = "transformer-tpe-search"
+HPO_PROJECT_NAME = "transformer-qmc-search"
 
 # ===================================================================
 #                       2. GENERATE CONFIGS
@@ -94,17 +98,17 @@ def generate_configs(n_trials=N_TRIALS):
         constantOffsetSD = hparams['constantOffsetSD']
 
         # Sample num_masks and derive max_mask_pct
-        min_num_masks, max_num_masks = 5, 30
+        min_num_masks, max_num_masks = 10, 40
         num_masks = random.randint(min_num_masks, max_num_masks)
         max_mask_pct = total_intensity / num_masks
         max_mask_pct = float(f"{max_mask_pct:.2g}")
 
         # --- Update config with hparams ---
         config['learning_rate'] = hparams['learning_rate']
-        config['l2_decay'] = hparams['l2_decay']
+        #config['l2_decay'] = hparams['l2_decay']
         config['dropout'] = hparams['dropout']
         config['max_mask_pct'] = max_mask_pct
-        config['num_masks'] = num_masks
+        config['num_masks'] = num_mas
         config['seed'] = config['seeds'][0]
         config['whiteNoiseSD'] = whiteNoiseSD
         config['constantOffsetSD'] = constantOffsetSD
