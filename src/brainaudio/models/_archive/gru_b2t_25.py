@@ -1,5 +1,6 @@
 import torch 
 from torch import nn
+import torch.nn.functional as F
 from ..base_model import BaseTimeMaskedModel
 
 class GRU_25(BaseTimeMaskedModel):
@@ -163,5 +164,5 @@ class GRU_25(BaseTimeMaskedModel):
     
     def compute_length(self, X_len):
         
-        return  ((X_len - self.kernelLen) / self.strideLen).to(torch.int32)
+        return ((X_len - self.kernelLen) / self.strideLen).to(torch.int32)
     

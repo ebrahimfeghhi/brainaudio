@@ -83,7 +83,6 @@ def trainModel(args, model):
         
         optimizer_path = os.path.join(args['load_pretrained_model'], 'optimizer')
         optimizer.load_state_dict(torch.load(optimizer_path, map_location=args['device']))
-        
         scheduler_path = os.path.join(args['load_pretrained_model'], 'scheduler')
         scheduler.load_state_dict(torch.load(scheduler_path, map_location=args['device']))
         print(f"Loaded optimizer and scheduler state from {args['load_pretrained_model']}")
@@ -103,6 +102,7 @@ def trainModel(args, model):
     
     max_dataset_train_length = max(len(loader) for loader in trainLoaders)
     
+    # LM definition and initialization
     language_model_path = "/data2/brain2text/lm/"
     units_txt_file_pytorch = f"{language_model_path}units_pytorch.txt"
     imagineville_vocab_phoneme = "/data2/brain2text/lm/vocab_lower_100k_pytorch_phoneme.txt"
@@ -152,7 +152,7 @@ def trainModel(args, model):
                 y_len  = y_len.to(args["device"])
                 dayIdx = dayIdx.to(args["device"])
                 
-                with torch.autocast(device_type = args["device"], enabled = args['use_amp'], dtype = torch.bfloat16):
+                with torch.autocast(device_type = args["device"].split(":")[0], enabled = args['use_amp'], dtype = torch.bfloat16):
                     
                     if args["whiteNoiseSD"] > 0:
                         X += torch.randn(X.shape, device=args["device"]) * args["whiteNoiseSD"]
@@ -190,8 +190,9 @@ def trainModel(args, model):
                                                 error_if_nonfinite = True,
                                                 foreach = True
                                                 )
-                optimizer.step()            
-        
+                optimizer.step()
+                scheduler.step()  
+                          
         avgTrainLoss = np.mean(train_loss)
         
         loss_array = []
@@ -199,7 +200,7 @@ def trainModel(args, model):
         per_array = []
         
         current_lr = optimizer.param_groups[0]['lr']
-        scheduler.step()
+        # scheduler.step()  
         
         
         if epoch % args["evaluate_every_n_epochs"] == 0:
@@ -288,11 +289,13 @@ def trainModel(args, model):
                     no_improvement_count = 0
                     
                     
-            if args["early_stopping_enabled"]:
-                if epoch == args["early_stopping_checkpoint"]:
+            if args["early_stopping_enabled"] and epoch == args["early_stopping_checkpoint"]:
                     # ! Stopping based upon b2t25' <HARD CODED>
-                    if wer_array[0] > args["early_stopping_wer_threshold"]:
+                    if args["evaluate_wer"] and wer_array[0] > args["early_stopping_wer_threshold"]:
                         wandb.log({"early_stopping_triggered": True, "early_stopping_reason": "wer_threshold", "early_stopping_epoch": epoch})
+                        break
+                    elif per_array[0] > args["early_stopping_per_threshold"]:
+                        wandb.log({"early_stopping_triggered": True, "early_stopping_reason": "per_threshold", "early_stopping_epoch": epoch})
                         break
                 
     wandb.finish()

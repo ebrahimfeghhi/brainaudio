@@ -27,7 +27,6 @@ def create_learning_rate_scheduler(args, optim):
         min_learning_rate_ratio: Learning rate shou
         '''
         
-        
         # Warmup phase
         if current_step < warmup_steps:
             return float(current_step) / float(max(1, warmup_steps))
