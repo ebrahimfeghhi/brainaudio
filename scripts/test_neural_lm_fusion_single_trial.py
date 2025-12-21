@@ -34,8 +34,7 @@ This run tests neural LM fusion with CTC batched beam search. Adjust this string
 Loops through a range of trials, decodes them, tracks performance,
 and computes final WER/CER metrics.
 """
-
-DEFAULT_LOGITS = "/data2/brain2text/b2t_25/logits/tm_transformer_b2t_24+25_large_wide_bidir_grad_clip_cosine_decay/logits_val.npz"
+DEFAULT_ENCODER_MODEL_NAME = "pretrained_RNN"
 DEFAULT_TOKENS = "/data2/brain2text/lm/units_pytorch.txt"
 DEFAULT_LEXICON = "/data2/brain2text/lm/lexicon_phonemes.txt"
 TRANSCRIPTS_PKL = Path("/data2/brain2text/b2t_25/transcripts_val_cleaned.pkl")
@@ -43,7 +42,9 @@ TRANSCRIPTS_PKL = Path("/data2/brain2text/b2t_25/transcripts_val_cleaned.pkl")
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser("CTC beam search + HF LM fusion loop")
-    
+
+    parser.add_argument("--encoder-model-name", type=str, default=DEFAULT_ENCODER_MODEL_NAME,
+                        help="Name of the encoder model (used for logits path and wandb logging)")
     parser.add_argument("--start-trial-idx", type=int, default=0
                         , help="Start index (inclusive)")
     parser.add_argument("--end-trial-idx", type=int, default=None, help="End index (exclusive); defaults to all trials in logits file")
@@ -54,7 +55,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--word-insertion-bonus", type=float, default=1, help="Bonus at boundaries")
     parser.add_argument("--max-context-length", type=int, default=512, help="Token budget")
     parser.add_argument("--device", default="cuda:1", help="Torch device")
-    parser.add_argument("--logits", type=Path, default=Path(DEFAULT_LOGITS), help="NPZ logits file")
+    parser.add_argument("--logits", type=Path, default=None, help="NPZ logits file (default: derived from encoder-model-name)")
     parser.add_argument("--tokens", type=Path, default=Path(DEFAULT_TOKENS), help="units file")
     parser.add_argument("--lexicon", type=Path, default=Path(DEFAULT_LEXICON), help="lexicon file")
     parser.add_argument("--top-k", type=int, default=3, help="Number of top beams to display per trial")
@@ -87,7 +88,10 @@ notes = "Running with simplified apply_lm_fusion_post_selection which only allow
 
 def main():
     args = parse_args()
-    # Set CUDA device if available and requested
+
+    # Set default logits path based on encoder_model_name if not provided
+    if args.logits is None:
+        args.logits = Path(f"/data2/brain2text/b2t_25/logits/{args.encoder_model_name}/logits_val.npz")
 
     # Initialize wandb run (before any wandb.log or Table calls)
     if not args.disable_wandb:
@@ -261,7 +265,25 @@ def main():
         print(f"\nAggregate WER: {wer:.4f}")
     except Exception as e:
         print(f"\nError computing WER: {e}")
-        
+
+    # Save results to CSV file
+    results_dir = Path("/home/ebrahim/brainaudio/results")
+    results_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create filename: {encoder_model_name}_{results_filename}.csv
+    # Replace "/" with "_" in results_filename to make it a valid filename
+    safe_results_filename = args.results_filename.replace("/", "_")
+    csv_filename = f"{args.encoder_model_name}_{safe_results_filename}.csv"
+    csv_path = results_dir / csv_filename
+
+    # Create DataFrame with id and text columns (same format as RNN baseline)
+    results_df = pd.DataFrame({
+        "id": list(range(args.start_trial_idx, args.start_trial_idx + len(decoded_sentences))),
+        "text": decoded_sentences
+    })
+    results_df.to_csv(csv_path, index=False)
+    print(f"\nSaved predictions to {csv_path}")
+
     # --- wandb logging ---
     if not args.disable_wandb:
         try:
