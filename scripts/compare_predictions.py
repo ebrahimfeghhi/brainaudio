@@ -52,11 +52,11 @@ def parse_args() -> argparse.Namespace:
 
 
 def sentence_wer(prediction: str, reference: str) -> float:
-    """Compute WER for a single sentence."""
+    """Compute WER for a single sentence (case-insensitive)."""
     if not reference.strip():
         return 0.0 if not prediction.strip() else 1.0
     try:
-        return compute_wer(reference, prediction)
+        return compute_wer(reference.lower(), prediction.lower())
     except:
         return 1.0
 
@@ -164,10 +164,10 @@ def main():
     print(f"  Same WER:                 {same_count} ({100*same_count/len(results):.1f}%)")
     print(f"    (Both perfect:          {both_perfect})")
 
-    # Compute aggregate WER
-    llm_preds_all = [r["llm_pred"] for r in results]
-    baseline_preds_all = [r["baseline_pred"] for r in results]
-    gts_all = [r["ground_truth"] for r in results]
+    # Compute aggregate WER (case-insensitive)
+    llm_preds_all = [r["llm_pred"].lower() for r in results]
+    baseline_preds_all = [r["baseline_pred"].lower() for r in results]
+    gts_all = [r["ground_truth"].lower() for r in results]
 
     llm_agg_wer = compute_wer(gts_all, llm_preds_all)
     baseline_agg_wer = compute_wer(gts_all, baseline_preds_all)
@@ -207,8 +207,8 @@ def main():
         comparison_df = pd.DataFrame([
             {
                 "id": r["idx"],
-                "llm_wer": r["llm_wer"],
-                "baseline_wer": r["baseline_wer"],
+                "llm_wer": round(r["llm_wer"], 2),
+                "baseline_wer": round(r["baseline_wer"], 2),
                 "ground_truth": r["ground_truth"],
                 "llm_prediction": r["llm_pred"],
                 "baseline_prediction": r["baseline_pred"],

@@ -45,22 +45,22 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument("--encoder-model-name", type=str, default=DEFAULT_ENCODER_MODEL_NAME,
                         help="Name of the encoder model (used for logits path and wandb logging)")
-    parser.add_argument("--start-trial-idx", type=int, default=0
+    parser.add_argument("--start-trial-idx", type=int, default=16
                         , help="Start index (inclusive)")
-    parser.add_argument("--end-trial-idx", type=int, default=None, help="End index (exclusive); defaults to all trials in logits file")
-    parser.add_argument("--beam-size", type=int, default=100, help="CTC beam size")
+    parser.add_argument("--end-trial-idx", type=int, default=17, help="End index (exclusive); defaults to all trials in logits file")
+    parser.add_argument("--beam-size", type=int, default=300, help="CTC beam size")
     parser.add_argument("--model", default="google/gemma-3-270m", help="HF causal LM checkpoint")
     parser.add_argument("--hf-token", default=None, help="Optional HF token")
-    parser.add_argument("--lm-weight", type=float, default=1, help="Fusion weight")
+    parser.add_argument("--lm-weight", type=float, default=1.5, help="Fusion weight")
     parser.add_argument("--word-insertion-bonus", type=float, default=1, help="Bonus at boundaries")
     parser.add_argument("--max-context-length", type=int, default=512, help="Token budget")
     parser.add_argument("--device", default="cuda:1", help="Torch device")
     parser.add_argument("--logits", type=Path, default=None, help="NPZ logits file (default: derived from encoder-model-name)")
     parser.add_argument("--tokens", type=Path, default=Path(DEFAULT_TOKENS), help="units file")
     parser.add_argument("--lexicon", type=Path, default=Path(DEFAULT_LEXICON), help="lexicon file")
-    parser.add_argument("--top-k", type=int, default=3, help="Number of top beams to display per trial")
+    parser.add_argument("--top-k", type=int, default=100, help="Number of top beams to display per trial")
     parser.add_argument("--num-homophone-beams", type=int, default=2, help="Number of text interpretations (homophones) to track per beam")
-    parser.add_argument("--beam-prune-threshold", type=float, default=20, help="Prune beams that are more than this many log-prob points below the best.")
+    parser.add_argument("--beam-prune-threshold", type=float, default=30, help="Prune beams that are more than this many log-prob points below the best.")
     parser.add_argument("--homophone-prune-threshold", type=float, default=10.0, help="Prune homophones more than this many log-prob points below the best.")
     parser.add_argument(
         "--results-filename",
@@ -190,7 +190,9 @@ def main():
     # Results Containers
     decoded_sentences = []
     ground_truth_sentences = []
-    
+    gt_in_beams_count = 0  # Track how often ground truth appears in beams
+    gt_in_beams_trials = []  # Track which trials have GT in beams
+
     total_start_time = time.perf_counter()
 
     print(f"\n=== Starting Decode Loop: Trials {args.start_trial_idx} to {args.end_trial_idx} ===")
@@ -232,9 +234,25 @@ def main():
             ground_truth = transcripts.iloc[trial_idx]
         ground_truth_sentences.append(ground_truth)
 
+        # Check if ground truth is in any of the beams (case-insensitive)
+        gt_lower = ground_truth.lower().strip()
+        all_beam_texts = []
+        for i in valid_indices_sorted:
+            for lm_score, text in result.context_texts[0][i]:
+                all_beam_texts.append(text.lower().strip())
+        gt_in_beams = gt_lower in all_beam_texts
+        if gt_in_beams:
+            gt_in_beams_count += 1
+            gt_in_beams_trials.append(trial_idx)
+            # Find the rank of the ground truth
+            gt_rank = all_beam_texts.index(gt_lower)
+        else:
+            gt_rank = -1
+
         # Print Status
         best_score = result.scores[0, 0].item()
-        print(f"Trial {trial_idx:3d} | {trial_elapsed*1000:.1f}ms | Score: {best_score:.2f}")
+        gt_status = f"GT in beams: YES (rank {gt_rank})" if gt_in_beams else "GT in beams: NO"
+        print(f"Trial {trial_idx:3d} | {trial_elapsed*1000:.1f}ms | Score: {best_score:.2f} | {gt_status}")
         print(f"  GT:   {ground_truth}")
         print(f"  Best: {best_text}")
         print(f"  Top {K} beams (with {args.num_homophone_beams} homophone interpretations each):")
@@ -257,6 +275,7 @@ def main():
     print("\n=== Final Results Summary ===")
     print(f"Processed {len(decoded_sentences)} trials in {total_elapsed:.2f}s")
     print(f"Beam size: {args.beam_size}, Homophone beams: {args.num_homophone_beams}, Prune threshold: {args.homophone_prune_threshold}")
+    print(f"Ground truth in beams: {gt_in_beams_count}/{len(decoded_sentences)} ({100*gt_in_beams_count/len(decoded_sentences):.1f}%)")
 
 # Compute Metrics
     try:

@@ -94,21 +94,6 @@ class NeuralLanguageModelFusion(ABC):
         """
         raise NotImplementedError("Subclasses must implement score_continuations()")
 
-    @abstractmethod
-    def init_caches(self, batch_size: int, beam_size: int):
-        """Initialize or reset internal cache state."""
-        raise NotImplementedError()
-
-    @abstractmethod
-    def reorder_cache(self, next_indices: torch.Tensor):
-        """Reorder cache based on beam selection indices."""
-        raise NotImplementedError()
-
-    @abstractmethod
-    def post_step_update(self, winning_token_ids: torch.Tensor):
-        """Update cache with the officially selected tokens."""
-        raise NotImplementedError()
-    
     def aggregate_homophone_scores(self, scores: List[float]) -> float:
         """
         Aggregate multiple homophone scores into a single score.
@@ -224,6 +209,7 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
         Processes sequences in chunks of size `self.scoring_chunk_size` to prevent
         OOM errors when scoring many sequences at once.
         """
+        
         flat_texts = []
         # Store where the candidate word starts for each entry
         candidate_start_indices = []
@@ -433,6 +419,11 @@ def apply_lm_fusion_post_selection(
                 w_add = word.capitalize() if not prev_text.strip() else word
                 new_text = f"{prev_text} {w_add}".strip()
                 all_candidates.append((new_lm_score, new_text))
+                
+                if word == "royal" or word == "real":
+                    print(word, word_lm_score, base_score, prev_text)
+                    # print(f"Debug: Scored 'royal' for beam (b={b}, k={k}), prev_text='{prev_text}', new_text='{new_text}', word_lm_score={word_lm_score}, new_lm_score={new_lm_score}")
+                    # breakpoint()
 
         # Sort by accumulated LM score (descending)
         all_candidates.sort(key=lambda x: x[0], reverse=True)

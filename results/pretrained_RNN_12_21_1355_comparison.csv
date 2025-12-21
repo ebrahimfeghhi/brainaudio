@@ -1,0 +1,422 @@
+id,llm_wer,baseline_wer,ground_truth,llm_prediction,baseline_prediction
+8,0.33,0.0,has such a high clay content,Has such a high click contain,has such a high clay content
+16,0.3,0.0,he is also a member of the royal irish academy,He is also a member of the real hours agana,he is also a member of the royal irish academy
+18,0.17,0.0,put that back in the saucepan,Put that back in the suntan,put that back in the saucepan
+20,0.11,0.0,you just really can't tell what's going to happen,You just really can't tell what's going to,you just really can't tell what's going to happen
+23,0.2,0.0,it's really not too difficult,It's really not too,it's really not too difficult
+25,0.75,0.0,i'm trying to think,I'm try two thing,i'm trying to think
+30,0.17,0.0,she came last june and watched a game in the sky dome,She came last june and watched a game in the say time,she came last june and watched a game in the sky dome
+46,0.0,0.14,i don't know where the answer is,I don't know where the answer is,i don't know where the house is
+51,0.33,0.0,the grand canyon,The grade canyon,the grand canyon
+53,0.14,0.0,he said he's been saying one more,He said is been saying one more,he said he's been saying one more
+55,0.22,0.0,i couldn't even think of what you call them,I couldn't min thing of what you call them,i couldn't even think of what you call them
+59,0.2,0.0,there's not a whole lot,There's not a whole,there's not a whole lot
+60,0.17,0.0,there was no word on casualties,There was no word on cavity,there was no word on casualties
+61,0.2,0.0,it kind of wound down,It kind of wild down,it kind of wound down
+62,0.14,0.0,but my boss wouldn't pay for it,But my boss wouldn't be for it,but my boss wouldn't pay for it
+67,0.12,0.25,he put up all of his ash trays,He put up all of his ack trays,he put up all of his oak trees
+73,0.67,0.33,invasion of burma,Envision of faunal,invasion of mobile
+74,0.3,0.2,i guess we don't really use that many tin cans,I guess we don't really u's that many ten cats,i guess we don't really use that many ten cats
+77,0.0,0.2,he had a hot pad,He had a hot pad,he had a hot pan
+78,0.2,0.0,sometimes they're not very open,Sometimes their not very open,sometimes they're not very open
+88,0.4,0.0,ninety seven cents a week,Nettie seven since a week,ninety seven cents a week
+89,0.25,0.12,i think the roles now are less defined,I think the roads now are less divide,i think the roads now are less defined
+92,0.5,0.33,their economy's a little bit weak,There commence a little bit week,their economy it's a little bit weak
+108,0.2,0.0,once the children were grown,Once the children were run,once the children were grown
+113,0.25,0.0,people donate more money,People didn't more money,people donate more money
+115,0.2,0.0,every time i do something,Every time i do,every time i do something
+118,0.2,0.0,it's a weakness and all,It's a wellness and all,it's a weakness and all
+127,0.2,0.0,the victims' families and things,The fifties families and things,the victims' families and things
+134,0.2,0.0,it's like a major production,It's like a major,it's like a major production
+135,0.1,0.0,we ended up watching it for a couple of hours,We ended up watching it for a couple of,we ended up watching it for a couple of hours
+137,0.33,0.0,anything on that,Anything on,anything on that
+139,0.12,0.0,what will be a luxury in the future,What will be a luxury in the,what will be a luxury in the future
+146,0.33,0.0,i'm still going,I'm still,i'm still going
+148,0.2,0.0,helps them understand the world,Helps them understand the,helps them understand the world
+153,0.67,0.0,guided by voices,Garden by,guided by voices
+155,0.27,0.09,i wanted him to win best actor on top of it,I wouldn't him to when best actor on top of,i wouldn't him to win best actor on top of it
+157,0.17,0.0,you look down at your arm,You look down at your,you look down at your arm
+162,0.5,0.25,the islanders sleep inside,The elaters sleep,the lovers sleep inside
+163,0.2,0.4,they are the detroit delegates,They are the detroit,they are the detroit tell us
+164,0.33,0.0,they have coupons,They have,they have coupons
+165,0.8,0.4,i can't believe they can,I can bither,i get it they can
+168,0.25,0.0,easiest way out maybe,Easiest way out,easiest way out maybe
+169,0.67,0.5,that will help solve our problems,That will have some hour,that will have some our problem
+172,0.33,0.17,there are also these various disclosures,There are also this various,there are also these various disclosure
+173,0.33,0.0,enjoy the holidays,Enjoy the,enjoy the holidays
+174,0.33,0.0,no easy choices,No easy,no easy choices
+176,0.5,0.12,on probation or parole and killed someone else,On promotion or befall and kid someone,on probation or parole and killed someone
+178,0.14,0.29,i don't think they're in a conspiracy,I don't think they're in a,i don't think there is a conspiracy
+179,0.4,0.0,a million dollars a year,A million dollars ago,a million dollars a year
+180,0.44,0.11,trump's budget is just a proposal at this point,Truss trumps budget is just a propeller at this,from trump's budget is just a proposal at this point
+181,0.11,0.0,we've had one as long as i can remember,We've had one as long as i can,we've had one as long as i can remember
+187,0.17,0.0,that aren't getting taught at home,That art getting taught at home,that aren't getting taught at home
+189,0.2,0.4,tax year of eighty one,Tax year of any one,last year of any one
+193,0.12,0.0,tim would like to take on other genres,Tim would like to take on other shamas,tim would like to take on other genres
+195,0.25,0.0,through the newspaper reviews,Through the newspaper reveals,through the newspaper reviews
+196,0.14,0.0,we should see to our own lives,We should see to our own love,we should see to our own lives
+203,0.17,0.0,you can't get all of us,U you can't get all of us,you can't get all of us
+219,0.25,0.0,a liberal arts school,A a liberal arts school,a liberal arts school
+229,0.12,0.0,you can come and go as you please,You can come and go as you place,you can come and go as you please
+234,0.25,0.0,just the regular channel,Just the regular,just the regular channel
+235,0.25,0.0,he plays pretty regularly,He plays pretty,he plays pretty regularly
+238,0.22,0.11,oh well no point in dwelling on the past,Hoo well no point in wailing on the past,well no point in dwelling on the past
+242,1.5,2.5,zoology department,You lit depart,you call it a party
+245,0.14,0.0,that's still not enough for a total,That's still not enough for a,that's still not enough for a total
+247,0.33,0.5,pay and exhaustion and you know,Pay in insertion and you know,an exception and you know
+248,0.2,0.0,all my aunts and uncles,All my aunts and oelkers,all my aunts and uncles
+249,0.4,0.2,a restaurant that employs minorities,A wrecker that employs,a restaurant that employs minority
+252,0.57,0.14,i have more energy when i exercise,I have for inducing when injustices,i have more energy when i injustices
+257,0.33,0.0,it's a nightmare,It's a netware,it's a nightmare
+264,0.17,0.0,i get great distance hitting it,I get great distance eating it,i get great distance hitting it
+267,0.5,0.25,regime change in iran,Reggie change in around,regime change in early
+279,0.33,0.0,go over there,Go over their,go over there
+286,0.5,0.17,put a cramp in your viewing,Butt a crap in your veering,but a cramp in your viewing
+294,0.18,0.09,i love all the windows that they have out now too,I love all the winders that they have out now to,i love all the wonders that they have out now too
+296,0.2,0.0,it'll go through the slot,It'll go through the lot,it'll go through the slot
+301,0.5,0.0,because that's perfectly clean,Because that's profit lee clean,because that's perfectly clean
+308,0.14,0.0,i can't think of his name now,I can't think of is name now,i can't think of his name now
+316,0.14,0.0,a producer of movies in baltimore called,A producer of movies in partum called,a producer of movies in baltimore called
+318,0.5,0.25,barbecues and mexican food,Barriers and mascot food,beans and mexican food
+321,0.14,0.0,i have my own policy on freeloaders,I have my own policy on realtors,i have my own policy on freeloaders
+323,0.25,0.0,snuggle up to you,Slagel up to you,snuggle up to you
+331,0.2,0.0,thank you for signing up,They you for signing up,thank you for signing up
+332,0.17,0.08,this is the price paid for counting eggs rather than chicken embryos,This is the price paid for counting aids rather than chicken ambience,this is the price paid for counting eggs rather than chicken habeas
+335,0.0,0.08,and everyone involved in the case bar the jury had been here before,And everyone involved in the case bar the jury had been here before,and everyone involved in the case for the jury had been here before
+336,0.29,0.0,a dog is featured below the text,A dog is fissured below the takes,a dog is featured below the text
+337,0.17,0.0,lo and behold they did not,Low and behold they did not,lo and behold they did not
+339,0.27,0.18,everything trump wants to do threatens everything trudeau wants to do,Everything trump was to do thetis everything trudeau was to do,everything trump was to do threatens everything trudeau was to do
+343,0.62,0.0,and hurricane jose had not turned north yet,And ricken also and not turn north that,and hurricane jose had not turned north yet
+347,0.33,0.44,i just stood there and soaked it all up,I just to store there and sort it all up,just to start there and set it all up
+353,0.12,0.0,i don't know whether you did yours first,I don't know whether you did years first,i don't know whether you did yours first
+360,0.17,0.0,their mother was sick at times,There mother was sick at times,their mother was sick at times
+361,0.14,0.0,wilkinson had no regrets about her decision,Wallison had no regrets about her decision,wilkinson had no regrets about her decision
+372,0.5,0.17,taylor attributed this to confirmation bias,Dealer interminable this to confirmation buyers,dealer attributed this to confirmation bias
+374,0.09,0.0,go talk to her in the lobby i'll be right down,Go talk to her in the lobby how be right down,go talk to her in the lobby i'll be right down
+375,0.12,0.0,this project has been a real team effort,This project as been a real team effort,this project has been a real team effort
+379,0.2,0.0,trump has nominated william barr as the next attorney general,Trump is nominate william barr as the next attorney general,trump has nominated william barr as the next attorney general
+381,0.44,0.11,the hercules and rainbow stag beetles are highlights here,The hercules and grable stack medals are helens here,the hercules and rainbow stag beetles are headlines here
+385,0.5,0.0,which amiga games impressed you in terms of gameplay or technical tricks,Which amiga gives impressed you it does of simply or senecal trees,which amiga games impressed you in terms of gameplay or technical tricks
+386,0.07,0.0,also at that time we were starting to hate each other a little bit,Also at that time we were starting to hate is other a little bit,also at that time we were starting to hate each other a little bit
+387,0.18,0.0,are either or both dogs considered dangerous under davis county ordinance,Are either or both dogs decision dangerous under nevis county ordinance,are either or both dogs considered dangerous under davis county ordinance
+390,0.12,0.0,the quantity you chose exceeds the quantity available,The quantity you chose exists the quantity available,the quantity you chose exceeds the quantity available
+393,0.1,0.0,is it a novelty or a real coin of importance,Is it a novelty or a real card of importance,is it a novelty or a real coin of importance
+404,0.14,0.0,they were pretty much in good taste,They were pretty much in good tastes,they were pretty much in good taste
+411,0.25,0.0,see things like that,Si things like that,see things like that
+424,0.14,0.0,what kind of dog do you have,What kind of dog to you have,what kind of dog do you have
+428,0.12,0.0,the news was first reported by deadline hollywood,The news was first reported by deadline alert,the news was first reported by deadline hollywood
+430,0.3,0.1,there are no more vehicle tokens spread across the map,There are no more vehicle talkers straight at the map,there are no more vehicle tokens spread out the map
+431,0.25,0.0,where is the evidence that they possess consciousness,Where is the evidence that they persis consciences,where is the evidence that they possess consciousness
+432,0.22,0.0,nevertheless i roll my eyes as i get up,Nevertheless i grow my house as i get up,nevertheless i roll my eyes as i get up
+433,0.38,0.5,people will do humiliating grotesque things for ambition,People will do immolate protect things for oppression,people will do much to protect things for a
+435,0.33,0.11,they send off emissaries to start new cancer colonies,They said off imcera to start new cancer collars,they set off emissaries to start new cancer colonies
+436,0.18,0.0,you actually look forward to foxes or raccoons raiding your garbage,You actually look forward to foxes or rickards raiding your carbon,you actually look forward to foxes or raccoons raiding your garbage
+437,0.17,0.0,for example the face might be typically painted red black and white,For example the face might be typically pitted right black and white,for example the face might be typically painted red black and white
+440,0.15,0.0,sign up for our daily newsletter of the top stories in courier country,Sign up for our daily newsletter of the top stories in curry counting,sign up for our daily newsletter of the top stories in courier country
+441,0.22,0.11,such threats are a violation of the un charter,Such things are a violation of the ewan charter,such threats are a violation of the union charter
+455,0.14,0.0,she wheeled it out on a cart,She willed it out on a cart,she wheeled it out on a cart
+456,0.4,0.2,thanks for hearing me rap,That's for airing me rap,that's for hearing me rap
+467,0.25,0.0,basically the guy commits,Basically the guy commenced,basically the guy commits
+469,0.6,1.0,waves born exercising boat grateful,Wais born exercising but crystal,way more exciting but stressful
+475,0.5,0.25,playing traditional used flat,Laying traditional used light,making traditional used flat
+476,0.67,0.5,turquoise teams dollars concentration wind's stupidly,Kaus team's dollars concentration wins company,cause teams dollars concentration was commonly
+479,0.6,0.8,terms news earning by commitment,Tows nose awning by commitment,dog's nose honoring my commitment
+480,0.75,0.5,grandparents engagement throw stage,Radiance enjoyment through stage,grandparents enjoyment through stage
+481,0.4,0.6,elk diplomatic plates reimbursed names,Al diplomatic place reimbursed names,all diplomatic please reboot names
+485,0.2,0.8,grade nucleus arrive excess destroying,Grade nucleus arrive access destroying,great necklace of axes destroying
+486,0.0,0.5,bonsai meeting ghost mainly,Bonsai meeting ghost mainly,bonsai meaning just mainly
+487,0.2,0.4,resale telling serious understanding moral,Resell telling serious understanding moral,we sell telling serious understanding moral
+488,1.0,0.8,democratically reduces carbon cramped baked,Differently assesses common crowd paint,drastically reduces common red paint
+489,0.25,0.0,we're paying basketball people,We're being basketball people,we're paying basketball people
+490,0.1,0.0,it sounds like you have really strong views on it,It sounds like you have really wrong views on it,it sounds like you have really strong views on it
+492,0.38,0.0,but drastic times could call for drastic measures,Butt resting times could call for resting measures,but drastic times could call for drastic measures
+493,0.5,0.0,either savings or investment,Either sevens are investment,either savings or investment
+494,0.14,0.0,magnified vision able to see at night,Mystified vision able to see at night,magnified vision able to see at night
+502,0.1,0.0,she'd just get on the first step and lay down,Shit just get on the first step and lay down,she'd just get on the first step and lay down
+503,0.25,0.12,it seems like you get hit the worst,It seems like you get it the watch,it seems like you get it the worst
+507,0.11,0.0,so it was really too late to do much,So it was really to late to do much,so it was really too late to do much
+516,0.18,0.0,will the game be priced differently during and after early access,Where the game be priced dymally during and after early access,will the game be priced differently during and after early access
+518,0.58,0.08,the product i tried was their mini corn dogs which were superb,The prided i tried was there many court dog when were suppose,the product i tried was their mini corn dog which were superb
+519,0.33,0.0,vancouver teacher faces disciplinary action for harassing gay student,Decatur teacher faces discipline action for arresting gay student,vancouver teacher faces disciplinary action for harassing gay student
+522,0.11,0.0,details of this plot were reported two years ago,Details of this plant were reported two years ago,details of this plot were reported two years ago
+525,0.11,0.0,so what about the enemies of the assad regime,So what about the enemies of the assigned regime,so what about the enemies of the assad regime
+527,0.14,0.0,and if i'm so blessed by the gods i'll never have to kill again,And if i'm so placed by the guards i'll never have to kill again,and if i'm so blessed by the gods i'll never have to kill again
+528,0.2,0.0,your birthday and age won't be visible to other users,Your birthing und age won't be visible to other users,your birthday and age won't be visible to other users
+530,0.08,0.0,a man with a small pension is a ward of the government,A man with a small person is a ward of the government,a man with a small pension is a ward of the government
+531,0.18,0.27,this week's pick is an algorithm that can diagnose a stroke,This week's pick is an acronym that can diagnose a drug,this week's pic is an angle that can diagnose a drug
+532,0.09,0.0,yet the president is not wrong to be exasperated and enraged,Yet the president is not wrong to be exasperate and enraged,yet the president is not wrong to be exasperated and enraged
+534,0.25,0.0,glue the sheet to the dark blue background,Glue the sheet to the junk blue placard,glue the sheet to the dark blue background
+538,0.14,0.0,the juice of lemons makes fine punch,The cheese of lemons makes fine punch,the juice of lemons makes fine punch
+540,0.5,0.25,the hogs were fed chopped corn and garbage,The hands were feed chopped cord and carbon,the hands were fed chopped corn and cabbage
+541,0.43,0.14,four hours of steady work faced us,For hours of study work fiend us,four hours of steady work found us
+543,0.22,0.11,the fish twisted and turned on the bent hook,The fish wesson and turned on the bait hook,the fish twisted and turned on the boat hook
+544,0.3,0.1,press the pants and sew a button on the vest,Press the bast and show a button on the fist,press the bass and sew a button on the vest
+548,0.14,0.0,her purse was full of useless trash,Her purse was full of usual trash,her purse was full of useless trash
+549,0.25,0.0,the colt reared and threw the tall rider,The cold reared and threw the call rider,the colt reared and threw the tall rider
+550,0.25,0.0,it snowed rained and hailed the same morning,It sewed rained and held the same morning,it snowed rained and hailed the same morning
+551,0.33,0.17,read verse out loud for pleasure,Read first out lot for pleasure,read first out loud for pleasure
+558,0.11,0.0,we can't find a place that will take everything,We get find a place that will take everything,we can't find a place that will take everything
+567,0.0,0.2,the air is always cool,The air is always cool,the hair is always cool
+570,0.0,0.14,i don't think it's quite as green,I don't think it's quite as green,i don't think it's quite as great
+571,0.25,0.0,how large is williams,How large is willens,how large is williams
+575,0.43,0.57,the frosty air passed through the coat,The fendi here bust through the coat,the friend he just threw the coat
+576,0.62,0.25,the crooked maze failed to fool the mouse,The hawken mace field to full the most,the hockey mask failed to fool the mouse
+577,0.17,0.0,adding fast leads to wrong sums,Adding fast leaks to wrong sums,adding fast leads to wrong sums
+579,0.22,0.33,a saw is a tool used for making boards,A saw is a school used for making points,a saw in a school used for making points
+580,0.29,0.14,the wagon moved on well oiled wheels,The walk-in mood on well oiled wheels,the water moved on well oiled wheels
+581,0.29,0.0,march the soldiers past the next hill,Much the soldiers passed the next hill,march the soldiers past the next hill
+582,0.29,0.14,a cup of sugar makes sweet fudge,A cup of city makes sweet fun,a cup of city makes sweet fudge
+584,0.12,0.0,both lost their lives in the raging storm,Both lost their lives' in the raging storm,both lost their lives in the raging storm
+586,0.38,0.12,use a pencil to write the first draft,You a bustle to write the first trap,use a pencil to write the first trap
+587,0.38,0.0,he ran half way to the hardware store,He read have way to the uproar store,he ran half way to the hardware store
+588,0.62,0.5,the clock struck to mark the third period,The look stuck to my the side earring,the look stuck to my the third pairing
+590,0.29,0.0,cars and busses stalled in snow drifts,Cars and bases stalled in snow trips,cars and busses stalled in snow drifts
+591,0.4,0.2,the set of china hit the floor with a crash,The sit of jenner it the floor with a touch,the set of jenner hit the floor with a judge
+595,0.11,0.0,a yacht slid around the point into the bay,A yacht led around the point into the bay,a yacht slid around the point into the bay
+596,0.25,0.0,the two met while playing on the sand,The two meet while laying on the sand,the two met while playing on the sand
+597,0.5,0.0,the ink stain dried on the finished page,The eke seen tried on the minute page,the ink stain dried on the finished page
+598,0.12,0.0,the walled town was seized without a fight,The world town was seized without a fight,the walled town was seized without a fight
+599,0.14,0.0,the lease ran out in sixteen weeks,The lease read out in sixteen weeks,the lease ran out in sixteen weeks
+611,0.14,0.0,since we've been married i've stopped going,Since we've been married of stopped going,since we've been married i've stopped going
+613,0.2,0.0,others said they were disappointed,Others said they were disappoint,others said they were disappointed
+618,0.25,0.0,thank you for participating,Thank you for persist,thank you for participating
+622,0.11,0.0,what should be done to avoid all these problems,What should be done to avoid all this problems,what should be done to avoid all these problems
+654,0.2,0.0,be nice to each other,B. nice to each other,be nice to each other
+663,0.1,0.2,i get less time to be with children these days,I get less time to be with children this days,i get less time to be with children this day
+670,0.22,0.11,i would love to have more of these too,I would love to have more of this to,i would love to have more of these two
+686,0.2,0.4,sports miss companies aren't television,Sports miss companies art television,sports most companies are television
+687,0.4,0.2,drug newspaper you'll report baby,Truck newspaper yule report baby,from newspaper you'll report baby
+689,0.4,0.8,avoid anymore we'd guys oil,Avoid anymore weed guise oil,avoid any more white guys all
+694,0.2,0.0,course girl exactly fan watching,Coarse girl exactly fan watching,course girl exactly fan watching
+696,0.5,0.33,mother testing second easier program number,Mother testing socket easier room one-man number,mother testing circuit easier from program number
+697,0.2,0.4,coming sun york favorite food,Coming son york favorite food,coming soon your favorite food
+699,0.4,0.2,vote month expected fan nursing,Fett month expected fine nursing,vote month expected for nursing
+700,0.0,0.4,thank york catch along set,Thank york catch along set,think york can along set
+701,0.2,0.4,mother team system amount texas,Mother team system amount taxes,other team system amount taxes
+706,0.2,0.0,my baby grew a lot in the first six months,My baby grew a lot in the first sense most,my baby grew a lot in the first six months
+708,0.11,0.0,i know what the deal was in the past,I knew what the deal was in the past,i know what the deal was in the past
+724,0.14,0.0,especially if you are coming this weekend,Expel if you are coming this weekend,especially if you are coming this weekend
+727,0.0,0.17,how much is your card worth,How much is your card worth,how much is your car worth
+731,0.25,0.0,stones with runes on them served as checkpoints,Stones with ruins on them served as temps,stones with runes on them served as checkpoints
+739,0.17,0.0,join us for an upcoming event,Join us for and upcoming event,join us for an upcoming event
+740,0.29,0.0,do you believe in the dallas cowboys,Do you believe in the palace compares,do you believe in the dallas cowboys
+763,0.29,0.0,i often listen to this wonderful music,I i happen listen to this wonderful music,i often listen to this wonderful music
+773,0.17,0.0,let's make a program for kids,Let's make a programme for kids,let's make a program for kids
+782,0.17,0.0,their situation is not as bad,There situation is not as bad,their situation is not as bad
+785,0.22,0.11,this will not matter much in the long run,This will not better as much in the long run,this will not matter as much in the long run
+798,0.14,0.0,i have lived in illinois and dallas,I have lived in illinois in dallas,i have lived in illinois and dallas
+802,0.17,0.0,recycling law depends on your city,Recycle law depends on your city,recycling law depends on your city
+804,0.0,0.17,i bought these new clothes today,I bought these new clothes today,i bought this new clothes today
+819,0.17,0.0,eat your food it's getting cold,It your food it's getting cold,eat your food it's getting cold
+823,0.2,0.0,how many casualties were there,How many cantonese were there,how many casualties were there
+826,0.14,0.0,evening is the best time for reading,Evening is the best time for wedding,evening is the best time for reading
+842,0.0,0.17,that woman will check this fact,That woman will check this fact,that woman will take this fact
+845,0.29,0.0,the joy of an early morning walk,The joy of an early mauri mark,the joy of an early morning walk
+846,0.57,0.14,it is easier to go without food,It is easy to go with out mode,it is easy to go without food
+847,0.14,0.0,my vision does not amount to anything,My vision does not about to anything,my vision does not amount to anything
+849,0.1,0.0,how often do you go for a walk with him,How offen do you go for a walk with him,how often do you go for a walk with him
+850,0.4,0.0,we should turn around and pick her up from school,We should guard and and big or up from school,we should turn around and pick her up from school
+851,0.14,0.29,the car will go north from here,The car will go north the here,the car will go for the here
+852,0.1,0.0,they must think if they can live with this decision,They must think if they can love with this decision,they must think if they can live with this decision
+856,0.3,0.0,can you put the book down for a few minutes,Can you book the book care for a cool minutes,can you put the book down for a few minutes
+859,0.29,0.0,we talked about this the other day,We we talk about this the other day,we talked about this the other day
+862,0.17,0.0,he wanted to walk for miles,He wanted to walk four miles,he wanted to walk for miles
+863,0.17,0.0,please that's enough music for today,Please that's again music for today,please that's enough music for today
+868,0.22,0.11,do you know that i've never seen a monkey,Do you know that have never seen a puppy,do you know that i've never seen a puppy
+870,0.67,0.0,prince of persia,Brings of person,prince of persia
+873,0.2,0.0,if you haven't slowed down,If you haven't cleaned down,if you haven't slowed down
+880,0.43,0.29,wasn't allowed to run a lawn mower,Wasn't allowed to won a loan more,wasn't allowed to run a lot more
+881,0.2,0.0,the coastline was just incredible,The duston was just incredible,the coastline was just incredible
+887,0.0,0.12,i mean i've haven't had it that long,I mean i've haven't had it that long,i mean i haven't had it that long
+890,0.17,0.0,i make my living by phone,I make my living by food,i make my living by phone
+891,0.17,0.0,i'm in charge of raising them,I'm in choice of raising them,i'm in charge of raising them
+897,0.14,0.0,having too much power can be difficult,Having to much power can be difficult,having too much power can be difficult
+903,0.11,0.22,employees should do some field work when they join,Employees should do some field work when the join,employees should do some field work when the sun
+906,0.11,0.0,the old newspaper will have a report on this,The old newspaper will have a rewrite on this,the old newspaper will have a report on this
+912,0.22,0.11,i have been working on this since early morning,I have been working on this since only money,i have been working on this since early monday
+918,0.09,0.0,most of us think we know the story of detroit michigan,Most of us think we know the story of destroyed michigan,most of us think we know the story of detroit michigan
+920,0.12,0.0,they shot him point blank in the face,They shot him point blank in the fish,they shot him point blank in the face
+921,0.14,0.29,these are made with a flour tortilla,These are made with a flour tamil,these are made with a flower material
+929,0.11,0.0,how much time do you spend with your children,How much time to you spend with your children,how much time do you spend with your children
+934,0.14,0.0,wayne state university is in detroit michigan,When state university is in detroit michigan,wayne state university is in detroit michigan
+935,0.2,0.0,it's an invasion of privacy,It's an invasion of policy,it's an invasion of privacy
+936,0.17,0.0,there were no reports of casualties,There were no repairs of casualties,there were no reports of casualties
+938,0.25,0.12,it is impressive in more than just quantity,It is impression in more than just wanton,it is impression in more than just quantity
+942,0.33,0.0,it is like winning the lottery,It is like meaning the litany,it is like winning the lottery
+946,0.4,0.6,the movie is slow burning,The moving is slow money,the moving is so funny
+947,0.1,0.2,we don't listen to any elevator music at my house,We don't listen to any evered music at my house,we don't listen to any of the music at my house
+950,0.2,0.0,you came out on top,You came out on come,you came out on top
+953,0.57,0.43,now some people object during primary debates,Now some people obsessed very perry depends,now some people about their primary depends
+955,0.14,0.0,the recipe doesn't require kneading the dough,The recipe lessons require kneading the dough,the recipe doesn't require kneading the dough
+956,0.29,0.14,they could sell five million of those,They got sell five million of things,they could sell five million of things
+957,0.25,0.0,the ranch dressing goes along well with that,The rich dressing was along well with that,the ranch dressing goes along well with that
+961,0.14,0.0,the full decision statement is available here,The full decision summon is available here,the full decision statement is available here
+962,0.57,0.0,especially with butter and honey on them,Expel with putter at any on them,especially with butter and honey on them
+963,0.12,0.0,i'm interested in having it in my office,I'm interested in having it it my office,i'm interested in having it in my office
+970,0.2,0.0,i miss the intellectual stimulation of taking classes in college,I miss the interracial chilblain of taking classes in college,i miss the intellectual stimulation of taking classes in college
+979,0.22,0.11,my favorite author just released a brand new book,My favorite other just resist a brand new book,my favorite other just released a brand new book
+987,0.1,0.0,she will be a sophomore in high school next year,She will be a summer in high school next year,she will be a sophomore in high school next year
+989,0.89,0.78,you have a choice of which car to buy,U is just what saw to be,you is just what for to be
+990,0.2,0.0,my real concern is this,My real accent is this,my real concern is this
+991,0.4,0.0,it's been kind of scary,It's been set of story,it's been kind of scary
+992,0.43,0.14,they would have never picked it out,They would had never packed it it,they would have never picked it up
+993,0.56,0.0,that is why they're kind of behind on work,That is why their kite is behind out wake,that is why they're kind of behind on work
+996,0.67,0.0,i couldn't understand,I wouldn't intercede,i couldn't understand
+997,0.33,0.0,i just want to enjoy myself a little bit,I just what to enjoy mrs a lot bit,i just want to enjoy myself a little bit
+999,0.62,0.25,it costs ten or twenty dollars per ounce,It costs gay or letting dallas boo s,it costs ten or twenty dollars to s
+1000,0.29,0.0,of course it's real convenient for you,Of nice it's real oven for you,of course it's real convenient for you
+1002,0.29,0.14,and my insurance is about to expire,At my rinse is about to expire,my insurance is about to expire
+1003,0.4,0.3,i sew clothes for them every once in a while,I so close for them every works in a will,so close for them every once in a while
+1004,0.29,0.43,we were interested in the local schools,We were listing in the long schools,we were sitting in the long school
+1005,0.4,0.0,he won a free trip or something along those lines,He won a free drape or something ring this large,he won a free trip or something along those lines
+1006,0.75,0.5,the sport looks fun until you're playing it,The rate looks fine unto ya'll,the paint looks fine until you fill it
+1008,0.43,0.14,i still like the new york giants,I still like the do your stations,i still like the new york station
+1009,0.5,0.83,i studied environmental engineering in college,I stated violator generic in college,i tied for a better generic in college
+1012,0.92,0.58,have you seen that one about survivors in the amazon rain forest,I've set what befalls the puzzle me very,have you said what about surviving the amazon may vary
+1020,0.11,0.0,fill the jar to the top with boiling water,Fell the jar to the top with boiling water,fill the jar to the top with boiling water
+1030,0.38,0.0,professors from other universities will present their research,Professions from other universities will percent their reasons,professors from other universities will present their research
+1038,0.86,0.57,occasionally the conversation turns into an argument,Casually the devastation takes into a it automate,occasionally the conversation takes to a an element
+1040,0.3,0.1,a guy that i know just got a job there,A guy that a new just got a time there,a guy that i know just got a time there
+1041,0.17,0.0,i hope you all enjoy this,I hope you all annoy this,i hope you all enjoy this
+1042,0.17,0.0,where i go to church now,Where i go to change now,where i go to church now
+1045,0.14,0.0,she'll be two years old in july,She'll be two years old in colour,she'll be two years old in july
+1046,0.14,0.0,i filed my taxes early this year,I filed my taxes only this year,i filed my taxes early this year
+1059,0.11,0.0,i guess because we don't go out that much,I guess because we don't care out that much,i guess because we don't go out that much
+1060,0.1,0.0,the day care accepted infants starting at six weeks old,The day care excepted infants starting at six weeks old,the day care accepted infants starting at six weeks old
+1061,0.33,0.0,an absolute certainty,An excellent certainty,an absolute certainty
+1074,0.25,0.0,it's really hard to,It's really how to,it's really hard to
+1077,0.14,0.0,if it's run by the individual state,If it's run by the initial state,if it's run by the individual state
+1078,0.1,0.0,and so you know and it's his choice to make,And so you know and it's his choice to me,and so you know and it's his choice to make
+1082,0.17,0.0,i have to be real careful,I have to be real duffel,i have to be real careful
+1092,0.14,0.0,it's kind of like drawing this line,It's kind of like trying this line,it's kind of like drawing this line
+1094,0.17,0.0,which one is the tourist area,Which one is the current area,which one is the tourist area
+1095,0.17,0.0,i was raised in new york,I was raised in new north,i was raised in new york
+1098,0.4,0.2,they needed a smaller setting,They didn't a smaller stating,they didn't a smaller setting
+1102,0.17,0.0,like building a house or anything,Like building a half or anything,like building a house or anything
+1103,0.2,0.0,take a lot of chances,Take a lot of texas,take a lot of chances
+1105,0.4,0.0,it's up by green bay,It's up by rude by,it's up by green bay
+1107,0.12,0.0,i make a lot of my christmas presents,I make a lot of my christmas versions,i make a lot of my christmas presents
+1111,0.14,0.0,that decision is expected early next week,That decision is imported early next week,that decision is expected early next week
+1112,0.2,0.1,my brother is five years younger than my sister is,My pretty is five words younger than my sister is,my printer is five years younger than my sister is
+1113,0.33,0.0,it is fine,It is find,it is fine
+1115,0.3,0.1,he scored better than we did on the final exam,He card better that we did on the final excel,he scored better than we did on the final set
+1117,0.2,0.0,yeah i really mean that,There i really mean that,yeah i really mean that
+1118,0.25,0.12,he's been a legend for so many years,He's been a listed for so many shows,he's been a listed for so many years
+1122,0.5,0.67,i was accused of selling drugs,I was ascend of silly dogs,i was a kind of silly dogs
+1126,0.2,0.0,i went back home tonight,I went back up tonight,i went back home tonight
+1128,0.33,0.11,i try not to use insecticides on my lawn,I try did to u's insidious on my lawn,i try not to use insecticide on my lawn
+1131,0.17,0.08,after graduation the students will go on to a variety of colleges,After kinnamon the tutors will go on to a variety of colleges,after consummation the students will go on to a variety of colleges
+1132,0.2,0.4,it's still in great shape,It's still in great same,it's still a great same
+1133,0.3,0.0,the military has a strong presence in the persian gulf,The military has a strong presses in the person call,the military has a strong presence in the persian gulf
+1134,0.33,0.22,that is cheap compared to what i usually buy,That is seem compared to what i deciliter,that is tame compared to what i personally buy
+1138,0.5,0.0,were you calling me from texas,Were u going be from texas,were you calling me from texas
+1140,0.22,0.11,we went to go see the godfather part three,We went to do see the devil part three,we went to go see the devil part three
+1143,0.17,0.0,give a voice to the voiceless,Give a voice to the wrestlers,give a voice to the voiceless
+1144,0.1,0.0,there has been a change in the price of oil,There has been a change in the choice of oil,there has been a change in the price of oil
+1150,0.14,0.0,i was arrested for something really minor,I was arrested for something really marter,i was arrested for something really minor
+1151,0.08,0.0,he's going to be traveling to europe with a group of friends,He's going to be traveling to europe with a group of fans,he's going to be traveling to europe with a group of friends
+1153,0.12,0.0,the event was really oriented toward little kids,The event was really origin toward little kids,the event was really oriented toward little kids
+1154,0.38,0.0,they fell out because of his drug addiction,They fell out because of is drag incision,they fell out because of his drug addiction
+1155,0.17,0.0,nobody remembers him as a loser,Dougherty remembers him as a loser,nobody remembers him as a loser
+1165,0.12,0.0,but they're planning on doing it very soon,But there planning on doing it very soon,but they're planning on doing it very soon
+1166,0.11,0.0,you live right across the street from my daughter,You live right across the grate from my daughter,you live right across the street from my daughter
+1177,0.11,0.0,it is important for women who need to work,It is imported for women who need to work,it is important for women who need to work
+1184,0.22,0.0,and i think he's as guilty as the devil,And i think he's as county as the devore,and i think he's as guilty as the devil
+1191,0.09,0.0,so imagine all of his lines being spoken in that voice,So badgett all of his lines being spoken in that voice,so imagine all of his lines being spoken in that voice
+1203,0.2,0.0,i can understand their viewpoint,I can entertained their viewpoint,i can understand their viewpoint
+1211,0.17,0.0,i have to be real careful,I have to be here careful,i have to be real careful
+1213,0.5,0.0,my husband travels frequently,My anson travels wikel,my husband travels frequently
+1218,0.2,0.0,his story is not unusual,His jury is not unusual,his story is not unusual
+1220,0.17,0.0,i had found an entry point,I had found and entry point,i had found an entry point
+1223,0.2,0.0,business as usual for traders,Basis as usual for traders,business as usual for traders
+1224,0.17,0.0,they gave us a special deal,They gave us a basal deal,they gave us a special deal
+1227,0.0,0.11,he kept his tone light and casual but firm,He kept his tone light and casual but firm,he kept his tone light and casual but from
+1230,0.25,0.0,a fairly good amount,A family good amount,a fairly good amount
+1238,0.5,0.0,public relations,Public rentas,public relations
+1239,0.11,0.0,it's real easy to swing in there for breakfast,It's we're easy to swing in there for breakfast,it's real easy to swing in there for breakfast
+1246,0.4,0.6,satan rejoiced with his birth,Scented rewards with his birth,set a record with his birth
+1251,0.11,0.0,i would reconsider where i was buying it from,I would wintersteen where i was buying it from,i would reconsider where i was buying it from
+1252,0.25,0.0,it was written at a third grade level,It was rented at a third when level,it was written at a third grade level
+1253,0.25,0.12,they're doing a lot of good research here,They're doing a lot of dead runners here,they're doing a lot of good reasons here
+1254,0.2,0.0,if it does the job,If it does the time,if it does the job
+1255,0.2,0.0,do you like to travel,Do you like to devil,do you like to travel
+1261,0.11,0.0,why is this such an unusual thing to do,Why is this such an occasional thing to do,why is this such an unusual thing to do
+1263,0.4,0.3,we have a dog too so that adds to it,We have a dog to so not add to in,we have a dog too so not as to in
+1265,0.29,0.43,my husband is real into sports too,My husband is real into voice to,my husband is really into voice to
+1268,0.43,0.0,cars have come down in price significantly,Cause of come down in price,cars have come down in price significantly
+1270,0.15,0.08,i kind of wish that they had a little league for the boys,I kind of wish that they had a little lick for the oars,i kind of wish that they had a little look for the boys
+1271,0.44,0.33,and that is the best book to go through,And not is the must be to log through,and not is the best way to learn through
+1272,0.29,0.14,it's nice to have a pet dog,It's not to have a bad dog,it's nice to have a bad dog
+1273,0.11,0.0,that's one good thing about having a cat though,That's one good thing about ever a cat though,that's one good thing about having a cat though
+1274,0.57,0.14,the rich people started leaving the city,The rest people cited living the date,the right people started leaving the city
+1275,0.25,0.12,he went over all that with his doctors,He won over all that with his dancers,he went over all that with his dancers
+1280,0.2,0.0,but it didn't get the upper part of my body,But it didn't get the hopper part of my betty,but it didn't get the upper part of my body
+1289,0.12,0.0,some of the students are failing the class,Some of the students are filing the class,some of the students are failing the class
+1296,0.12,0.0,i wouldn't want them to be on drugs,I wouldn't what them to be on drugs,i wouldn't want them to be on drugs
+1301,0.11,0.0,i wouldn't say it's as bad as new york,I wouldn't say it's as bad as new you,i wouldn't say it's as bad as new york
+1309,0.12,0.0,but do you think bill gates should resign,But do you think pell gates should resign,but do you think bill gates should resign
+1312,0.33,0.0,i'm getting a gut feeling here,I'm getting a got filly here,i'm getting a gut feeling here
+1314,0.5,0.33,while it's healing take it easy,Well its early take it easy,well it's only take it easy
+1315,0.4,0.0,so that's got everybody excited,So that's got verbally incited,so that's got everybody excited
+1316,0.29,0.0,didn't mean to cut you off there,Didn't mean to get you off their,didn't mean to cut you off there
+1319,0.11,0.0,it's actually the first car we ever bought new,It's actually the first car we ever bought you,it's actually the first car we ever bought new
+1320,0.22,0.0,keeping things concise is usually the way to go,Couple things countries is usually the way to go,keeping things concise is usually the way to go
+1323,1.0,0.86,i hope everything works out up there,A it easing news in on their,if anything goes on in there
+1324,0.83,0.67,are you pleased with this decision,If you leave this is incision,he leaves with his decision
+1327,0.67,0.44,in other words there is a choice to make,It other works the is joy to fake,in other words the is going to work
+1328,0.67,0.33,that does not seem quite fair,That does a c pin sure,that does not seem paid for
+1330,0.22,0.0,fill the jar to the top with boiling water,File the jog to the top with boiling water,fill the jar to the top with boiling water
+1332,1.0,0.0,not too long ago,My two lacock,not too long ago
+1333,0.38,0.12,she has had really good luck this year,She is out platy good luck this year,she has had pretty good luck this year
+1334,0.5,0.0,i went back to school and got my master's degree,I went back to store it can my mrs agree,i went back to school and got my master's degree
+1335,0.43,0.0,i hope everything works out up there,I hope other ing work out up there,i hope everything works out up there
+1338,0.25,0.0,it is totally ridiculous,It is totally delicious,it is totally ridiculous
+1339,0.33,0.22,in other words there is a choice to make,It other words there is a price to pay,in other words there is a price to pay
+1340,0.5,0.0,that does not seem quite fair,That does that same one fair,that does not seem quite fair
+1341,0.33,1.0,that is horrible,That is orator,that is quite a bit
+1342,0.56,0.44,fill the jar to the top with boiling water,File they try to the time with blowing water,while they try to the time with boiling water
+1345,0.25,0.38,she has had really good luck this year,She of had pretty good luck this year,we have had pretty good luck this year
+1346,0.4,0.0,i went back to school and got my master's degree,I went back to store i got my wesson decay,i went back to school and got my master's degree
+1348,0.22,0.0,college credit for community service is a good idea,Knowledge readied for community service is a good idea,college credit for community service is a good idea
+1349,0.25,0.0,ethical and religious views on need and pleasure,Lexical and religious feels on need and pleasure,ethical and religious views on need and pleasure
+1350,0.11,0.0,the past few weeks are a case in point,The best few weeks are a case in point,the past few weeks are a case in point
+1351,0.2,0.0,the government offers financial services,The condiment offers financial services,the government offers financial services
+1352,0.09,0.0,mix some cream sauce with it and pour it over rice,Mix some cream sauce with it and boil it over rice,mix some cream sauce with it and pour it over rice
+1353,0.5,0.0,people are dropping out of school,Mabel are camping out of your,people are dropping out of school
+1362,0.12,0.0,do you have any friends with older children,Do you have any fans with older children,do you have any friends with older children
+1365,0.38,0.0,the first demonstration of a touch screen display,The first dimension of a chart when display,the first demonstration of a touch screen display
+1366,0.2,0.0,not in a civilized society,Not in a civilize society,not in a civilized society
+1370,0.11,0.0,not with all the other things going on today,Not with all the other things going on day,not with all the other things going on today
+1373,0.14,0.0,so do you like your new truck,So do you like your new drunk,so do you like your new truck
+1376,0.12,0.0,i think there's about seventy five people here,I think there's about seventy five beetle here,i think there's about seventy five people here
+1377,0.14,0.0,whatever they tell you is a lie,Whatever they dug you is a lie,whatever they tell you is a lie
+1378,0.5,0.75,they can't do as good of a job,They can't to an to of a game,they get to have two of them
+1379,0.5,0.0,it's a nice place,It's a day's plays,it's a nice place
+1380,0.6,0.0,everybody is sitting here screaming,Everybody is set hear something,everybody is sitting here screaming
+1381,0.5,0.12,i just can't do those types of puzzles,I just can do those tapped the bass's,i just can't do those types of bases
+1382,0.45,0.55,if their skirts are above the knee they are too short,If there cars are appeal the me they are too right,if their kids are up to the mean they are to write
+1383,0.62,0.0,how long have you lived in this house,I long of you lied been this off,how long have you lived in this house
+1384,0.67,0.5,especially if he's a repeat offender,Kenneally of is a pretty offender,essentially it is a repeat offender
+1386,0.6,0.2,some new types of furniture,Some new tax are manager,some new piece of furniture
+1389,0.62,0.75,how is your boss at your new job,R is so bad at your move from,ar is so bad that your move from
+1390,0.25,0.12,which is probably about what their equity is,With is probably about what their apennine is,which is probably about what their company is
+1391,0.33,0.0,my father is the man in the corduroy jacket,My something is the man in the garter bogen,my father is the man in the corduroy jacket
+1394,0.25,0.0,it's a personal decision,It's a passel decision,it's a personal decision
+1396,0.25,0.0,keep it clean please,Keep it clean place,keep it clean please
+1397,0.2,0.1,i think it's good that you see your cousins frequently,I think it's said that you see your cousins readily,i think it's good that you see your cousins regularly
+1398,0.1,0.0,about how many calls have you made on this system,About how many calls of you made on this system,about how many calls have you made on this system
+1401,0.25,0.0,i'd like to see silence of the lambs,I'd like to see talents of the knives,i'd like to see silence of the lambs
+1404,0.33,0.0,just forty miles north of here,Just funny files north of here,just forty miles north of here
+1407,0.2,0.4,losers all the way around,Listens all the way around,this is all the way around
+1409,0.33,0.22,i want them to come back up next year,I would them to come book up this year,i would them to come back up this year
+1410,0.25,0.0,you don't understand this,You did understand this,you don't understand this
+1412,0.29,0.0,this is an invasion of privacy issue,This is an efficient of primacy issue,this is an invasion of privacy issue
+1415,0.29,0.14,the only other place i've ever vacationed,The only other place have ever physician,the only other place i've ever vacation
+1416,0.33,0.17,but they have snakes over there,But they have six over their,but they have six over there
+1417,0.38,0.12,they had snacks and story time and everything,They had scots and tory time and oppressor,they had sex and story time and everything
+1419,0.43,0.29,not just with the visit to pittsburgh,Don't just with the pressing to pencil,not just with the pressing to pixel
+1420,0.67,0.33,there's no deductions,There's all tonnages,there's no tension
+1421,0.25,0.0,what if you were in your kid's shoes,What if you were in your kids knees,what if you were in your kid's shoes
+1422,0.29,0.0,i don't know if you've tried it,I don't know if you'd try it,i don't know if you've tried it
+1423,0.67,0.33,barometric pressure drops during a tornado,Parametric pressure cracks doing a carnage,barometric pressure drops during the morning
+1424,0.43,0.0,cover him up and keep him warm,Fever him up and came in warm,cover him up and keep him warm
