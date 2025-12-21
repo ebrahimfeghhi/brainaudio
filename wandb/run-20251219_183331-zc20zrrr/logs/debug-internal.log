@@ -1,0 +1,12 @@
+{"time":"2025-12-19T18:33:31.670112574-08:00","level":"INFO","msg":"stream: starting","core version":"0.22.1"}
+{"time":"2025-12-19T18:33:31.842371423-08:00","level":"INFO","msg":"stream: created new stream","id":"zc20zrrr"}
+{"time":"2025-12-19T18:33:31.84247044-08:00","level":"INFO","msg":"stream: started","id":"zc20zrrr"}
+{"time":"2025-12-19T18:33:31.842473696-08:00","level":"INFO","msg":"handler: started","stream_id":"zc20zrrr"}
+{"time":"2025-12-19T18:33:31.842493693-08:00","level":"INFO","msg":"writer: started","stream_id":"zc20zrrr"}
+{"time":"2025-12-19T18:33:31.842501779-08:00","level":"INFO","msg":"sender: started","stream_id":"zc20zrrr"}
+{"time":"2025-12-19T18:36:38.953239236-08:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading artifact run-zc20zrrr-predictions_vs_ground_truth","runtime_seconds":0.335709982},{"desc":"uploading media/table/predictions_vs_ground_truth_2_09032f98b8101b6e79d4.table.json","runtime_seconds":0.038760392,"progress":"7.2KB/7.2KB"},{"desc":"updating run metadata","runtime_seconds":0.000777825}],"total_operations":3}}
+{"time":"2025-12-19T18:36:39.97260725-08:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-12-19T18:36:40.204313489-08:00","level":"INFO","msg":"stream: closing","id":"zc20zrrr"}
+{"time":"2025-12-19T18:36:40.204320011-08:00","level":"INFO","msg":"handler: closed","stream_id":"zc20zrrr"}
+{"time":"2025-12-19T18:36:40.204352011-08:00","level":"INFO","msg":"sender: closed","stream_id":"zc20zrrr"}
+{"time":"2025-12-19T18:36:40.204354977-08:00","level":"INFO","msg":"stream: closed","id":"zc20zrrr"}

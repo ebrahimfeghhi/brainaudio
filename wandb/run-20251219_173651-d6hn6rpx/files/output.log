@@ -1,0 +1,25 @@
+Loading resources on cuda:1...
+`torch_dtype` is deprecated! Use `dtype` instead!
+Loading checkpoint shards: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 2/2 [00:02<00:00,  1.09s/it]
+[INFO] Loaded google/gemma-3-4b-pt in 4-bit quantization on cuda:1
+
+=== Starting Decode Loop: Trials 0 to 1 ===
+[INFO] Decoding from start-trial-idx=0 to end-trial-idx=1
+Trial   0 | 4584.1ms | Score: -33.50
+  GT:   you can see the code at this point as well
+  Best: You can see the code at this point as well
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-33.4956
+       H0: lm=-24.6406 | You can see the code at this point as well
+  #01 | beam_score=-38.1367
+       H0: lm=-30.3828 | You can see the code at this part as well
+       H1: lm=-39.7500 | You can see the code at this parte as well
+  #02 | beam_score=-38.4485
+       H0: lm=-32.4688 | You can see the cold at this point as well
+------------------------------------------------------------
+
+=== Final Results Summary ===
+Processed 1 trials in 4.97s
+Beam size: 100, Homophone beams: 2, Prune threshold: 10.0
+
+Aggregate WER: 0.0000

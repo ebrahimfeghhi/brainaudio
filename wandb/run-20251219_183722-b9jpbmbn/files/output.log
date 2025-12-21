@@ -1,0 +1,1004 @@
+Loading resources on cuda:1...
+`torch_dtype` is deprecated! Use `dtype` instead!
+[INFO] Loaded google/gemma-3-270m (full precision) on cuda:1
+
+=== Starting Decode Loop: Trials 0 to 100 ===
+[INFO] Decoding from start-trial-idx=0 to end-trial-idx=100
+Trial   0 | 3076.3ms | Score: -85.31
+  GT:   you can see the code at this point as well
+  Best: You can see the old at this point as well
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-85.3103
+       H0: lm=-75.7762 | You can see the old at this point as well
+       H1: lm=-78.5367 | U can see the old at this point as well
+  #01 | beam_score=-86.0371
+       H0: lm=-77.1820 | You can see the code at this point as well
+       H1: lm=-79.2530 | U can see the code at this point as well
+  #02 | beam_score=-87.6755
+       H0: lm=-81.6957 | You can see the cold at this point as well
+       H1: lm=-84.8000 | U can see the cold at this point as well
+------------------------------------------------------------
+Trial   1 | 1224.9ms | Score: -78.84
+  GT:   how does it keep the cost down
+  Best: How does it keep the cost down
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-78.8395
+       H0: lm=-64.3321 | How does it keep the cost down
+  #01 | beam_score=-82.2899
+       H0: lm=-67.6266 | How does it keep the cost in
+       H1: lm=-71.8103 | How does it keep the cost in.
+  #02 | beam_score=-83.6163
+       H0: lm=-76.8005 | How does it keep the cost tin
+------------------------------------------------------------
+Trial   2 | 569.2ms | Score: -55.42
+  GT:   not too controversial
+  Best: Not too commercial
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-55.4208
+       H0: lm=-42.7626 | Not too commercial
+       H1: lm=-44.1756 | Not to commercial
+  #01 | beam_score=-73.3686
+       H0: lm=-45.4263 | Not too commercially
+       H1: lm=-47.1037 | Not to commercially
+------------------------------------------------------------
+Trial   3 | 1374.0ms | Score: -89.81
+  GT:   the jury and a judge work together on it
+  Best: The jury in a judge work together on it
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-89.8083
+       H0: lm=-89.2299 | The jury in a judge work together on it
+       H1: lm=-98.0520 | The jury in a judge werk together on it
+  #01 | beam_score=-99.6030
+       H0: lm=-87.0033 | The jury in the judge work together on it
+       H1: lm=-95.1736 | The jury in the judge werk together on it
+  #02 | beam_score=-101.0079
+       H0: lm=-96.1667 | The jury in a judge walk together on it
+       H1: lm=-97.1096 | The jury in a judge walke together on it
+------------------------------------------------------------
+Trial   4 | 800.3ms | Score: -74.56
+  GT:   were quite vocal about it
+  Best: Were quite vocal about it
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-74.5590
+       H0: lm=-65.8953 | Were quite vocal about it
+  #01 | beam_score=-76.0720
+       H0: lm=-75.8833 | Were quite focal about it
+  #02 | beam_score=-81.0414
+       H0: lm=-72.7390 | Wee quite focal about it
+       H1: lm=-75.8837 | We quite focal about it
+------------------------------------------------------------
+Trial   5 | 1662.2ms | Score: -99.58
+  GT:   he said the decision to part ways was mutual
+  Best: He said the decision to part ways was mutual
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-99.5819
+       H0: lm=-88.8187 | He said the decision to part ways was mutual
+  #01 | beam_score=-104.8914
+       H0: lm=-93.4088 | He said the decision to part ways was usual
+  #02 | beam_score=-109.0170
+       H0: lm=-99.1236 | He said the decision to part raise was mutual
+       H1: lm=-106.1769 | He said the decision to parte raise was mutual
+------------------------------------------------------------
+Trial   6 | 1259.9ms | Score: -75.70
+  GT:   in fact this morning when they were talking
+  Best: In fact this morning when they were talking
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-75.6987
+       H0: lm=-73.3186 | In fact this morning when they were talking
+  #01 | beam_score=-79.8961
+       H0: lm=-71.5863 | In fact this morning when they were taking
+  #02 | beam_score=-88.0804
+       H0: lm=-83.5050 | In fact this warning when they were talking
+------------------------------------------------------------
+Trial   7 | 817.1ms | Score: -85.17
+  GT:   this is like a cruelty joke
+  Best: This is like a coralie drug
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-85.1696
+       H0: lm=-72.0084 | This is like a coralie drug
+  #01 | beam_score=-87.0313
+       H0: lm=-66.3942 | This is like a parity drug
+  #02 | beam_score=-87.8046
+       H0: lm=-47.2690 | This is like a parity
+------------------------------------------------------------
+Trial   8 | 977.0ms | Score: -73.48
+  GT:   has such a high clay content
+  Best: As such a high clay content
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-73.4804
+       H0: lm=-67.1904 | As such a high clay content
+       H1: lm=-77.0495 | As such a high kley content
+  #01 | beam_score=-76.7818
+       H0: lm=-69.2434 | Has such a high clay content
+  #02 | beam_score=-80.0046
+       H0: lm=-69.0928 | As such a high click content
+------------------------------------------------------------
+Trial   9 | 564.3ms | Score: -57.04
+  GT:   woodworking mastery
+  Best: When working mastery
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-57.0424
+       H0: lm=-44.2286 | When working mastery
+  #01 | beam_score=-57.6507
+       H0: lm=-49.0084 | Wood working mastery
+       H1: lm=-52.7212 | Would working mastery
+  #02 | beam_score=-60.4165
+       H0: lm=-56.7559 | Wed working mastery
+       H1: lm=-60.5623 | Wedd working mastery
+------------------------------------------------------------
+Trial  10 | 2242.0ms | Score: -89.75
+  GT:   wait a minute we know this thing isn't
+  Best: Wait a minute we know this thing isn't
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-89.7458
+       H0: lm=-82.0984 | Wait a minute we know this thing isn't
+       H1: lm=-88.0867 | Weight a minute we know this thing isn't
+  #01 | beam_score=-90.1428
+       H0: lm=-89.9530 | Wet a minute we know this thing isn't
+       H1: lm=-94.6988 | Whet a minute we know this thing isn't
+  #02 | beam_score=-91.3130
+       H0: lm=-86.8120 | What a minute we know this thing isn't
+       H1: lm=-92.4983 | What a minute wee no this thing isn't
+------------------------------------------------------------
+Trial  11 | 1131.1ms | Score: -72.41
+  GT:   up in new england where i'm from
+  Best: Up in new england where i'm from
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-72.4136
+       H0: lm=-68.6102 | Up in new england where i'm from
+       H1: lm=-73.6917 | Up inn new england where i'm from
+  #01 | beam_score=-87.7111
+       H0: lm=-72.0812 | Epp in new england where i'm from
+       H1: lm=-80.3712 | Epp in new england wear i'm from
+  #02 | beam_score=-89.5734
+       H0: lm=-83.2212 | Up inn no england where i'm from
+       H1: lm=-83.9724 | Up in no england where i'm from
+------------------------------------------------------------
+Trial  12 | 1254.7ms | Score: -65.87
+  GT:   one thing or the other
+  Best: Would thing or the other
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-65.8741
+       H0: lm=-57.2344 | Would thing or the other
+       H1: lm=-63.6157 | Would thing ore the other
+  #01 | beam_score=-65.9484
+       H0: lm=-53.7949 | One thing or the other
+       H1: lm=-62.1120 | One thing oar the other
+  #02 | beam_score=-66.4222
+       H0: lm=-52.1659 | I'd think or the other
+       H1: lm=-57.0819 | I'd think ore the other
+------------------------------------------------------------
+Trial  13 | 1333.8ms | Score: -79.69
+  GT:   he's one of the big proponents of that
+  Best: He's one of the big proponents of that
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-79.6854
+       H0: lm=-70.0161 | He's one of the big proponents of that
+  #01 | beam_score=-86.9464
+       H0: lm=-76.1395 | He's on of the big proponents of that
+       H1: lm=-81.7901 | Heese on of the big proponents of that
+  #02 | beam_score=-87.4934
+       H0: lm=-71.8781 | She's one of the big proponents of that
+------------------------------------------------------------
+Trial  14 | 805.2ms | Score: -60.82
+  GT:   i have not gone back lately
+  Best: I have not gone back lately
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-60.8240
+       H0: lm=-60.4087 | I have not gone back lately
+  #01 | beam_score=-73.2740
+       H0: lm=-61.3399 | I have not gone back lightly
+  #02 | beam_score=-77.7203
+       H0: lm=-71.8932 | I have not gone bagg lately
+       H1: lm=-72.6670 | I have not gone bag lately
+------------------------------------------------------------
+Trial  15 | 809.9ms | Score: -52.27
+  GT:   to me it's a treasure
+  Best: To me it's a treasure
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-52.2713
+       H0: lm=-48.8245 | To me it's a treasure
+       H1: lm=-50.5937 | To me its a treasure
+  #01 | beam_score=-64.3167
+       H0: lm=-57.4994 | To me it's a frasier
+       H1: lm=-57.9250 | To me its a frasier
+  #02 | beam_score=-69.4759
+       H0: lm=-55.1807 | To me it's a fresher
+       H1: lm=-56.4278 | To me its a fresher
+------------------------------------------------------------
+Trial  16 | 1706.5ms | Score: -113.53
+  GT:   he is also a member of the royal irish academy
+  Best: He is also a member of the roar hours academy
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-113.5306
+       H0: lm=-97.2665 | He is also a member of the roar hours academy
+       H1: lm=-99.7766 | He is also a member of the roar ours academy
+  #01 | beam_score=-115.4207
+       H0: lm=-95.2378 | He is also a member of the rural hours academy
+       H1: lm=-99.7748 | He is also a member of the rural ours academy
+  #02 | beam_score=-116.1569
+       H0: lm=-95.9280 | He is also a member of the roar our academy
+       H1: lm=-97.2324 | He is also a member of the roar hour academy
+------------------------------------------------------------
+Trial  17 | 1277.2ms | Score: -82.63
+  GT:   i guess i like to take care of it
+  Best: I guess i like to take care of it
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-82.6279
+       H0: lm=-82.6273 | I guess i like to take care of it
+------------------------------------------------------------
+Trial  18 | 835.6ms | Score: -69.20
+  GT:   put that back in the saucepan
+  Best: Put that back in the saucepan
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-69.1956
+       H0: lm=-59.6023 | Put that back in the saucepan
+  #01 | beam_score=-75.7725
+       H0: lm=-67.0790 | Put that back in the sustain
+  #02 | beam_score=-77.9809
+       H0: lm=-68.4706 | Put that bag in the saucepan
+------------------------------------------------------------
+Trial  19 | 478.3ms | Score: -52.14
+  GT:   he does the yard
+  Best: He does the yard
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-52.1351
+       H0: lm=-49.0925 | He does the yard
+       H1: lm=-56.8201 | He does the yarde
+  #01 | beam_score=-54.5483
+       H0: lm=-43.7648 | He does the year
+  #02 | beam_score=-56.4951
+       H0: lm=-47.4116 | He does the your
+       H1: lm=-52.3688 | He does the yore
+------------------------------------------------------------
+Trial  20 | 1106.4ms | Score: -89.47
+  GT:   you just really can't tell what's going to happen
+  Best: You just really can't tell what's going to happen
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-89.4655
+       H0: lm=-89.4650 | You just really can't tell what's going to happen
+       H1: lm=-94.6530 | You just really cant tell what's going to happen
+------------------------------------------------------------
+Trial  21 | 971.3ms | Score: -74.90
+  GT:   and who is in charge of making that decision
+  Best: And who is in charge of making that decision
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-74.8981
+       H0: lm=-74.8809 | And who is in charge of making that decision
+------------------------------------------------------------
+Trial  22 | 1129.4ms | Score: -67.47
+  GT:   not for the job i have now
+  Best: Knot for the job i have now
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-67.4652
+       H0: lm=-67.4645 | Knot for the job i have now
+       H1: lm=-76.1397 | Knot for the job eye have now
+  #01 | beam_score=-74.7525
+       H0: lm=-63.0525 | Got for the job i have now
+       H1: lm=-73.0158 | Got for the job i. have now
+  #02 | beam_score=-75.7695
+       H0: lm=-61.3769 | Neat for the job i have now
+------------------------------------------------------------
+Trial  23 | 759.5ms | Score: -66.11
+  GT:   it's really not too difficult
+  Best: It's really not to typical
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-66.1051
+       H0: lm=-55.9287 | It's really not to typical
+       H1: lm=-56.4425 | It's really not too typical
+  #01 | beam_score=-70.5116
+       H0: lm=-48.2105 | It's really not too difficult
+       H1: lm=-51.6277 | It's really not to difficult
+  #02 | beam_score=-75.5338
+       H0: lm=-58.1948 | It's really not to physical
+       H1: lm=-58.5454 | It's really not too physical
+------------------------------------------------------------
+Trial  24 | 482.4ms | Score: -61.73
+  GT:   collisions should never happen
+  Best: Collisions should never happen
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-61.7294
+       H0: lm=-59.0136 | Collisions should never happen
+  #01 | beam_score=-65.4211
+       H0: lm=-55.7362 | Collision should never happen
+------------------------------------------------------------
+Trial  25 | 463.9ms | Score: -43.71
+  GT:   i'm trying to think
+  Best: I'm trying to think
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-43.7081
+       H0: lm=-39.8760 | I'm trying to think
+       H1: lm=-48.8616 | I'm trying two think
+  #01 | beam_score=-44.3562
+       H0: lm=-44.0232 | I'm trying to thing
+       H1: lm=-44.6688 | I'm trying two thing
+  #02 | beam_score=-54.8818
+       H0: lm=-39.1563 | I'm trying to thank
+------------------------------------------------------------
+Trial  26 | 367.2ms | Score: -53.37
+  GT:   employee controller
+  Best: Employee attorney
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-53.3692
+       H0: lm=-34.2431 | Employee attorney
+  #01 | beam_score=-53.9736
+       H0: lm=-35.1491 | Employee control
+  #02 | beam_score=-58.0020
+       H0: lm=-39.7563 | Employee controller
+------------------------------------------------------------
+Trial  27 | 1002.3ms | Score: -61.50
+  GT:   bacon and all that good stuff
+  Best: Bacon and all that good stuff
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-61.5033
+       H0: lm=-60.7404 | Bacon and all that good stuff
+  #01 | beam_score=-69.1846
+       H0: lm=-63.9937 | Macon and all that good stuff
+  #02 | beam_score=-73.1334
+       H0: lm=-64.7372 | Makin' and all that good stuff
+------------------------------------------------------------
+Trial  28 | 512.3ms | Score: -38.85
+  GT:   if you look back
+  Best: If you look back
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-38.8476
+       H0: lm=-38.8473 | If you look back
+       H1: lm=-44.5345 | If u look back
+  #01 | beam_score=-53.3699
+       H0: lm=-41.0117 | If you like back
+       H1: lm=-44.7086 | If u like back
+------------------------------------------------------------
+Trial  29 | 1197.3ms | Score: -84.36
+  GT:   and it also helps when they were winning
+  Best: And it also helps when they were running
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-84.3628
+       H0: lm=-79.3679 | And it also helps when they were running
+  #01 | beam_score=-93.2458
+       H0: lm=-83.2820 | And it also 's when they were running
+       H1: lm=-84.6126 | And it also s when they were running
+  #02 | beam_score=-94.1943
+       H0: lm=-71.5160 | And it also helps when they were
+------------------------------------------------------------
+Trial  30 | 4106.7ms | Score: -137.45
+  GT:   she came last june and watched a game in the sky dome
+  Best: She came last june and walked a game in the psi dome
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-137.4516
+       H0: lm=-126.9280 | She came last june and walked a game in the psi dome
+       H1: lm=-129.8343 | She came last june and walked a game in the sai dome
+  #01 | beam_score=-139.2158
+       H0: lm=-131.6431 | She came last june and walked a game in the say dome
+       H1: lm=-133.3832 | She came last june and walked a game in the se dome
+  #02 | beam_score=-140.2472
+       H0: lm=-131.4000 | She came last june and walked a game in the stay dome
+       H1: lm=-135.4793 | Sze came last june and walked a game in the stay dome
+------------------------------------------------------------
+Trial  31 | 1431.5ms | Score: -91.04
+  GT:   for me i had no choice but to move
+  Best: For me i had no choice but to move
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-91.0440
+       H0: lm=-80.9978 | For me i had no choice but to move
+       H1: lm=-83.2048 | For mi i had no choice but to move
+  #01 | beam_score=-91.1290
+       H0: lm=-91.1110 | For me i had no choice put to move
+       H1: lm=-97.2168 | For me i had no choice put two move
+  #02 | beam_score=-107.3924
+       H0: lm=-99.9036 | For me i had no choice putt to move
+       H1: lm=-101.6308 | For mi i had no choice putt to move
+------------------------------------------------------------
+Trial  32 | 837.3ms | Score: -57.09
+  GT:   then it's twice as hard
+  Best: Then it's twice as hard
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-57.0933
+       H0: lm=-56.6110 | Then it's twice as hard
+       H1: lm=-57.8364 | Then its twice as hard
+  #01 | beam_score=-65.7962
+       H0: lm=-61.2590 | Than it's twice as hard
+       H1: lm=-61.5473 | Than its twice as hard
+  #02 | beam_score=-71.7115
+       H0: lm=-64.8898 | Then it's twice as odd
+       H1: lm=-66.1406 | Then its twice as odd
+------------------------------------------------------------
+Trial  33 | 480.1ms | Score: -43.98
+  GT:   i can't really complain
+  Best: I can't really complain
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-43.9805
+       H0: lm=-43.3375 | I can't really complain
+       H1: lm=-45.6576 | I cant really complain
+------------------------------------------------------------
+Trial  34 | 2089.9ms | Score: -94.10
+  GT:   when i do recipes i just throw stuff in
+  Best: When i do recipes i just throw stuff in
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-94.0991
+       H0: lm=-93.2303 | When i do recipes i just throw stuff in
+       H1: lm=-95.5512 | When i do recipe's i just throw stuff in
+  #01 | beam_score=-99.8624
+       H0: lm=-97.5451 | When i do recipes i just threw stuff in
+       H1: lm=-99.4253 | When i do recipe's i just threw stuff in
+  #02 | beam_score=-106.1844
+       H0: lm=-104.8112 | When i do recipes i jest throw stuff in
+       H1: lm=-106.0479 | When i do recipe's i jest throw stuff in
+------------------------------------------------------------
+Trial  35 | 608.6ms | Score: -81.21
+  GT:   they recently released him
+  Best: They regally released him
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-81.2132
+       H0: lm=-58.9847 | They regally released him
+       H1: lm=-66.3271 | They regally released hymn
+  #01 | beam_score=-82.0505
+       H0: lm=-52.8764 | The regally released him
+       H1: lm=-54.9588 | The regally released hymn
+  #02 | beam_score=-82.5993
+       H0: lm=-55.3195 | The regally relaxed hymn
+       H1: lm=-55.3269 | The regally relaxed him
+------------------------------------------------------------
+Trial  36 | 1363.2ms | Score: -78.27
+  GT:   one year public service for everybody
+  Best: One year public service for everybody
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-78.2697
+       H0: lm=-71.4076 | One year public service for everybody
+       H1: lm=-77.9514 | Won year public service for everybody
+  #01 | beam_score=-82.1072
+       H0: lm=-78.9264 | One year public servers for everybody
+       H1: lm=-81.7383 | Won year public servers for everybody
+  #02 | beam_score=-85.6977
+       H0: lm=-69.6177 | When your public service for everybody
+------------------------------------------------------------
+Trial  37 | 1228.6ms | Score: -82.39
+  GT:   it's an eighty seven degree day
+  Best: It's an eighty seven degree day
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-82.3917
+       H0: lm=-62.1851 | It's an eighty seven degree day
+       H1: lm=-62.4290 | Its an eighty seven degree day
+  #01 | beam_score=-84.9473
+       H0: lm=-70.0551 | Its an eighty seven degree dag
+       H1: lm=-71.1033 | It's an eighty seven degree dag
+  #02 | beam_score=-85.1462
+       H0: lm=-69.4376 | Its an eighty seven degree dig
+       H1: lm=-70.6027 | It's an eighty seven degree dig
+------------------------------------------------------------
+Trial  38 | 1116.5ms | Score: -82.50
+  GT:   i don't know if they do it all over
+  Best: I don't know if they do it all over
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-82.5013
+       H0: lm=-78.0827 | I don't know if they do it all over
+  #01 | beam_score=-83.4537
+       H0: lm=-83.4409 | I don't know if they do it all ever
+  #02 | beam_score=-96.1783
+       H0: lm=-83.0475 | I don't know if they do it call over
+------------------------------------------------------------
+Trial  39 | 293.4ms | Score: -33.84
+  GT:   employee benefits
+  Best: Employee benefits
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-33.8365
+       H0: lm=-27.1431 | Employee benefits
+  #01 | beam_score=-47.1198
+       H0: lm=-29.1725 | Employee benefit
+  #02 | beam_score=-48.8615
+       H0: lm=-44.5995 | Employ benefits
+------------------------------------------------------------
+Trial  40 | 1314.6ms | Score: -74.20
+  GT:   how long are we supposed to talk for
+  Best: How long are we supposed to talk for
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-74.1979
+       H0: lm=-73.0782 | How long are we supposed to talk for
+       H1: lm=-81.6559 | How long r we supposed to talk for
+  #01 | beam_score=-79.6688
+       H0: lm=-75.5616 | How long are we suppose to talk for
+       H1: lm=-83.3118 | How long r we suppose to talk for
+  #02 | beam_score=-87.5492
+       H0: lm=-70.6345 | How long are we supposed to take for
+       H1: lm=-77.8783 | How long are we supposed to take four
+------------------------------------------------------------
+Trial  41 | 838.6ms | Score: -74.65
+  GT:   you start to take pleasure in it
+  Best: You start to take pleasure in it
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-74.6498
+       H0: lm=-74.6490 | You start to take pleasure in it
+       H1: lm=-84.0214 | You start to take pleasure in. it
+  #01 | beam_score=-93.1112
+       H0: lm=-73.9884 | U star to take pleasure in it
+       H1: lm=-76.9138 | U star tu take pleasure in it
+------------------------------------------------------------
+Trial  42 | 1145.3ms | Score: -106.87
+  GT:   they had us fill out a long questionnaire
+  Best: They had us fill out a long
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-106.8750
+       H0: lm=-58.7645 | They had us fill out a long
+------------------------------------------------------------
+Trial  43 | 833.5ms | Score: -56.85
+  GT:   we've had our way of life
+  Best: We've had our way of life
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-56.8456
+       H0: lm=-56.8377 | We've had our way of life
+       H1: lm=-65.0694 | We've had our wey of life
+  #01 | beam_score=-63.1181
+       H0: lm=-52.6187 | We had our way of life
+       H1: lm=-61.0017 | We had our wey of life
+  #02 | beam_score=-64.5853
+       H0: lm=-46.8734 | We've had our way of
+       H1: lm=-54.5206 | We've had our wey of
+------------------------------------------------------------
+Trial  44 | 716.4ms | Score: -51.54
+  GT:   his side of the family
+  Best: His side of the family
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-51.5389
+       H0: lm=-51.4073 | His side of the family
+       H1: lm=-58.1105 | His seid of the family
+  #01 | beam_score=-55.2523
+       H0: lm=-53.1073 | He's side of the family
+       H1: lm=-55.8777 | He's seid of the family
+  #02 | beam_score=-56.7751
+       H0: lm=-50.6195 | His signed of the family
+------------------------------------------------------------
+Trial  45 | 697.3ms | Score: -42.67
+  GT:   good to hear from you
+  Best: Good to hear from you
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-42.6713
+       H0: lm=-42.6575 | Good to hear from you
+       H1: lm=-49.7718 | Good to hear from u
+  #01 | beam_score=-59.8882
+       H0: lm=-55.5815 | Good to ear from you
+       H1: lm=-60.0270 | Good to ear from u
+  #02 | beam_score=-60.9769
+       H0: lm=-47.5722 | Good to hear from new
+       H1: lm=-54.1303 | Good to here from new
+------------------------------------------------------------
+Trial  46 | 1019.9ms | Score: -59.48
+  GT:   i don't know where the answer is
+  Best: I don't know where the answer is
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-59.4803
+       H0: lm=-59.4241 | I don't know where the answer is
+  #01 | beam_score=-71.5546
+       H0: lm=-67.5233 | I don't know where the answers is
+       H1: lm=-70.4105 | I don't know where the answer's is
+  #02 | beam_score=-74.0612
+       H0: lm=-68.0962 | I don't know their the answer is
+       H1: lm=-68.1966 | I don't know there the answer is
+------------------------------------------------------------
+Trial  47 | 1879.7ms | Score: -53.06
+  GT:   where'd you get the car
+  Best: Where'd you get the car
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-53.0600
+       H0: lm=-51.2040 | Where'd you get the car
+       H1: lm=-54.0520 | Where'd u get the car
+  #01 | beam_score=-55.5493
+       H0: lm=-49.9407 | Why'd you get the car
+       H1: lm=-53.1427 | Why'd u get the car
+  #02 | beam_score=-57.9012
+       H0: lm=-52.4719 | Wed u get the car
+       H1: lm=-57.3486 | Wed u. get the car
+------------------------------------------------------------
+Trial  48 | 659.6ms | Score: -57.18
+  GT:   and you paint around it
+  Best: And you paint around it
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-57.1757
+       H0: lm=-57.1640 | And you paint around it
+       H1: lm=-61.9009 | And u paint around it
+  #01 | beam_score=-71.1094
+       H0: lm=-59.6449 | And you pet around it
+       H1: lm=-67.0996 | And u pet around it
+  #02 | beam_score=-71.3900
+       H0: lm=-64.2411 | And you pant around it
+       H1: lm=-66.8586 | And u pant around it
+------------------------------------------------------------
+Trial  49 | 1093.5ms | Score: -55.04
+  GT:   crime is too much
+  Best: Prime is to much
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-55.0388
+       H0: lm=-53.8235 | Prime is to much
+       H1: lm=-58.3195 | Prime is two much
+  #01 | beam_score=-55.3354
+       H0: lm=-52.3888 | Crime is too much
+       H1: lm=-54.1019 | Crime is to much
+  #02 | beam_score=-58.0025
+       H0: lm=-48.3761 | Chrome is to much
+       H1: lm=-51.6138 | Krome is to much
+------------------------------------------------------------
+Trial  50 | 423.4ms | Score: -43.33
+  GT:   house robberies
+  Best: House robberies
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-43.3315
+       H0: lm=-38.1831 | House robberies
+       H1: lm=-46.5330 | Haus robberies
+  #01 | beam_score=-49.4004
+       H0: lm=-38.4839 | House rubbery
+       H1: lm=-46.6892 | Haus rubbery
+  #02 | beam_score=-49.4017
+       H0: lm=-38.5289 | House summaries
+       H1: lm=-45.1589 | Haus summaries
+------------------------------------------------------------
+Trial  51 | 427.7ms | Score: -30.65
+  GT:   the grand canyon
+  Best: The grand canyon
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-30.6536
+       H0: lm=-29.3949 | The grand canyon
+       H1: lm=-37.1873 | The grande canyon
+  #01 | beam_score=-33.9889
+       H0: lm=-31.0665 | The grade canyon
+       H1: lm=-37.1643 | The grade canion
+  #02 | beam_score=-41.7985
+       H0: lm=-31.0941 | The great canyon
+       H1: lm=-40.4395 | The great canion
+------------------------------------------------------------
+Trial  52 | 240.7ms | Score: -20.36
+  GT:   the experience
+  Best: The experience
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-20.3579
+       H0: lm=-20.2355 | The experience
+------------------------------------------------------------
+Trial  53 | 1320.8ms | Score: -73.08
+  GT:   he said he's been saying one more
+  Best: He said he's been seeing one more
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-73.0827
+       H0: lm=-69.3408 | He said he's been seeing one more
+  #01 | beam_score=-76.6311
+       H0: lm=-76.4677 | He said he's been saying one more
+       H1: lm=-86.1796 | He said he's been saying won more
+  #02 | beam_score=-77.6119
+       H0: lm=-75.1968 | He said his been saying one more
+------------------------------------------------------------
+Trial  54 | 1253.6ms | Score: -99.31
+  GT:   i can't really think of anything else offhand
+  Best: I can't really think of anything else affect
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-99.3143
+       H0: lm=-84.4539 | I can't really think of anything else affect
+       H1: lm=-86.4249 | I cant really think of anything else affect
+  #01 | beam_score=-103.5837
+       H0: lm=-87.4733 | I can't really think of anything else offend
+       H1: lm=-88.8555 | I cant really think of anything else offend
+  #02 | beam_score=-104.3253
+       H0: lm=-77.5351 | I can't really think of anything else off
+       H1: lm=-79.7870 | I cant really think of anything else off
+------------------------------------------------------------
+Trial  55 | 1195.3ms | Score: -84.73
+  GT:   i couldn't even think of what you call them
+  Best: I couldn't even think of what you call them
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-84.7298
+       H0: lm=-84.7257 | I couldn't even think of what you call them
+       H1: lm=-88.2737 | I couldn't even think of what u call them
+  #01 | beam_score=-98.6126
+       H0: lm=-92.2872 | I couldn't even thing of what you call them
+       H1: lm=-96.4642 | I couldn't even thing of what u call them
+  #02 | beam_score=-99.4298
+       H0: lm=-81.7223 | I couldn't even think of what to call them
+------------------------------------------------------------
+Trial  56 | 762.6ms | Score: -58.00
+  GT:   i grew up water skiing
+  Best: I grew up water skiing
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-58.0000
+       H0: lm=-55.4045 | I grew up water skiing
+  #01 | beam_score=-67.8170
+       H0: lm=-65.5778 | I grew up water seeing
+  #02 | beam_score=-69.8623
+       H0: lm=-62.8671 | I brew up water skiing
+------------------------------------------------------------
+Trial  57 | 783.0ms | Score: -60.25
+  GT:   they waited a couple years
+  Best: They waited a couple years
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-60.2479
+       H0: lm=-59.8189 | They waited a couple years
+       H1: lm=-63.4207 | They weighted a couple years
+  #01 | beam_score=-67.6822
+       H0: lm=-48.1853 | They waited a couple
+       H1: lm=-50.4214 | They weighted a couple
+  #02 | beam_score=-71.8160
+       H0: lm=-54.9690 | The waited a couple years
+       H1: lm=-58.8618 | The weighted a couple years
+------------------------------------------------------------
+Trial  58 | 781.7ms | Score: -41.35
+  GT:   i have a gold one
+  Best: I have a cold one
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-41.3508
+       H0: lm=-40.8816 | I have a cold one
+       H1: lm=-46.0548 | I have a cold won
+  #01 | beam_score=-43.5620
+       H0: lm=-32.1108 | I have a old one
+       H1: lm=-38.7256 | I have a old won
+  #02 | beam_score=-45.2707
+       H0: lm=-39.4947 | I have a called one
+       H1: lm=-45.6566 | I have a called won
+------------------------------------------------------------
+Trial  59 | 917.7ms | Score: -46.16
+  GT:   there's not a whole lot
+  Best: There's not a whole lot
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-46.1590
+       H0: lm=-46.1565 | There's not a whole lot
+------------------------------------------------------------
+Trial  60 | 818.0ms | Score: -64.66
+  GT:   there was no word on casualties
+  Best: There was no word on casualties
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-64.6597
+       H0: lm=-64.2397 | There was no word on casualties
+       H1: lm=-67.6678 | Their was no word on casualties
+  #01 | beam_score=-79.7650
+       H0: lm=-67.0294 | There was no word on casualty
+       H1: lm=-69.7165 | Their was no word on casualty
+  #02 | beam_score=-83.8204
+       H0: lm=-74.3538 | There was no ward on casualties
+       H1: lm=-75.4697 | Their was no ward on casualties
+------------------------------------------------------------
+Trial  61 | 976.2ms | Score: -74.29
+  GT:   it kind of wound down
+  Best: At kind of welt down
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-74.2938
+       H0: lm=-70.3045 | At kind of welt down
+       H1: lm=-77.6692 | At kind of welt downe
+  #01 | beam_score=-75.4195
+       H0: lm=-62.3640 | At kind of well down
+       H1: lm=-69.1374 | At kind of welle down
+  #02 | beam_score=-75.5338
+       H0: lm=-74.0756 | It kind of welt down
+       H1: lm=-81.5464 | It kind of welte down
+------------------------------------------------------------
+Trial  62 | 1487.6ms | Score: -67.69
+  GT:   but my boss wouldn't pay for it
+  Best: But my boss wouldn't pay for it
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-67.6864
+       H0: lm=-67.5519 | But my boss wouldn't pay for it
+  #01 | beam_score=-78.2866
+       H0: lm=-75.9357 | But my bus wouldn't pay for it
+       H1: lm=-79.8285 | But my buss wouldn't pay for it
+  #02 | beam_score=-78.4904
+       H0: lm=-70.2597 | But my boss couldn't pay for it
+------------------------------------------------------------
+Trial  63 | 1551.0ms | Score: -77.74
+  GT:   my mother was complaining last year about that
+  Best: My mother was complaining last year about that
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-77.7435
+       H0: lm=-76.0789 | My mother was complaining last year about that
+  #01 | beam_score=-82.4415
+       H0: lm=-72.9065 | My mother was completing last year about that
+  #02 | beam_score=-91.6667
+       H0: lm=-83.6051 | My mother was complaining lasts year about that
+       H1: lm=-84.8958 | My mother was complaining last's year about that
+------------------------------------------------------------
+Trial  64 | 1548.0ms | Score: -84.54
+  GT:   very scary to see what they found out
+  Best: Very scary to see what they found out
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-84.5378
+       H0: lm=-84.4550 | Very scary to see what they found out
+  #01 | beam_score=-95.5617
+       H0: lm=-82.8008 | Very scary to see what they found at
+  #02 | beam_score=-95.7386
+       H0: lm=-83.4862 | Vary story to see what they found out
+------------------------------------------------------------
+Trial  65 | 1289.0ms | Score: -61.30
+  GT:   not too much soy sauce
+  Best: Not too much soy sauce
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-61.3016
+       H0: lm=-60.0823 | Not too much soy sauce
+       H1: lm=-64.5200 | Not to much soy sauce
+  #01 | beam_score=-76.3369
+       H0: lm=-75.8761 | Not too much soy sus
+       H1: lm=-76.6970 | Not too much soy suss
+  #02 | beam_score=-77.4415
+       H0: lm=-53.1042 | Not too much soy
+       H1: lm=-58.0984 | Not to much soy
+------------------------------------------------------------
+Trial  66 | 941.7ms | Score: -44.96
+  GT:   none of your business
+  Best: Nine of your business
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-44.9630
+       H0: lm=-43.5934 | Nine of your business
+  #01 | beam_score=-48.8893
+       H0: lm=-39.7779 | En of your business
+       H1: lm=-44.6659 | N. of your business
+  #02 | beam_score=-49.7018
+       H0: lm=-37.3942 | Un of your business
+       H1: lm=-40.4438 | 'n of your business
+------------------------------------------------------------
+Trial  67 | 1421.2ms | Score: -89.18
+  GT:   he put up all of his ash trays
+  Best: He put up all of his akc trees
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-89.1838
+       H0: lm=-85.1578 | He put up all of his akc trees
+       H1: lm=-88.7891 | He put up all of his ack trees
+  #01 | beam_score=-91.1462
+       H0: lm=-88.3730 | He put up all of his ack trays
+       H1: lm=-88.9174 | He put up all of his akc trays
+  #02 | beam_score=-91.3089
+       H0: lm=-78.3443 | He put up all of his ash trays
+       H1: lm=-84.4822 | He put up all of his ashe trays
+------------------------------------------------------------
+Trial  68 | 725.9ms | Score: -45.64
+  GT:   he didn't just say
+  Best: He didn't just say
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-45.6357
+       H0: lm=-41.7261 | He didn't just say
+  #01 | beam_score=-50.7712
+       H0: lm=-43.4680 | He didn't just see
+       H1: lm=-50.5990 | He didn't just c
+  #02 | beam_score=-61.3302
+       H0: lm=-45.4894 | We didn't just say
+       H1: lm=-51.0986 | Wee didn't just say
+------------------------------------------------------------
+Trial  69 | 700.6ms | Score: -69.66
+  GT:   if there was a credible punishment
+  Best: If there was a credible punishment
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-69.6593
+       H0: lm=-66.7256 | If there was a credible punishment
+       H1: lm=-68.1871 | If their was a credible punishment
+  #01 | beam_score=-75.3794
+       H0: lm=-67.9301 | If there was a cradle punishment
+       H1: lm=-70.9895 | If their was a cradle punishment
+  #02 | beam_score=-78.3734
+       H0: lm=-49.3000 | If there was a credible
+       H1: lm=-50.5102 | If their was a credible
+------------------------------------------------------------
+Trial  70 | 665.9ms | Score: -64.80
+  GT:   i've been pretty successful with that
+  Best: I've been pretty successful with that
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-64.8043
+       H0: lm=-60.9279 | I've been pretty successful with that
+  #01 | beam_score=-82.5113
+       H0: lm=-65.6895 | I've been pretty successful with at
+------------------------------------------------------------
+Trial  71 | 485.6ms | Score: -33.03
+  GT:   in the previous version
+  Best: In the previous version
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-33.0314
+       H0: lm=-23.5755 | In the previous version
+------------------------------------------------------------
+Trial  72 | 708.4ms | Score: -60.87
+  GT:   was it third of december
+  Best: Was it third of december
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-60.8652
+       H0: lm=-56.7072 | Was it third of december
+  #01 | beam_score=-74.2447
+       H0: lm=-62.7089 | Was it thode of december
+  #02 | beam_score=-74.2998
+       H0: lm=-64.0775 | Y's it third of december
+------------------------------------------------------------
+Trial  73 | 418.8ms | Score: -51.29
+  GT:   invasion of burma
+  Best: Invasion of formal
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-51.2873
+       H0: lm=-47.6597 | Invasion of formal
+  #01 | beam_score=-52.8519
+       H0: lm=-25.4128 | Invasion of
+  #02 | beam_score=-52.9443
+       H0: lm=-47.2077 | Invasion of forma
+------------------------------------------------------------
+Trial  74 | 2138.8ms | Score: -124.40
+  GT:   i guess we don't really use that many tin cans
+  Best: I guess we don't really u.s that many tin cans
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-124.4002
+       H0: lm=-113.9022 | I guess we don't really u.s that many tin cans
+       H1: lm=-115.5237 | I guess we don't really u's that many tin cans
+  #01 | beam_score=-129.1309
+       H0: lm=-121.4266 | I guess we don't really u's that many ten cans
+       H1: lm=-123.2334 | I guess we don't really u.s that many ten cans
+  #02 | beam_score=-130.6279
+       H0: lm=-118.3127 | I guess we don't really u's that many ten has
+       H1: lm=-119.3006 | I guess we don't really u.s that many ten has
+------------------------------------------------------------
+Trial  75 | 990.0ms | Score: -77.27
+  GT:   we're a sit down together family
+  Best: Where a set down together family
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-77.2653
+       H0: lm=-77.2408 | Where a set down together family
+       H1: lm=-79.3716 | Wear a set down together family
+  #01 | beam_score=-78.8178
+       H0: lm=-70.9120 | We're a set down together family
+  #02 | beam_score=-81.2071
+       H0: lm=-75.9633 | Where a sit down together family
+       H1: lm=-78.6395 | Wear a sit down together family
+------------------------------------------------------------
+Trial  76 | 743.2ms | Score: -51.03
+  GT:   i'm originally from maine
+  Best: I'm originally from man
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-51.0327
+       H0: lm=-48.5004 | I'm originally from man
+       H1: lm=-56.8018 | I'm originally from mahn
+  #01 | beam_score=-51.0866
+       H0: lm=-49.8727 | I'm originally from main
+       H1: lm=-49.9603 | I'm originally from maine
+  #02 | beam_score=-51.7766
+       H0: lm=-49.3967 | I'm originally from min
+------------------------------------------------------------
+Trial  77 | 1582.9ms | Score: -52.37
+  GT:   he had a hot pad
+  Best: He had a hot pad
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-52.3664
+       H0: lm=-49.7501 | He had a hot pad
+       H1: lm=-56.9208 | Hee had a hot pad
+  #01 | beam_score=-55.0586
+       H0: lm=-54.0860 | He had a hot paid
+       H1: lm=-60.7969 | Hee had a hot paid
+  #02 | beam_score=-57.9140
+       H0: lm=-47.7603 | He had a hot bed
+       H1: lm=-53.7831 | Hee had a hot bed
+------------------------------------------------------------
+Trial  78 | 883.6ms | Score: -66.05
+  GT:   sometimes they're not very open
+  Best: Sometimes their not very open
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-66.0465
+       H0: lm=-64.5397 | Sometimes their not very open
+       H1: lm=-70.3179 | Sometimes there not very open
+  #01 | beam_score=-74.9307
+       H0: lm=-50.0960 | Sometimes their not very
+       H1: lm=-55.3911 | Sometimes there not very
+  #02 | beam_score=-84.1955
+       H0: lm=-75.9137 | Sometimes their not very homen
+       H1: lm=-76.0503 | Sometimes their not very homann
+------------------------------------------------------------
+Trial  79 | 2346.0ms | Score: -92.18
+  GT:   right now i'm getting about sixty bucks a month
+  Best: Right now i'm getting about sixty bucks a month
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-92.1754
+       H0: lm=-79.4332 | Right now i'm getting about sixty bucks a month
+  #01 | beam_score=-93.1636
+       H0: lm=-89.0632 | Right now i'm getting about sixty box a month
+  #02 | beam_score=-96.4926
+       H0: lm=-89.6817 | Right now i'm getting about setty box a month
+       H1: lm=-94.8137 | Right now i'm getting about seti box a month
+------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/ebrahim/brainaudio/scripts/test_neural_lm_fusion_single_trial.py", line 284, in <module>
+    main()
+  File "/home/ebrahim/brainaudio/scripts/test_neural_lm_fusion_single_trial.py", line 204, in main
+    result = decoder(log_probs, lengths)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ebrahim/brainaudio/src/brainaudio/inference/decoder/ctc_batched_beam_decoding.py", line 708, in __call__
+    return self.batched_beam_search_torch(decoder_outputs=x, decoder_output_lengths=out_len)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ebrahim/brainaudio/.venv/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 120, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ebrahim/brainaudio/src/brainaudio/inference/decoder/ctc_batched_beam_decoding.py", line 437, in batched_beam_search_torch
+    batched_beam_hyps.recombine_hyps_(is_last_step= curr_max_time-1 == frame_idx)
+  File "/home/ebrahim/brainaudio/src/brainaudio/inference/decoder/batched_beam_decoding_utils.py", line 444, in recombine_hyps_
+    new_scores = torch.logsumexp(scores_matrix, dim=-1, keepdim=False)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt

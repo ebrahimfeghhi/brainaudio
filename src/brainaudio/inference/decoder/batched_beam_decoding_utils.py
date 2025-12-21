@@ -91,6 +91,7 @@ class BatchedBeamHyps:
         store_prefix_hashes: Optional[bool] = False,
         model_type: Optional[ASRModelTypeEnum | str] = ASRModelTypeEnum.RNNT,
         score_combination: str = "logsumexp",
+        num_homophone_beams: int = 1,
     ):
         """
         Initializes the batched beam hypotheses utility for Transducer decoding (RNN-T and TDT models).
@@ -104,8 +105,11 @@ class BatchedBeamHyps:
             store_prefix_hashes (bool, optional): Whether to store prefix hashes for hypotheses. Defaults to False.
             model_type: (str or ModelTypeEnum, optional): Model type, either 'rnnt', 'tdt' or 'ctc'. Defaults to 'rnnt'.
             score_combination (str, optional): Method for combining scores of equivalent hypotheses.
-                Either 'logsumexp' (mathematically correct, sums probabilities) or 'max' (faster, keeps best). 
+                Either 'logsumexp' (mathematically correct, sums probabilities) or 'max' (faster, keeps best).
                 Defaults to 'logsumexp'.
+            num_homophone_beams (int, optional): Number of text interpretations (homophones) to track per beam.
+                Each beam can maintain K different text sequences to handle homophone ambiguity.
+                Defaults to 1 (single text per beam, original behavior).
         """
 
         if beam_size <= 0:
@@ -128,15 +132,22 @@ class BatchedBeamHyps:
         self.beam_size = beam_size
         self.blank_index = blank_index
         self.batch_size = batch_size
+        self.num_homophone_beams = num_homophone_beams
         self.batch_indices = torch.arange(self.batch_size, device=device)
         self.beam_indices = torch.arange(self.beam_size, device=device)
 
         # Non-blank (non-blank and non-repeating for CTC) and full lengths
         self.current_lengths_nb = torch.zeros([batch_size, self.beam_size], device=device, dtype=torch.long)
         self.current_lengths_wb = torch.zeros([batch_size, self.beam_size], device=device, dtype=torch.long)
-        
-        self.context_texts = [["" for _ in range(self.beam_size)] for _ in range(self.batch_size)]
 
+        # context_texts stores 1 to K text interpretations per beam as List[Tuple[float, str]]
+        # Each tuple is (lm_score_contribution, text_sequence)
+        # Sorted by score descending, index 0 is the best interpretation
+        # Starts with 1 tuple (empty), grows up to num_homophone_beams as homophones are encountered
+        self.context_texts = [[[(0.0, "")] for _ in range(self.beam_size)] for _ in range(self.batch_size)]
+        # Hash is computed from only the best text (index 0) for beam recombination
+        self.context_texts_hash = [[0 for _ in range(self.beam_size)] for _ in range(self.batch_size)]
+        
         # Initializing tree structure for hypothesis storing
         self.transcript_wb = torch.full(
             (batch_size, self.beam_size, self._max_length),
@@ -201,6 +212,10 @@ class BatchedBeamHyps:
         self.transcript_hash.fill_(INIT_HASH_VALUE)
         if self.store_prefix_hashes:
             self.transcript_prefix_hash.fill_(INIT_PREFIX_HASH_VALUE)
+
+        # Reset context texts to initial state (single empty tuple per beam)
+        self.context_texts = [[[(0.0, "")] for _ in range(self.beam_size)] for _ in range(self.batch_size)]
+        self.context_texts_hash = [[0 for _ in range(self.beam_size)] for _ in range(self.batch_size)]
 
         # model specific parameters
         if self.model_type == ASRModelTypeEnum.CTC:
@@ -290,21 +305,25 @@ class BatchedBeamHyps:
         # 2. Capture the current state (Snapshot)
         # We use the existing reference because we will build a completely new list structure below
         old_context_texts = self.context_texts
+        old_context_texts_hash = self.context_texts_hash
         new_context_texts = []
+        new_context_texts_hash = []
 
         # 3. Reorder using Python List Comprehensions (Runs entirely in CPU RAM)
         for b in range(self.batch_size):
             # Retrieve the list of parent indices for this batch
             batch_parent_indices = next_indices_cpu[b]
-            
             # Create the new beam list for this batch by picking from the old list
             # logic: new_beam[k] comes from old_beam[ parent_indices[k] ]
-            new_beam_list = [old_context_texts[b][p_idx] for p_idx in batch_parent_indices]
-            
+            # Each element is a list of tuples [(score, text), ...], so we need a shallow copy
+            new_beam_list = [list(old_context_texts[b][p_idx]) for p_idx in batch_parent_indices]
+            new_beam_hash_list = [old_context_texts_hash[b][p_idx] for p_idx in batch_parent_indices]
             new_context_texts.append(new_beam_list)
+            new_context_texts_hash.append(new_beam_hash_list)
 
         # 4. Update the class reference
         self.context_texts = new_context_texts
+        self.context_texts_hash = new_context_texts_hash
         
         is_extended = next_labels >= 0
         extended_with_blank = next_labels == self.blank_index
@@ -375,6 +394,7 @@ class BatchedBeamHyps:
             )
 
     def recombine_hyps_(self, is_last_step: bool = False):
+        
         """
         Recombines hypotheses in the beam search by merging equivalent hypotheses and updating their scores.
         This method identifies hypotheses that are equivalent based on their transcript hash, last label,
@@ -387,21 +407,16 @@ class BatchedBeamHyps:
         if self.beam_size <= 1:
             return
         
+        # for the last step, only compare transcript hashes. 
+        
+        hashed_tensor = torch.tensor(self.context_texts_hash, device=self.device)
+        
         if is_last_step:
-            flat_hashes = [hash(text) for batch in self.context_texts for text in batch]
-
-            # 2. Get dimensions to reshape back later
-            B = len(self.context_texts)
-            K = len(self.context_texts[0]) # Assuming uniform beam size
-
-            # 3. Create tensor and reshape to (Batch, Beam)
-            # This automatically infers int64 for the hashes
-            hashed_tensor = torch.tensor(flat_hashes).view(B, K).to(self.device)
-
-            # 4. Perform the broadcasted comparison
+           
             hyps_equal = (
                 hashed_tensor[:, :, None] == hashed_tensor[:, None, :]
             )
+
                     
         else: 
             
@@ -409,6 +424,7 @@ class BatchedBeamHyps:
                 (self.transcript_hash[:, :, None] == self.transcript_hash[:, None, :])
                 & (self.last_label[:, :, None] == self.last_label[:, None, :])
                 & (self.current_lengths_nb[:, :, None] == self.current_lengths_nb[:, None, :])
+                &  (hashed_tensor[:, :, None] == hashed_tensor[:, None, :])
             )
 
         if self.model_type == ASRModelTypeEnum.TDT:

@@ -82,6 +82,7 @@ class BacthedBeamCTCState:
         device: torch.device,
         float_dtype: torch.dtype,
         blank_index: int,
+        num_homophone_beams: int = 1,
     ):
         """
         Args:
@@ -92,6 +93,7 @@ class BacthedBeamCTCState:
             device: device to store tensors
             float_dtype: default float dtype for tensors (should match projected encoder output)
             blank_index: index of the blank symbol
+            num_homophone_beams: number of text interpretations (homophones) to track per beam
         """
 
         self.device = device
@@ -101,6 +103,7 @@ class BacthedBeamCTCState:
         self.max_time = max_time
         self.blank_index = blank_index
         self.vocab_size = vocab_size
+        self.num_homophone_beams = num_homophone_beams
 
         self.NON_EXISTENT_LABEL = torch.tensor(NON_EXISTENT_LABEL_VALUE, device=self.device, dtype=torch.long)
         self.BLANK_TENSOR = torch.tensor(self.blank_index, device=self.device, dtype=torch.long)
@@ -178,12 +181,13 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         preserve_alignments=False,
         compute_timestamps: bool = False,
         beam_beta: float = 0.0,
-        beam_threshold: float = 1e3,
+        beam_threshold: float = 10.0,
         allow_cuda_graphs: bool = True,
         lexicon: LexiconConstraint = None,
         lm_fusion: NeuralLanguageModelFusion = None,
         lm_beam_limit: Optional[int] = None,
-        word_insertion_bonus: float = 0.0,
+        num_homophone_beams: int = 1,
+        homophone_prune_threshold: Optional[float] = 10.0,
     ):
         """
         Init method.
@@ -199,6 +203,9 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             lexicon: optional LexiconConstraint to constrain beam search to valid words. Defaults to None.
             lm_fusion: optional NeuralLanguageModelFusion for word-level LM rescoring. Defaults to None.
             lm_beam_limit: optional cap on how many beams per batch element receive neural LM scoring at a word boundary.
+            num_homophone_beams: number of text interpretations (homophones) to track per beam. Defaults to 1.
+            homophone_prune_threshold: if set, prune homophone candidates whose LM score is more than this
+                many log-prob points below the best candidate. Defaults to 10.0. Set to None to disable.
         """
 
         super().__init__()
@@ -218,7 +225,6 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         self.state = None
         self.full_graph = None
         self.separate_graphs = None
-        self.word_insertion_bonus = word_insertion_bonus
 
         self.cuda_graphs_mode = None
         self.maybe_enable_cuda_graphs()
@@ -226,6 +232,8 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         self.lexicon = lexicon
         self.lm_fusion = lm_fusion
         self.lm_beam_limit = lm_beam_limit
+        self.num_homophone_beams = num_homophone_beams
+        self.homophone_prune_threshold = homophone_prune_threshold
         
         # Warn if lm_fusion is used without lexicon
         if self.lm_fusion is not None and self.lexicon is None:
@@ -328,6 +336,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             device=decoder_outputs.device,
             float_dtype=decoder_outputs.dtype,
             model_type='ctc',
+            num_homophone_beams=self.num_homophone_beams,
         )
 
         # Main decoding loop: process one acoustic frame at a time
@@ -351,7 +360,6 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             log_probs = decoder_outputs[:, frame_idx, :].unsqueeze(1).repeat(1, self.beam_size, 1)
             log_probs += batched_beam_hyps.scores.unsqueeze(-1) # add current beam scores to every token in our beam
             
-
             # step 2.2: updating non-blank and non-repeating token scores with `beam_beta`
             log_probs = torch.where(repeated_or_blank_mask, log_probs, log_probs + self.beam_beta)
 
@@ -388,7 +396,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             next_indices = next_candidates_indices // vocab_size # indices of beams being extended
             next_labels = next_candidates_indices % vocab_size # label indices
         
-            # step 2.3: pruning candidates with threshold `beam_threshold`
+            # step 2.3: pruning candidates with threshold `
             batch_next_scores = next_scores.view(curr_batch_size, -1)
             max_next_score = batch_next_scores.max(dim=-1, keepdim=True).values
             batch_next_scores.masked_fill_(batch_next_scores <= max_next_score - self.beam_threshold, INACTIVE_SCORE)
@@ -427,11 +435,15 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                 
             batched_beam_hyps.add_results_(next_indices, next_labels, next_scores)
             batched_beam_hyps.recombine_hyps_(is_last_step= curr_max_time-1 == frame_idx)
-            
+
+        
             # Apply LM fusion post-selection (after pruning and recombination)
             if self.lm_fusion is not None and self.lexicon is not None:
+
                 from .neural_lm_fusion import apply_lm_fusion_post_selection
+
                 boundary_token = getattr(self.lexicon, "word_boundary_token", None)
+
                 apply_lm_fusion_post_selection(
                     lm_fusion=self.lm_fusion,
                     lexicon=self.lexicon,
@@ -440,10 +452,17 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                     boundary_token=boundary_token,
                     next_labels=next_labels,
                     prev_last_labels=prev_last_labels,
-                    word_insertion_bonus=self.word_insertion_bonus,
-                    next_indices=next_indices
+                    homophone_prune_threshold=self.homophone_prune_threshold,
                 )
-                
+
+        # After decoding is complete, add end-of-sentence probability
+        if self.lm_fusion is not None:
+            from .neural_lm_fusion import apply_lm_end_of_sentence_scoring
+            apply_lm_end_of_sentence_scoring(
+                lm_fusion=self.lm_fusion,
+                beam_hyps=batched_beam_hyps,
+            )
+
         return batched_beam_hyps
     
  

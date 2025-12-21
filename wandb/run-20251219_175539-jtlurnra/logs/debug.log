@@ -1,0 +1,23 @@
+2025-12-19 17:55:39,646 INFO    MainThread:175497 [wandb_setup.py:_flush():81] Current SDK version is 0.22.1
+2025-12-19 17:55:39,646 INFO    MainThread:175497 [wandb_setup.py:_flush():81] Configure stats pid to 175497
+2025-12-19 17:55:39,646 INFO    MainThread:175497 [wandb_setup.py:_flush():81] Loading settings from /home/ebrahim/.config/wandb/settings
+2025-12-19 17:55:39,646 INFO    MainThread:175497 [wandb_setup.py:_flush():81] Loading settings from /home/ebrahim/brainaudio/wandb/settings
+2025-12-19 17:55:39,646 INFO    MainThread:175497 [wandb_setup.py:_flush():81] Loading settings from environment variables
+2025-12-19 17:55:39,646 INFO    MainThread:175497 [wandb_init.py:setup_run_log_directory():705] Logging user logs to /home/ebrahim/brainaudio/wandb/run-20251219_175539-jtlurnra/logs/debug.log
+2025-12-19 17:55:39,646 INFO    MainThread:175497 [wandb_init.py:setup_run_log_directory():706] Logging internal logs to /home/ebrahim/brainaudio/wandb/run-20251219_175539-jtlurnra/logs/debug-internal.log
+2025-12-19 17:55:39,646 INFO    MainThread:175497 [wandb_init.py:init():832] calling init triggers
+2025-12-19 17:55:39,646 INFO    MainThread:175497 [wandb_init.py:init():837] wandb.init called with sweep_config: {}
+config: {'start_trial_idx': 0, 'end_trial_idx': 100, 'beam_size': 100, 'model': 'google/gemma-3-270m', 'hf_token': None, 'lm_weight': 1, 'word_insertion_bonus': 1, 'max_context_length': 512, 'device': 'cuda:1', 'logits': PosixPath('/data2/brain2text/b2t_25/logits/tm_transformer_b2t_24+25_large_wide_bidir_grad_clip_cosine_decay/logits_val.npz'), 'tokens': PosixPath('/data2/brain2text/lm/units_pytorch.txt'), 'lexicon': PosixPath('/data2/brain2text/lm/lexicon_phonemes.txt'), 'top_k': 3, 'num_homophone_beams': 2, 'beam_prune_threshold': 5.0, 'homophone_prune_threshold': 5.0, 'results_filename': '12/19_1755', 'disable_wandb': False, 'load_in_4bit': False, '_wandb': {}}
+2025-12-19 17:55:39,646 INFO    MainThread:175497 [wandb_init.py:init():880] starting backend
+2025-12-19 17:55:39,850 INFO    MainThread:175497 [wandb_init.py:init():883] sending inform_init request
+2025-12-19 17:55:39,852 INFO    MainThread:175497 [wandb_init.py:init():891] backend started and connected
+2025-12-19 17:55:39,854 INFO    MainThread:175497 [wandb_init.py:init():961] updated telemetry
+2025-12-19 17:55:39,856 INFO    MainThread:175497 [wandb_init.py:init():985] communicating run to backend with 90.0 second timeout
+2025-12-19 17:55:40,253 INFO    MainThread:175497 [wandb_init.py:init():1036] starting run threads in backend
+2025-12-19 17:55:40,348 INFO    MainThread:175497 [wandb_run.py:_console_start():2506] atexit reg
+2025-12-19 17:55:40,348 INFO    MainThread:175497 [wandb_run.py:_redirect():2354] redirect: wrap_raw
+2025-12-19 17:55:40,348 INFO    MainThread:175497 [wandb_run.py:_redirect():2423] Wrapping output streams.
+2025-12-19 17:55:40,348 INFO    MainThread:175497 [wandb_run.py:_redirect():2446] Redirects installed.
+2025-12-19 17:55:40,350 INFO    MainThread:175497 [wandb_init.py:init():1076] run started, returning control to user process
+2025-12-19 17:55:47,420 INFO    wandb-AsyncioManager-main:175497 [service_client.py:_forward_responses():80] Reached EOF.
+2025-12-19 17:55:47,420 INFO    wandb-AsyncioManager-main:175497 [mailbox.py:close():137] Closing mailbox, abandoning 1 handles.

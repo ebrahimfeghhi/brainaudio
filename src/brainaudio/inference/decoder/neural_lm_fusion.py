@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from .lexicon_constraint import LexiconConstraint
 
 class NeuralLanguageModelFusion(ABC):
+    
     """
     Base class for neural language model fusion during beam search.
     
@@ -58,35 +59,34 @@ class NeuralLanguageModelFusion(ABC):
         """
         self.weight = weight
         self.homophone_aggregation = homophone_aggregation
-        self.device = device if device is not None else torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.log_homophone_scores = False
+        self.device = device
         
         if homophone_aggregation not in ['max', 'logsumexp']:
             raise ValueError(f"homophone_aggregation must be 'max' or 'logsumexp', got {homophone_aggregation}")
     
     @abstractmethod
     def score_continuations(
-        self, 
-        contexts: List[str], 
+        self,
+        contexts: List[str],
         candidate_words: List[List[str]]
     ) -> List[List[float]]:
         """
         Score candidate words given context.
-        
+
         This is the main method that subclasses must implement. It queries the
         neural LM to get log-probabilities for each candidate word continuation.
-        
+
         Args:
             contexts: List of text contexts (one per beam).
                      Example: ["I saw my", "picnic with"]
             candidate_words: List of candidate word lists (one list per beam).
                            Example: [["aunt", "ant"], ["aunt", "ant"]]
-                           
+
         Returns:
             scores: List of score lists matching structure of candidate_words.
                    Each score is a log-probability (negative values, higher is better).
-                   Example: [[0.7, 0.01], [0.3, 0.6]] for the inputs above.
-                   
+                   Example: [[-0.3, -4.6], [-1.2, -0.5]] for the inputs above.
+
         Notes:
             - Return scores in the same order as candidate_words
             - Use log-probabilities (not raw probs)
@@ -152,12 +152,13 @@ class DummyLMFusion(NeuralLanguageModelFusion):
     """
     
     def score_continuations(
-        self, 
-        contexts: List[str], 
+        self,
+        contexts: List[str],
         candidate_words: List[List[str]]
     ) -> List[List[float]]:
         """Return uniform (zero) log-probability for all candidates."""
-        return [[0.0 for _ in words] for words in candidate_words]
+        scores = [[0.0 for _ in words] for words in candidate_words]
+        return scores
 
 
 class HuggingFaceLMFusion(NeuralLanguageModelFusion):
@@ -180,10 +181,12 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
         homophone_aggregation: str = 'max',
         device: torch.device = None,
         max_context_length: int = 512,
+        word_insertion_bonus: float = 0.0,
+        scoring_chunk_size: int = 32,
     ):
         """
         Initialize HuggingFace LM fusion.
-        
+
         Args:
             model: HuggingFace causal LM model (e.g., GPT2LMHeadModel)
             tokenizer: Corresponding tokenizer
@@ -191,98 +194,123 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
             homophone_aggregation: 'max' or 'logsumexp'
             device: Device for inference
             max_context_length: Maximum context length in tokens (truncate if longer)
+            scoring_chunk_size: Maximum number of sequences to score in one forward pass.
+                Reduces peak memory usage at the cost of slightly more compute. Default 32.
         """
         super().__init__(weight, homophone_aggregation, device)
         self.model = model
         self.tokenizer = tokenizer
         self.tokenizer.padding_side = "right"
         self.max_context_length = max_context_length
+        self.word_insertion_bonus = word_insertion_bonus
+        self.scoring_chunk_size = scoring_chunk_size
+        
+        self.device = device if device is not None else next(self.model.parameters()).device
         
         # Move model to device and set to eval mode
-        self.model.to(self.device)
+        # Skip .to() for quantized models as they may already be on the correct device
+        if device is not None:
+            current_device = next(self.model.parameters()).device
+            if current_device != self.device:
+                self.model.to(self.device)
         self.model.eval()
         
 
     @torch.no_grad()
     def score_continuations(self, contexts: List[str], candidate_words: List[List[str]]) -> List[List[float]]:
-        
+        """
+        Score candidate words given contexts using chunked processing to limit memory usage.
+
+        Processes sequences in chunks of size `self.scoring_chunk_size` to prevent
+        OOM errors when scoring many sequences at once.
+        """
         flat_texts = []
-        flat_context_lens = []
-        
-        # 1. Flatten structure
+        # Store where the candidate word starts for each entry
+        candidate_start_indices = []
+
+        # 1. Prepare Texts
         for context, candidates in zip(contexts, candidate_words):
-            # Calculate context length roughly (approximation for indexing)
-            # Note: add_special_tokens=False is safer if we want raw length
-            ctx_ids = self.tokenizer.encode(context, add_special_tokens=False)
-            ctx_len = len(ctx_ids)
-            
+            # Determine prefix length including Special Tokens
+            prefix_ids = self.tokenizer.encode(context, add_special_tokens=True)
+            # start_idx = len(prefix_ids) - 1 because we want scores starting from first candidate token
+            start_idx = len(prefix_ids) - 1
+
             for word in candidates:
-                # 2. Fix Spacing Logic
+                # Construct full text
                 if not context:
-                    full_text = word
+                    full_text = word.capitalize()
                 elif context.endswith(" ") or word.startswith(" "):
                     full_text = f"{context}{word}"
                 else:
                     full_text = f"{context} {word}"
-                
+
+                # Add trailing space so LLM scores complete word probability
+
                 flat_texts.append(full_text)
-                flat_context_lens.append(ctx_len) 
+                candidate_start_indices.append(start_idx)
 
         if not flat_texts:
             return []
-    
-        # 3. Batch Tokenize
-        # Note: 'padding=True' is essential if lengths differ
-        inputs = self.tokenizer(
-            flat_texts,
-            return_tensors="pt",
-            padding=True
-        ).to(self.device)
-        
-        input_ids = inputs.input_ids 
-        attention_mask = inputs.attention_mask # padded tokens have a value of 0 
 
-        # Forward Pass
-        outputs = self.model(input_ids, attention_mask=attention_mask)
-        logits = outputs.logits 
+        # 2. Collect scores for each flat text (will be filled in by chunks)
+        flat_scores = [0.0] * len(flat_texts)
 
-        # Shift Logits & Labels
-        shift_logits = logits[..., :-1, :].contiguous() # B x (Seq Len - 1) x Vocab
-        shift_labels = input_ids[..., 1:].contiguous() # B x (Seq Len - 1)
-        
-        
-        # Log Softmax
-        log_probs = F.log_softmax(shift_logits, dim=-1)
-        
-        # Gather scores
-        gathered_probs = torch.gather(
-            log_probs, 
-            dim=2, 
-            index=shift_labels.unsqueeze(-1)
-        ).squeeze(-1) # Beam Size x (Seq Len - 1)
-        
-        # Reconstruct and Sum
+        # 3. Process in chunks to limit memory usage
+        chunk_size = self.scoring_chunk_size
+        num_sequences = len(flat_texts)
+
+        for chunk_start in range(0, num_sequences, chunk_size):
+            chunk_end = min(chunk_start + chunk_size, num_sequences)
+            chunk_texts = flat_texts[chunk_start:chunk_end]
+            chunk_start_indices = candidate_start_indices[chunk_start:chunk_end]
+
+            # Tokenize this chunk
+            inputs = self.tokenizer(
+                chunk_texts,
+                return_tensors="pt",
+                padding=True,
+                add_special_tokens=True
+            ).to(self.device)
+
+            input_ids = inputs.input_ids
+            attention_mask = inputs.attention_mask
+
+            # Forward pass for this chunk
+            outputs = self.model(input_ids, attention_mask=attention_mask)
+
+            # Shift and Gather
+            shift_logits = outputs.logits[..., :-1, :].contiguous()
+            shift_labels = input_ids[..., 1:].contiguous()
+
+            log_probs = F.log_softmax(shift_logits, dim=-1)
+
+            gathered_probs = torch.gather(
+                log_probs,
+                dim=2,
+                index=shift_labels.unsqueeze(-1)
+            ).squeeze(-1)
+
+            # Extract scores for this chunk
+            for i, (start_idx, attn) in enumerate(zip(chunk_start_indices, attention_mask)):
+                valid_seq_len = attn.sum().item() - 1
+                safe_start = min(start_idx, valid_seq_len)
+                word_log_probs = gathered_probs[i, safe_start:valid_seq_len]
+                score = word_log_probs.sum().item()
+                flat_scores[chunk_start + i] = self.weight * score + self.word_insertion_bonus
+
+            # Free memory immediately after processing each chunk
+            del outputs, log_probs, gathered_probs, shift_logits, shift_labels
+            del inputs, input_ids, attention_mask
+            torch.cuda.empty_cache()
+
+        # 4. Reshape flat_scores back to match candidate_words structure
         final_scores = []
         flat_idx = 0
-        
         for candidates in candidate_words:
-            
             beam_scores = []
-            
             for _ in candidates:
-                
-                start_idx = flat_context_lens[flat_idx] 
-                
-                # 4. Fix End Index Logic
-                # We want to sum from the end of context to the end of the VALID sequence
-                # -1 because gathered_probs is shifted
-                total_valid_len = attention_mask[flat_idx].sum().item() - 1
-                
-                
-                score = gathered_probs[flat_idx, start_idx:total_valid_len].sum().item()
-                beam_scores.append(score)
+                beam_scores.append(flat_scores[flat_idx])
                 flat_idx += 1
-                
             final_scores.append(beam_scores)
 
         return final_scores
@@ -292,9 +320,7 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
         self.device = device
         self.model.to(device)
         return self
-
-
-
+    
 def apply_lm_fusion_post_selection(
     lm_fusion: NeuralLanguageModelFusion | None,
     lexicon: 'LexiconConstraint',
@@ -303,67 +329,190 @@ def apply_lm_fusion_post_selection(
     boundary_token: int,
     next_labels: torch.Tensor,
     prev_last_labels: torch.Tensor,
-    word_insertion_bonus: float = 0.0,
-    next_indices: torch.Tensor = None
+    homophone_prune_threshold: float | None = 10.0,
 ) -> None:
     
     from .beam_helpers import (
         materialize_beam_transcript,
-        collapse_ctc_sequence,
-        decode_sequence_to_text
+        collapse_ctc_sequence
     )
-    
-    """
-    Apply LM fusion after top-k pruning and recombination.
-    For each active beam, if the last emitted token is the boundary token and the previous token was not,
-    apply LM fusion to the beam's score (once per word completion).
-    Optionally add a word insertion bonus.
-    Modifies beam_hyps.scores in-place.
-    """
     
     if lm_fusion is None:
         return
 
     batch_size, beam_size = beam_hyps.scores.shape
-    to_score = []  # (b, k, context_text, candidate_words)
+    to_score = []  # List to store: (b, k, context_text, candidate_words)
+    
+    # --- PHASE 1: Identify beams that need LM Scoring ---
     for b in range(batch_size):
         for k in range(beam_size):
+            
+            # Skip empty or pruning beams
             if beam_hyps.scores[b, k] == float('-inf'):
                 continue
+            
+            # Check if we just crossed a word boundary
             last_label = int(next_labels[b, k].item())
             prev_last_label = int(prev_last_labels[b, k].item())
+            
             if last_label != boundary_token:
                 continue
             if prev_last_label == boundary_token:
                 continue
             
-            # update the beam context based on parent index
-            #parent_k = next_indices[b, k].item()
-            #beam_hyps.context_texts[b][k] = beam_hyps.context_texts[b][parent_k]
-            
+            # Get the sequence to find valid words
             seq_raw = materialize_beam_transcript(beam_hyps, b, k)
             seq_ctc = collapse_ctc_sequence(seq_raw.tolist(), blank_index)
+            
+            # Note: Assuming lexicon handles suffix extraction automatically as discussed
             _, at_boundary, word_indices = lexicon.get_valid_next_tokens_with_word_info(seq_ctc)
+            
             if not at_boundary or not word_indices:
                 continue
-            context_text = beam_hyps.context_texts[b][k]
+            
+            # Get the list of text interpretations for this beam
+            # context_text_tuples: List[Tuple[float, str]] where each tuple is (lm_score, text)
+            # Currently this list has 1 element (will grow up to K when homophones are encountered)
+            context_text_tuples = beam_hyps.context_texts[b][k]
             candidate_words = [lexicon.word_list[idx] for idx in word_indices]
-            to_score.append((b, k, context_text, candidate_words))
+
+            to_score.append((b, k, context_text_tuples, candidate_words))
+
     if not to_score:
         return
-    
-    contexts = [x[2] for x in to_score]
-    candidate_lists = [x[3] for x in to_score]
-    all_lm_scores = lm_fusion.score_continuations(contexts, candidate_lists)
-    
-    for (b, k, context_text, candidate_words), lm_scores in zip(to_score, all_lm_scores):
-        
-        combined_score = lm_fusion.aggregate_homophone_scores(lm_scores)
-        
-        beam_hyps.scores[b, k] += lm_fusion.weight * combined_score
-        beam_hyps.scores[b, k] += word_insertion_bonus
-        beam_hyps.context_texts[b][k] = f"{context_text} {candidate_words[lm_scores.index(max(lm_scores))]}".strip()
 
-        
-        
-        
+    # --- PHASE 2: Batch LM Scoring ---
+    # We need to score EACH text interpretation from each beam against all its homophones.
+    # Example: beam (b=0, k=3) has 2 text interpretations and 3 candidate homophones
+    #          -> we need 2 LM calls for this beam (one per text interpretation)
+    #
+    # Flatten all texts into a single list for one batched LM call:
+    # - flat_contexts[i] = text string to use as context
+    # - flat_candidates[i] = list of candidate words to score
+    # - beam_mapping[i] = (b, k, tuple_idx) to know where to put the results back
+    flat_contexts = []
+    flat_candidates = []
+    beam_mapping = []  # Maps flat index -> (batch_idx, beam_idx, tuple_idx)
+
+    for (b, k, context_text_tuples, candidate_words) in to_score:
+        for tuple_idx, (lm_score, text) in enumerate(context_text_tuples):
+            flat_contexts.append(text)
+            flat_candidates.append(candidate_words)
+            beam_mapping.append((b, k, tuple_idx))
+
+    # Single batched LM call - scores all contexts against their candidate words
+    all_lm_scores = lm_fusion.score_continuations(flat_contexts, flat_candidates)
+
+    # Reorganize results back by (b, k) for easy lookup
+    # scores_by_beam[(b, k)][tuple_idx] = list of scores for each candidate word
+    scores_by_beam = {}
+    for flat_idx, (b, k, tuple_idx) in enumerate(beam_mapping):
+        key = (b, k)
+        if key not in scores_by_beam:
+            scores_by_beam[key] = {}
+        scores_by_beam[key][tuple_idx] = all_lm_scores[flat_idx]
+    
+    # --- PHASE 3: Update Beams ---
+    # For each beam, combine each text interpretation with each homophone candidate.
+    # Keep top K candidates (sorted by LM score for this word).
+    # Update beam's acoustic score by adding the best candidate's LM score.
+    num_homophone_beams = beam_hyps.num_homophone_beams
+
+    for (b, k, context_text_tuples, candidate_words) in to_score:
+        base_score = beam_hyps.scores[b, k].item()
+        lm_scores_dict = scores_by_beam[(b, k)]
+
+        # Collect all (lm_score, text) candidates by combining each text with each homophone
+        # Accumulate LM scores so we track full sequence probability
+        all_candidates = []
+        for tuple_idx, (prev_lm_score, prev_text) in enumerate(context_text_tuples):
+            lm_scores_for_tuple = lm_scores_dict[tuple_idx]
+            for word, word_lm_score in zip(candidate_words, lm_scores_for_tuple):
+                # Accumulate: new score = previous accumulated LM + this word's LM score
+                new_lm_score = prev_lm_score + word_lm_score
+                w_add = word.capitalize() if not prev_text.strip() else word
+                new_text = f"{prev_text} {w_add}".strip()
+                all_candidates.append((new_lm_score, new_text))
+
+        # Sort by accumulated LM score (descending)
+        all_candidates.sort(key=lambda x: x[0], reverse=True)
+
+        # Prune candidates that are too far below the best
+        # This saves memory/compute by not tracking very unlikely homophones
+        if homophone_prune_threshold is not None and all_candidates:
+            best_score = all_candidates[0][0]
+            all_candidates = [c for c in all_candidates if best_score - c[0] <= homophone_prune_threshold]
+
+        # Keep top K (after pruning)
+        new_tuples = all_candidates[:num_homophone_beams]
+
+        # Update beam score: add delta between new and old best LM scores
+        # beam_hyps.scores contains acoustic + previous LM, so we add only the new LM contribution
+        old_best_lm_score = context_text_tuples[0][0] if context_text_tuples else 0.0
+        new_best_lm_score = new_tuples[0][0]
+        lm_score_delta = new_best_lm_score - old_best_lm_score
+        beam_hyps.scores[b, k] = base_score + lm_score_delta
+
+        # Update context_texts with new tuples
+        beam_hyps.context_texts[b][k] = new_tuples
+
+        # Update hash based on best text (index 0)
+        beam_hyps.context_texts_hash[b][k] = hash(new_tuples[0][1])
+
+
+def apply_lm_end_of_sentence_scoring(
+    lm_fusion: NeuralLanguageModelFusion | None,
+    beam_hyps: 'BatchedBeamHyps',
+) -> None:
+    """
+    Add end-of-sentence probability to beam scores.
+
+    For each beam, scores the probability of a period "." following the
+    current context text and adds it to the beam score. This helps the LM
+    prefer complete, well-formed sentences.
+
+    Args:
+        lm_fusion: The neural LM fusion module (or None to skip).
+        beam_hyps: The beam hypotheses to update in-place.
+    """
+    if lm_fusion is None:
+        return
+
+    batch_size, beam_size = beam_hyps.scores.shape
+
+    # Collect all contexts that need EOS scoring
+    contexts = []
+    beam_indices = []  # Track (batch_idx, beam_idx) for each context
+
+    for b in range(batch_size):
+        for k in range(beam_size):
+            # Skip pruned beams
+            if beam_hyps.scores[b, k] == float('-inf'):
+                continue
+
+            # Get the best text interpretation for this beam
+            context_tuples = beam_hyps.context_texts[b][k]
+            if not context_tuples:
+                continue
+
+            # Use the best (first) text interpretation
+            _, text = context_tuples[0]
+
+            # Skip if text already ends with a period
+            if text.rstrip().endswith('.'):
+                continue
+
+            contexts.append(text)
+            beam_indices.append((b, k))
+
+    if not contexts:
+        return
+
+    # Score "." for all contexts in one batched call
+    candidate_words = [["."]] * len(contexts)
+    eos_scores = lm_fusion.score_continuations(contexts, candidate_words)
+
+    # Add EOS scores to beam scores
+    for (b, k), scores in zip(beam_indices, eos_scores):
+        eos_score = scores[0]  # Only one candidate (".")
+        beam_hyps.scores[b, k] += eos_score

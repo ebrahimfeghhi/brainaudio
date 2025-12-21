@@ -1,18 +1,14 @@
-"""Tiny end-to-end CTC beam-search check with neural LM fusion.
 
-Loops through a range of trials, decodes them, tracks performance,
-and computes final WER/CER metrics.
-"""
-
-from __future__ import annotations
 
 import argparse
+import gc
 import time
 from pathlib import Path
 import pandas as pd
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 import numpy as np
+from datetime import datetime
 
 # Assuming this is available as requested
 from brainaudio.inference.eval_metrics import _cer_and_wer 
@@ -30,6 +26,14 @@ from brainaudio.inference.decoder.beam_helpers import (
     pick_device,
 )
 
+"""
+This run tests neural LM fusion with CTC batched beam search. Adjust this string to describe experiment details, settings, or observations for this run.
+"""
+"""Tiny end-to-end CTC beam-search check with neural LM fusion.
+
+Loops through a range of trials, decodes them, tracks performance,
+and computes final WER/CER metrics.
+"""
 
 DEFAULT_LOGITS = "/data2/brain2text/b2t_25/logits/tm_transformer_b2t_24+25_large_wide_bidir_grad_clip_cosine_decay/logits_val.npz"
 DEFAULT_TOKENS = "/data2/brain2text/lm/units_pytorch.txt"
@@ -40,33 +44,72 @@ TRANSCRIPTS_PKL = Path("/data2/brain2text/b2t_25/transcripts_val_cleaned.pkl")
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser("CTC beam search + HF LM fusion loop")
     
-    parser.add_argument("--start-trial-idx", type=int, default=0, help="Start index (inclusive)")
+    parser.add_argument("--start-trial-idx", type=int, default=0
+                        , help="Start index (inclusive)")
     parser.add_argument("--end-trial-idx", type=int, default=None, help="End index (exclusive); defaults to all trials in logits file")
     parser.add_argument("--beam-size", type=int, default=100, help="CTC beam size")
     parser.add_argument("--model", default="google/gemma-3-270m", help="HF causal LM checkpoint")
     parser.add_argument("--hf-token", default=None, help="Optional HF token")
-    parser.add_argument("--lm-weight", type=float, default=2, help="Fusion weight")
-    parser.add_argument("--word-insertion-bonus", type=float, default=12, help="Bonus at boundaries")
+    parser.add_argument("--lm-weight", type=float, default=1, help="Fusion weight")
+    parser.add_argument("--word-insertion-bonus", type=float, default=1, help="Bonus at boundaries")
     parser.add_argument("--max-context-length", type=int, default=512, help="Token budget")
-    parser.add_argument("--device", default=None, help="Torch device")
+    parser.add_argument("--device", default="cuda:1", help="Torch device")
     parser.add_argument("--logits", type=Path, default=Path(DEFAULT_LOGITS), help="NPZ logits file")
     parser.add_argument("--tokens", type=Path, default=Path(DEFAULT_TOKENS), help="units file")
     parser.add_argument("--lexicon", type=Path, default=Path(DEFAULT_LEXICON), help="lexicon file")
+    parser.add_argument("--top-k", type=int, default=3, help="Number of top beams to display per trial")
+    parser.add_argument("--num-homophone-beams", type=int, default=2, help="Number of text interpretations (homophones) to track per beam")
+    parser.add_argument("--beam-prune-threshold", type=float, default=20, help="Prune beams that are more than this many log-prob points below the best.")
+    parser.add_argument("--homophone-prune-threshold", type=float, default=10.0, help="Prune homophones more than this many log-prob points below the best.")
     parser.add_argument(
         "--results-filename",
         type=str,
-        required=True,
+        default=datetime.now().strftime("%m/%d_%H%M"),
         help="Filename for saving results (will be placed in /home/ebrahim/brainaudio/results directory)"
+    )
+    
+    parser.add_argument(
+        "--disable-wandb",
+        action="store_true",
+        help="Disable W&B logging (default: enabled)"
+    )
+    parser.add_argument(
+        "--load-in-4bit",
+        action="store_true",
+        help="Load model in 4-bit quantization (requires bitsandbytes)"
     )
 
     return parser.parse_args()
 
 
+
+notes = "Running with simplified apply_lm_fusion_post_selection which only allows for one homophone per beam."
+
 def main():
     args = parse_args()
     # Set CUDA device if available and requested
 
+    # Initialize wandb run (before any wandb.log or Table calls)
+    if not args.disable_wandb:
+        import wandb
+        # REMOVE: wandb.online() 
+        
+        wandb.init(
+            project="brainaudio-neural-lm-fusion",
+            config=vars(args),
+            name=f"{args.results_filename}",
+            mode="online",    # <--- Force online mode here
+            notes=notes       # <--- Pass notes here so they save as run metadata
+        )
+        
+        wandb.log({"notes": notes})
+            
+    else:
+        print("[wandb] W&B logging disabled")
+
     device = pick_device(args.device)
+    
+    K = args.top_k
 
     # Determine number of trials in logits file if end-trial-idx is None
     if args.end_trial_idx is None:
@@ -85,15 +128,33 @@ def main():
         lexicon_file=str(args.lexicon),
         device=device,
     )
-    token_table = load_token_to_phoneme_mapping(args.tokens)
-    phoneme_to_word = load_phoneme_to_word_mapping(args.lexicon)
-
+    
     tokenizer = AutoTokenizer.from_pretrained(args.model, token=args.hf_token)
-    model = AutoModelForCausalLM.from_pretrained(
-        args.model,
-        dtype=torch.float32,
-        token=args.hf_token,
-    ).to(device)
+
+    if args.load_in_4bit:
+        # 4-bit quantization: device must be set via device_map at load time
+        # Use bfloat16 for compute dtype - float16 can cause NaN with some models
+        quantization_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_compute_dtype=torch.bfloat16,
+            bnb_4bit_quant_type="nf4",
+        )
+        model = AutoModelForCausalLM.from_pretrained(
+            args.model,
+            quantization_config=quantization_config,
+            torch_dtype=torch.bfloat16,
+            device_map={"": device},  # place entire model on specified device
+            token=args.hf_token,
+        )
+        print(f"[INFO] Loaded {args.model} in 4-bit quantization on {device}")
+    else:
+        # Standard loading: load then move to device
+        model = AutoModelForCausalLM.from_pretrained(
+            args.model,
+            torch_dtype=torch.float32,
+            token=args.hf_token,
+        ).to(device)
+        print(f"[INFO] Loaded {args.model} (full precision) on {device}")
 
     lm_fusion = HuggingFaceLMFusion(
         model=model,
@@ -102,6 +163,7 @@ def main():
         homophone_aggregation="max",
         device=device,
         max_context_length=args.max_context_length,
+        word_insertion_bonus=args.word_insertion_bonus
     )
 
     decoder = BatchedBeamCTCComputer(
@@ -109,8 +171,10 @@ def main():
         beam_size=args.beam_size,
         lexicon=lexicon,
         lm_fusion=lm_fusion,
-        word_insertion_bonus=args.word_insertion_bonus,
         allow_cuda_graphs=False,
+        num_homophone_beams=args.num_homophone_beams,
+        beam_threshold=args.beam_prune_threshold,
+        homophone_prune_threshold=args.homophone_prune_threshold,
     )
 
     transcripts = None
@@ -143,21 +207,25 @@ def main():
             torch.cuda.synchronize()
         trial_elapsed = time.perf_counter() - trial_start
 
-        # Use context_texts for decoded beams (like test_neural_lm_fusion)
-        top_k = min(5, result.scores.shape[1])  # Print up to 5 beams for inspection
-        decoded_beams = result.context_texts[0][:top_k]
+        # Select top K beams that do not have -inf score
+        scores = result.scores[0].cpu().numpy()
+        valid_indices = [i for i, s in enumerate(scores) if s != -float('inf')]
+        # Sort valid indices by descending score
+        valid_indices_sorted = sorted(valid_indices, key=lambda i: scores[i], reverse=True)
+        topk_indices = valid_indices_sorted[:K]
+        # context_texts[batch][beam] is now List[Tuple[float, str]], get best text (index 0)
+        decoded_beams = [result.context_texts[0][i][0][1] for i in topk_indices]
         best_text = decoded_beams[0] if decoded_beams else ""
         decoded_sentences.append(best_text)
 
         # Handle Ground Truth
         ground_truth = ""
-        if transcripts is not None:
-            if isinstance(transcripts, (list, tuple)) and trial_idx < len(transcripts):
-                ground_truth = transcripts[trial_idx]
-            elif hasattr(transcripts, 'get'):
-                ground_truth = transcripts.get(trial_idx, "")
-            elif hasattr(transcripts, 'iloc'):
-                ground_truth = transcripts.iloc[trial_idx]
+        if isinstance(transcripts, (list, tuple)) and trial_idx < len(transcripts):
+            ground_truth = transcripts[trial_idx]
+        elif hasattr(transcripts, 'get'):
+            ground_truth = transcripts.get(trial_idx, "")
+        elif hasattr(transcripts, 'iloc'):
+            ground_truth = transcripts.iloc[trial_idx]
         ground_truth_sentences.append(ground_truth)
 
         # Print Status
@@ -165,45 +233,52 @@ def main():
         print(f"Trial {trial_idx:3d} | {trial_elapsed*1000:.1f}ms | Score: {best_score:.2f}")
         print(f"  GT:   {ground_truth}")
         print(f"  Best: {best_text}")
-        print("   Top beams:")
-        for beam_rank, beam_text in enumerate(decoded_beams):
-            beam_score = result.scores[0, beam_rank].item()
-            print(f"     #{beam_rank:02d} | log {beam_score:.4f} | {beam_text}")
-        print("-" * 40)
+        print(f"  Top {K} beams (with {args.num_homophone_beams} homophone interpretations each):")
+        for rank, i in enumerate(topk_indices):
+            beam_score = result.scores[0, i].item()
+            all_texts = result.context_texts[0][i]  # List of (lm_score, text) tuples
+            print(f"  #{rank:02d} | beam_score={beam_score:.4f}")
+            for k_idx, (lm_score, text) in enumerate(all_texts):
+                print(f"       H{k_idx}: lm={lm_score:.4f} | {text}")
+        print("-" * 60)
+
+        # Explicit memory cleanup to prevent accumulation across trials
+        del result
+        del log_probs
+        gc.collect()
+        torch.cuda.empty_cache()
 
     total_elapsed = time.perf_counter() - total_start_time
 
     print("\n=== Final Results Summary ===")
     print(f"Processed {len(decoded_sentences)} trials in {total_elapsed:.2f}s")
+    print(f"Beam size: {args.beam_size}, Homophone beams: {args.num_homophone_beams}, Prune threshold: {args.homophone_prune_threshold}")
 
-    # Compute Metrics
-    if transcripts is not None:
+# Compute Metrics
+    try:
+        # Passing lists of strings as expected by standard WER calculators
+        _, wer, _ = _cer_and_wer(decoded_sentences, ground_truth_sentences)
+        print(f"\nAggregate WER: {wer:.4f}")
+    except Exception as e:
+        print(f"\nError computing WER: {e}")
+        
+    # --- wandb logging ---
+    if not args.disable_wandb:
         try:
-            # Passing lists of strings as expected by standard WER calculators
-            _, wer, _ = _cer_and_wer(decoded_sentences, ground_truth_sentences)
-            print(f"\nAggregate WER: {wer:.4f}")
+            import wandb
+            # Log WER to wandb
+            if 'wer' in locals() and wer is not None:
+                wandb.log({"WER": wer})
+            # Log predicted and ground truth sentences as a table to wandb
+            if decoded_sentences and ground_truth_sentences:
+                data = list(zip(range(len(decoded_sentences)), ground_truth_sentences, decoded_sentences))
+                table = wandb.Table(data=data, columns=["idx", "ground_truth", "predicted"])
+                wandb.log({"predictions_vs_ground_truth": table})
+            wandb.finish()
         except Exception as e:
-            print(f"\nError computing WER: {e}")
-            
-    # Save decoded and ground truth sentences to file in /home/ebrahim/brainaudio/results directory
-    results_dir = Path("/home/ebrahim/brainaudio/results")
-    results_dir.mkdir(exist_ok=True)
-    output_path = results_dir / args.results_filename
-    # Compute WER for file header
-    wer_str = "WER: N/A"
-    if transcripts is not None:
-        try:
-            _, wer, _ = _cer_and_wer(decoded_sentences, ground_truth_sentences)
-            wer_str = f"WER: {wer:.4f}"
-        except Exception as e:
-            wer_str = f"WER: ERROR ({e})"
-    with output_path.open("w", encoding="utf-8") as f:
-        f.write(wer_str + "\n\n")
-        for idx, (gt, pred) in enumerate(zip(ground_truth_sentences, decoded_sentences)):
-            f.write(f"{idx}\n")
-            f.write(f"gt: {gt}\n")
-            f.write(f"pred: {pred}\n\n")
-    print(f"\nSaved decoded and ground truth sentences to {output_path}")
+            print(f"[wandb] Logging failed: {e}")
+    else:
+        print("[wandb] Skipping W&B logging (disabled)")
 
 if __name__ == "__main__":
     main()

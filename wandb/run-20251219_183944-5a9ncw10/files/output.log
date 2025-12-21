@@ -1,0 +1,25 @@
+Loading resources on cuda:1...
+`torch_dtype` is deprecated! Use `dtype` instead!
+[INFO] Loaded google/gemma-3-270m (full precision) on cuda:1
+
+=== Starting Decode Loop: Trials 76 to 77 ===
+[INFO] Decoding from start-trial-idx=76 to end-trial-idx=77
+Trial  76 | 1243.8ms | Score: -51.03
+  GT:   i'm originally from maine
+  Best: I'm originally from man
+  Top 3 beams (with 2 homophone interpretations each):
+  #00 | beam_score=-51.0327
+       H0: lm=-48.5004 | I'm originally from man
+       H1: lm=-56.8018 | I'm originally from mahn
+  #01 | beam_score=-51.0866
+       H0: lm=-49.8727 | I'm originally from main
+       H1: lm=-49.9603 | I'm originally from maine
+  #02 | beam_score=-51.7766
+       H0: lm=-49.3967 | I'm originally from min
+------------------------------------------------------------
+
+=== Final Results Summary ===
+Processed 1 trials in 1.73s
+Beam size: 100, Homophone beams: 2, Prune threshold: 10.0
+
+Aggregate WER: 0.2500

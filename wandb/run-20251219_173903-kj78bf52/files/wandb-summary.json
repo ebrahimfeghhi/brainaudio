@@ -1,0 +1,1 @@
+{"_runtime":5,"_timestamp":1.766194749457365e+09,"_step":1,"notes":"Running with simplified apply_lm_fusion_post_selection which only allows for one homophone per beam.","WER":NaN,"_wandb":{"runtime":5}}
