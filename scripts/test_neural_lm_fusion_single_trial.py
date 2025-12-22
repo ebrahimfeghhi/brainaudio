@@ -48,20 +48,23 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--start-trial-idx", type=int, default=16
                         , help="Start index (inclusive)")
     parser.add_argument("--end-trial-idx", type=int, default=17, help="End index (exclusive); defaults to all trials in logits file")
-    parser.add_argument("--beam-size", type=int, default=300, help="CTC beam size")
-    parser.add_argument("--model", default="google/gemma-3-270m", help="HF causal LM checkpoint")
+    parser.add_argument("--beam-size", type=int, default=500, help="CTC beam size")
+    parser.add_argument("--model", default="google/gemma-3-4b-pt", help="HF causal LM checkpoint")
     parser.add_argument("--hf-token", default=None, help="Optional HF token")
-    parser.add_argument("--lm-weight", type=float, default=1.5, help="Fusion weight")
-    parser.add_argument("--word-insertion-bonus", type=float, default=1, help="Bonus at boundaries")
+    parser.add_argument("--lm-weight", type=float, default=2, help="Fusion weight")
+    parser.add_argument("--word-insertion-bonus", type=float, default=10, help="Bonus at boundaries")
     parser.add_argument("--max-context-length", type=int, default=512, help="Token budget")
     parser.add_argument("--device", default="cuda:1", help="Torch device")
     parser.add_argument("--logits", type=Path, default=None, help="NPZ logits file (default: derived from encoder-model-name)")
     parser.add_argument("--tokens", type=Path, default=Path(DEFAULT_TOKENS), help="units file")
     parser.add_argument("--lexicon", type=Path, default=Path(DEFAULT_LEXICON), help="lexicon file")
-    parser.add_argument("--top-k", type=int, default=100, help="Number of top beams to display per trial")
+    parser.add_argument("--top-k", type=int, default=10, help="Number of top beams to display per trial")
     parser.add_argument("--num-homophone-beams", type=int, default=2, help="Number of text interpretations (homophones) to track per beam")
-    parser.add_argument("--beam-prune-threshold", type=float, default=30, help="Prune beams that are more than this many log-prob points below the best.")
-    parser.add_argument("--homophone-prune-threshold", type=float, default=10.0, help="Prune homophones more than this many log-prob points below the best.")
+    parser.add_argument("--beam-prune-threshold", type=float, default=17.0, help="Prune beams that are more than this many log-prob points below the best.")
+    parser.add_argument("--homophone-prune-threshold", type=float, default=17.0, help="Prune homophones more than this many log-prob points below the best.")
+    parser.add_argument("--beam-beta", type=float, default=0, help="Bonus added to extending beams (not blank/repeat). Boosts probability of emitting new characters.")
+    parser.add_argument("--beam-blank-penalty", type=float, default=np.log(2), help="Penalty subtracted from blank emissions.")
+    parser.add_argument("--logit-scale", type=float, default=0.8, help="Scalar multiplier for encoder logits.")
     parser.add_argument(
         "--results-filename",
         type=str,
@@ -146,7 +149,7 @@ def main():
         model = AutoModelForCausalLM.from_pretrained(
             args.model,
             quantization_config=quantization_config,
-            torch_dtype=torch.bfloat16,
+            dtype=torch.bfloat16,
             device_map={"": device},  # place entire model on specified device
             token=args.hf_token,
         )
@@ -179,6 +182,8 @@ def main():
         num_homophone_beams=args.num_homophone_beams,
         beam_threshold=args.beam_prune_threshold,
         homophone_prune_threshold=args.homophone_prune_threshold,
+        beam_beta=args.beam_beta,
+        beam_blank_penalty=args.beam_blank_penalty,
     )
 
     transcripts = None
@@ -201,6 +206,7 @@ def main():
     for trial_idx in range(args.start_trial_idx, args.end_trial_idx):
         # Load single trial
         log_probs, _, lengths = load_log_probs(args.logits, [trial_idx], device)
+        log_probs *= args.logit_scale
 
         # Run Decoder
         if device.type == "cuda":
@@ -248,6 +254,15 @@ def main():
             gt_rank = all_beam_texts.index(gt_lower)
         else:
             gt_rank = -1
+
+        # Check if "royal" appears in any beam
+        royal_beams = [(i, text) for i, text in enumerate(all_beam_texts) if "royal" in text]
+        if royal_beams:
+            print(f"  [DEBUG] 'royal' found in {len(royal_beams)} beam(s):")
+            for rank, text in royal_beams[:5]:  # Show first 5
+                print(f"    rank {rank}: {text}")
+        else:
+            print("NO ROYAL")
 
         # Print Status
         best_score = result.scores[0, 0].item()

@@ -181,6 +181,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         preserve_alignments=False,
         compute_timestamps: bool = False,
         beam_beta: float = 0.0,
+        beam_blank_penalty: float = 0.0,
         beam_threshold: float = 10.0,
         allow_cuda_graphs: bool = True,
         lexicon: LexiconConstraint = None,
@@ -197,7 +198,8 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             return_best_hypothesis: whether to return the best hypothesis or N-best hypotheses.
             preserve_alignments: if alignments are needed. Defaults to False.
             compute_timestamps: if timestamps are needed. Defaults to False.
-            beam_beta: word insertion weight.
+            beam_beta: bonus for extending beams (emitting new non-blank, non-repeat tokens).
+            beam_blank_penalty: penalty subtracted from blank emissions.
             beam_threshold: threshold for pruning candidates.
             allow_cuda_graphs: whether to allow CUDA graphs. Defaults to True.
             lexicon: optional LexiconConstraint to constrain beam search to valid words. Defaults to None.
@@ -218,6 +220,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         self.return_best_hypothesis = return_best_hypothesis
 
         self.beam_beta = beam_beta
+        self.beam_blank_penalty = beam_blank_penalty
         self.beam_threshold = beam_threshold
 
         assert not self.preserve_alignments, "Preserve aligments is not supported"
@@ -363,6 +366,9 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             # step 2.2: updating non-blank and non-repeating token scores with `beam_beta`
             log_probs = torch.where(repeated_or_blank_mask, log_probs, log_probs + self.beam_beta)
 
+            # step 2.2.1: apply blank penalty
+            log_probs = torch.where(vocab_blank_mask[None, None, :], log_probs - self.beam_blank_penalty, log_probs)
+
             # step 2.2.5: apply lexicon constraints if provided
             # This masks out tokens that would create invalid words according to the lexicon
             if self.lexicon is not None:
@@ -453,15 +459,16 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                     next_labels=next_labels,
                     prev_last_labels=prev_last_labels,
                     homophone_prune_threshold=self.homophone_prune_threshold,
+                    frame_idx=frame_idx
                 )
 
         # After decoding is complete, add end-of-sentence probability
-        if self.lm_fusion is not None:
-            from .neural_lm_fusion import apply_lm_end_of_sentence_scoring
-            apply_lm_end_of_sentence_scoring(
-                lm_fusion=self.lm_fusion,
-                beam_hyps=batched_beam_hyps,
-            )
+        #if self.lm_fusion is not None:
+        #    from .neural_lm_fusion import apply_lm_end_of_sentence_scoring
+        #    apply_lm_end_of_sentence_scoring(
+        #        lm_fusion=self.lm_fusion,
+        #        beam_hyps=batched_beam_hyps,
+        #    )
 
         return batched_beam_hyps
     

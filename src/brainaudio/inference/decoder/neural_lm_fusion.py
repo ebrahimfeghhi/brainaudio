@@ -191,7 +191,9 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
         self.scoring_chunk_size = scoring_chunk_size
         
         self.device = device if device is not None else next(self.model.parameters()).device
-        
+
+        print(f"[HuggingFaceLMFusion] word_insertion_bonus={self.word_insertion_bonus}, weight={self.weight}")
+
         # Move model to device and set to eval mode
         # Skip .to() for quantized models as they may already be on the correct device
         if device is not None:
@@ -316,6 +318,7 @@ def apply_lm_fusion_post_selection(
     next_labels: torch.Tensor,
     prev_last_labels: torch.Tensor,
     homophone_prune_threshold: float | None = 10.0,
+    frame_idx: Optional[int] = None
 ) -> None:
     
     from .beam_helpers import (
@@ -421,7 +424,9 @@ def apply_lm_fusion_post_selection(
                 all_candidates.append((new_lm_score, new_text))
                 
                 if word == "royal" or word == "real":
-                    print(word, word_lm_score, base_score, prev_text)
+                    if prev_text == "He is also a member of the":
+                        if frame_idx is not None:
+                            print(f"Frame idx: {frame_idx}, Word: {word}, LM score: {word_lm_score}, Acoustic score: {base_score-prev_lm_score}")
                     # print(f"Debug: Scored 'royal' for beam (b={b}, k={k}), prev_text='{prev_text}', new_text='{new_text}', word_lm_score={word_lm_score}, new_lm_score={new_lm_score}")
                     # breakpoint()
 
