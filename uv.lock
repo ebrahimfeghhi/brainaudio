@@ -259,6 +259,7 @@ dependencies = [
     { name = "torchaudio" },
     { name = "transformers" },
     { name = "trl" },
+    { name = "truecase" },
     { name = "unsloth" },
     { name = "wandb" },
 ]
@@ -289,6 +290,7 @@ requires-dist = [
     { name = "torchaudio", specifier = ">=2.8.0" },
     { name = "transformers", specifier = ">=4.57.0" },
     { name = "trl", specifier = ">=0.23.1" },
+    { name = "truecase", specifier = ">=0.0.14" },
     { name = "unsloth", specifier = ">=2025.12.5" },
     { name = "wandb", specifier = ">=0.22.1" },
 ]
@@ -3153,6 +3155,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/4d/80/9f71d0c6c858de080be94d596bcfa4b703ad7bc6f2539311fa74eb2a7ff5/trl-0.23.1.tar.gz", hash = "sha256:9a3025a9e7ea18fa4f3a5e575aa16b914d4ea86334b34689216af54562a460c5", size = 516824, upload-time = "2025-10-02T05:15:24.34Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e9/c7/c887226d7a1b3517c6db07f778fe61cb1254d7e2abfad6bb175bf48a8ba1/trl-0.23.1-py3-none-any.whl", hash = "sha256:ef43e2f00e6e30f3a8a9cc570e142278bfbd5aedc000ebe4eb0509d2f48415b2", size = 564602, upload-time = "2025-10-02T05:15:22.427Z" },
+]
+
+[[package]]
+name = "truecase"
+version = "0.0.14"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "nltk" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/85/06/89d0adae754d32626dcd0dcd958a1b0be295a9e084a6ecda25af6ebbcdb2/truecase-0.0.14.tar.gz", hash = "sha256:3a47b58c1724fcca7268cbeaf4056bb2c0cd041bd81f3b99a85ea263d7fc2d20", size = 28801090, upload-time = "2021-07-02T18:20:24.114Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6a/ec/ca9dc9ab492aebc57af351709355d74d90e2b71c2b75befd2a1bf2c5db78/truecase-0.0.14-py3-none-any.whl", hash = "sha256:80e93b9d45a430d4bce4d9fe19fe0c185976ecf244779cf92e0901531ce86ced", size = 28379904, upload-time = "2021-07-02T18:20:19.886Z" },
 ]
 
 [[package]]

@@ -45,13 +45,12 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument("--encoder-model-name", type=str, default=DEFAULT_ENCODER_MODEL_NAME,
                         help="Name of the encoder model (used for logits path and wandb logging)")
-    parser.add_argument("--start-trial-idx", type=int, default=16
-                        , help="Start index (inclusive)")
-    parser.add_argument("--end-trial-idx", type=int, default=17, help="End index (exclusive); defaults to all trials in logits file")
+    parser.add_argument("--trial-indices", type=int, nargs="*", default=None,
+                        help="List of trial indices to decode (e.g., --trial-indices 0 5 10). Default: all trials in logits file")
     parser.add_argument("--beam-size", type=int, default=500, help="CTC beam size")
-    parser.add_argument("--model", default="google/gemma-3-4b-pt", help="HF causal LM checkpoint")
+    parser.add_argument("--model", default="google/gemma-3-270m", help="HF causal LM checkpoint")
     parser.add_argument("--hf-token", default=None, help="Optional HF token")
-    parser.add_argument("--lm-weight", type=float, default=2, help="Fusion weight")
+    parser.add_argument("--lm-weight", type=float, default=3, help="Fusion weight")
     parser.add_argument("--word-insertion-bonus", type=float, default=10, help="Bonus at boundaries")
     parser.add_argument("--max-context-length", type=int, default=512, help="Token budget")
     parser.add_argument("--device", default="cuda:1", help="Torch device")
@@ -62,9 +61,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--num-homophone-beams", type=int, default=2, help="Number of text interpretations (homophones) to track per beam")
     parser.add_argument("--beam-prune-threshold", type=float, default=17.0, help="Prune beams that are more than this many log-prob points below the best.")
     parser.add_argument("--homophone-prune-threshold", type=float, default=17.0, help="Prune homophones more than this many log-prob points below the best.")
-    parser.add_argument("--beam-beta", type=float, default=0, help="Bonus added to extending beams (not blank/repeat). Boosts probability of emitting new characters.")
-    parser.add_argument("--beam-blank-penalty", type=float, default=np.log(2), help="Penalty subtracted from blank emissions.")
-    parser.add_argument("--logit-scale", type=float, default=0.8, help="Scalar multiplier for encoder logits.")
+    parser.add_argument("--beam-beta", type=float, default=np.log(7), help="Bonus added to extending beams (not blank/repeat). Boosts probability of emitting new characters.")
+    parser.add_argument("--beam-blank-penalty", type=float, default=0, help="Penalty subtracted from blank emissions.")
+    parser.add_argument("--logit-scale", type=float, default=0.5, help="Scalar multiplier for encoder logits.")
+    parser.add_argument("--length-norm-alpha", type=float, default=1.0,
+                        help="Length normalization exponent. Score = log_prob / length^alpha. Set to 0 to disable.")
     parser.add_argument(
         "--results-filename",
         type=str,
@@ -118,15 +119,15 @@ def main():
     
     K = args.top_k
 
-    # Determine number of trials in logits file if end-trial-idx is None
-    if args.end_trial_idx is None:
+    # Determine trial indices to decode
+    if args.trial_indices is None:
+        # Default: all trials in logits file
         logits_npz = np.load(args.logits)
         trial_keys = [k for k in logits_npz.keys() if k.startswith("arr_")]
-        trial_indices = [int(k.split("_")[1]) for k in trial_keys]
-        if not trial_indices:
+        args.trial_indices = sorted([int(k.split("_")[1]) for k in trial_keys])
+        if not args.trial_indices:
             raise ValueError(f"No trial arrays found in {args.logits}")
-        args.end_trial_idx = max(trial_indices) + 1
-        print(f"Auto-set end-trial-idx to {args.end_trial_idx} (all trials in logits file)")
+        print(f"Auto-detected {len(args.trial_indices)} trials in logits file")
 
     print(f"Loading resources on {device}...")
     
@@ -158,7 +159,7 @@ def main():
         # Standard loading: load then move to device
         model = AutoModelForCausalLM.from_pretrained(
             args.model,
-            torch_dtype=torch.float32,
+            dtype=torch.float32,
             token=args.hf_token,
         ).to(device)
         print(f"[INFO] Loaded {args.model} (full precision) on {device}")
@@ -200,10 +201,10 @@ def main():
 
     total_start_time = time.perf_counter()
 
-    print(f"\n=== Starting Decode Loop: Trials {args.start_trial_idx} to {args.end_trial_idx} ===")
-    print(f"[INFO] Decoding from start-trial-idx={args.start_trial_idx} to end-trial-idx={args.end_trial_idx}")
-    
-    for trial_idx in range(args.start_trial_idx, args.end_trial_idx):
+    print(f"\n=== Starting Decode Loop: {len(args.trial_indices)} trials ===")
+    print(f"[INFO] Decoding trial indices: {args.trial_indices}")
+
+    for trial_idx in args.trial_indices:
         # Load single trial
         log_probs, _, lengths = load_log_probs(args.logits, [trial_idx], device)
         log_probs *= args.logit_scale
@@ -222,8 +223,18 @@ def main():
         # Select top K beams that do not have -inf score
         scores = result.scores[0].cpu().numpy()
         valid_indices = [i for i, s in enumerate(scores) if s != -float('inf')]
-        # Sort valid indices by descending score
-        valid_indices_sorted = sorted(valid_indices, key=lambda i: scores[i], reverse=True)
+
+        # Apply length normalization: score / length^alpha
+        def get_normalized_score(idx):
+            raw_score = scores[idx]
+            text = result.context_texts[0][idx][0][1]  # Best text for this beam
+            length = len(text.split()) if text.strip() else 1  # Word count, min 1
+            if args.length_norm_alpha == 0:
+                return raw_score
+            return raw_score / (length ** args.length_norm_alpha)
+
+        # Sort valid indices by descending normalized score
+        valid_indices_sorted = sorted(valid_indices, key=get_normalized_score, reverse=True)
         topk_indices = valid_indices_sorted[:K]
         # context_texts[batch][beam] is now List[Tuple[float, str]], get best text (index 0)
         decoded_beams = [result.context_texts[0][i][0][1] for i in topk_indices]
@@ -240,41 +251,21 @@ def main():
             ground_truth = transcripts.iloc[trial_idx]
         ground_truth_sentences.append(ground_truth)
 
-        # Check if ground truth is in any of the beams (case-insensitive)
-        gt_lower = ground_truth.lower().strip()
-        all_beam_texts = []
-        for i in valid_indices_sorted:
-            for lm_score, text in result.context_texts[0][i]:
-                all_beam_texts.append(text.lower().strip())
-        gt_in_beams = gt_lower in all_beam_texts
-        if gt_in_beams:
-            gt_in_beams_count += 1
-            gt_in_beams_trials.append(trial_idx)
-            # Find the rank of the ground truth
-            gt_rank = all_beam_texts.index(gt_lower)
-        else:
-            gt_rank = -1
-
-        # Check if "royal" appears in any beam
-        royal_beams = [(i, text) for i, text in enumerate(all_beam_texts) if "royal" in text]
-        if royal_beams:
-            print(f"  [DEBUG] 'royal' found in {len(royal_beams)} beam(s):")
-            for rank, text in royal_beams[:5]:  # Show first 5
-                print(f"    rank {rank}: {text}")
-        else:
-            print("NO ROYAL")
-
+    
         # Print Status
-        best_score = result.scores[0, 0].item()
-        gt_status = f"GT in beams: YES (rank {gt_rank})" if gt_in_beams else "GT in beams: NO"
-        print(f"Trial {trial_idx:3d} | {trial_elapsed*1000:.1f}ms | Score: {best_score:.2f} | {gt_status}")
+        best_raw_score = scores[topk_indices[0]] if topk_indices else 0
+        best_norm_score = get_normalized_score(topk_indices[0]) if topk_indices else 0
+        print(f"Trial {trial_idx:3d} | {trial_elapsed*1000:.1f}ms | Raw: {best_raw_score:.2f} | Norm: {best_norm_score:.2f}")
         print(f"  GT:   {ground_truth}")
         print(f"  Best: {best_text}")
         print(f"  Top {K} beams (with {args.num_homophone_beams} homophone interpretations each):")
         for rank, i in enumerate(topk_indices):
             beam_score = result.scores[0, i].item()
+            norm_score = get_normalized_score(i)
             all_texts = result.context_texts[0][i]  # List of (lm_score, text) tuples
-            print(f"  #{rank:02d} | beam_score={beam_score:.4f}")
+            text = all_texts[0][1]
+            word_count = len(text.split()) if text.strip() else 1
+            print(f"  #{rank:02d} | raw={beam_score:.2f} | norm={norm_score:.2f} | words={word_count}")
             for k_idx, (lm_score, text) in enumerate(all_texts):
                 print(f"       H{k_idx}: lm={lm_score:.4f} | {text}")
         print("-" * 60)
@@ -312,7 +303,7 @@ def main():
 
     # Create DataFrame with id and text columns (same format as RNN baseline)
     results_df = pd.DataFrame({
-        "id": list(range(args.start_trial_idx, args.start_trial_idx + len(decoded_sentences))),
+        "id": args.trial_indices,
         "text": decoded_sentences
     })
     results_df.to_csv(csv_path, index=False)
@@ -327,8 +318,8 @@ def main():
                 wandb.log({"WER": wer})
             # Log predicted and ground truth sentences as a table to wandb
             if decoded_sentences and ground_truth_sentences:
-                data = list(zip(range(len(decoded_sentences)), ground_truth_sentences, decoded_sentences))
-                table = wandb.Table(data=data, columns=["idx", "ground_truth", "predicted"])
+                data = list(zip(args.trial_indices, ground_truth_sentences, decoded_sentences))
+                table = wandb.Table(data=data, columns=["trial_idx", "ground_truth", "predicted"])
                 wandb.log({"predictions_vs_ground_truth": table})
             wandb.finish()
         except Exception as e:

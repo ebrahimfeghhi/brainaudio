@@ -19,6 +19,7 @@ from abc import ABC, abstractmethod
 from typing import List, Optional, TYPE_CHECKING
 import torch
 import torch.nn.functional as F
+import truecase
 
 if TYPE_CHECKING:
     from .batched_beam_decoding_utils import BatchedBeamHyps
@@ -218,21 +219,25 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
 
         # 1. Prepare Texts
         for context, candidates in zip(contexts, candidate_words):
-            # Determine prefix length including Special Tokens
-            prefix_ids = self.tokenizer.encode(context, add_special_tokens=True)
-            # start_idx = len(prefix_ids) - 1 because we want scores starting from first candidate token
-            start_idx = len(prefix_ids) - 1
-
             for word in candidates:
                 # Construct full text
                 if not context:
-                    full_text = word.capitalize()
+                    full_text = word
                 elif context.endswith(" ") or word.startswith(" "):
                     full_text = f"{context}{word}"
                 else:
                     full_text = f"{context} {word}"
 
-                # Add trailing space so LLM scores complete word probability
+                # Apply truecase for proper capitalization before LLM scoring
+                full_text = truecase.get_true_case(full_text)
+
+                # Extract the truecased context (everything before the last word)
+                # This ensures start_idx is computed from the same tokenization as full_text
+                truecased_context = full_text.rsplit(" ", 1)[0] if " " in full_text else ""
+
+                # Compute start_idx from the truecased context
+                prefix_ids = self.tokenizer.encode(truecased_context, add_special_tokens=True)
+                start_idx = len(prefix_ids) - 1
 
                 flat_texts.append(full_text)
                 candidate_start_indices.append(start_idx)
@@ -419,14 +424,12 @@ def apply_lm_fusion_post_selection(
             for word, word_lm_score in zip(candidate_words, lm_scores_for_tuple):
                 # Accumulate: new score = previous accumulated LM + this word's LM score
                 new_lm_score = prev_lm_score + word_lm_score
-                w_add = word.capitalize() if not prev_text.strip() else word
-                new_text = f"{prev_text} {w_add}".strip()
+                new_text = f"{prev_text} {word}".strip()
                 all_candidates.append((new_lm_score, new_text))
                 
-                if word == "royal" or word == "real":
-                    if prev_text == "He is also a member of the":
-                        if frame_idx is not None:
-                            print(f"Frame idx: {frame_idx}, Word: {word}, LM score: {word_lm_score}, Acoustic score: {base_score-prev_lm_score}")
+                #if word == "irish" or word == "heirs":
+                #    print(f"Text: {prev_text}, Candidate word: {word}")
+                #    print(f"Frame idx: {frame_idx}, Word: {word}, LM score: {word_lm_score}, Acoustic score: {base_score-prev_lm_score}")
                     # print(f"Debug: Scored 'royal' for beam (b={b}, k={k}), prev_text='{prev_text}', new_text='{new_text}', word_lm_score={word_lm_score}, new_lm_score={new_lm_score}")
                     # breakpoint()
 
@@ -442,12 +445,13 @@ def apply_lm_fusion_post_selection(
         # Keep top K (after pruning)
         new_tuples = all_candidates[:num_homophone_beams]
 
-        # Update beam score: add delta between new and old best LM scores
-        # beam_hyps.scores contains acoustic + previous LM, so we add only the new LM contribution
+        # Update beam score using formula: score = acoustic_score + lm_score
+        # Extract acoustic component by subtracting old LM, then add new LM
         old_best_lm_score = context_text_tuples[0][0] if context_text_tuples else 0.0
         new_best_lm_score = new_tuples[0][0]
-        lm_score_delta = new_best_lm_score - old_best_lm_score
-        beam_hyps.scores[b, k] = base_score + lm_score_delta
+        acoustic_score = base_score - old_best_lm_score
+        beam_hyps.scores[b, k] = acoustic_score + new_best_lm_score
+
 
         # Update context_texts with new tuples
         beam_hyps.context_texts[b][k] = new_tuples

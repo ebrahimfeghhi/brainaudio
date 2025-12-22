@@ -9,10 +9,10 @@ import time
 # 1. Using HuggingFaceLMFusion from decoder
 # ==========================================
 
-MODEL_NAME = "google/gemma-3-270m"
-USE_4BIT = False  # Toggle this to switch between quantized and full precision
+MODEL_NAME = "google/gemma-3-4b-pt"
+USE_4BIT = True  # Toggle this to switch between quantized and full precision
 
-device = "cuda:0" if torch.cuda.is_available() else "cpu"
+device = "cuda:1" if torch.cuda.is_available() else "cpu"
 print(f"Loading {MODEL_NAME} on {device} (4-bit: {USE_4BIT})...")
 
 try:
