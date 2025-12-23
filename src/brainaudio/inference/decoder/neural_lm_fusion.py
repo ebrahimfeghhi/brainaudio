@@ -427,11 +427,10 @@ def apply_lm_fusion_post_selection(
                 new_text = f"{prev_text} {word}".strip()
                 all_candidates.append((new_lm_score, new_text))
                 
-                #if word == "irish" or word == "heirs":
+                #if word == "economy's" or word == "economists":
                 #    print(f"Text: {prev_text}, Candidate word: {word}")
                 #    print(f"Frame idx: {frame_idx}, Word: {word}, LM score: {word_lm_score}, Acoustic score: {base_score-prev_lm_score}")
-                    # print(f"Debug: Scored 'royal' for beam (b={b}, k={k}), prev_text='{prev_text}', new_text='{new_text}', word_lm_score={word_lm_score}, new_lm_score={new_lm_score}")
-                    # breakpoint()
+                #    breakpoint()
 
         # Sort by accumulated LM score (descending)
         all_candidates.sort(key=lambda x: x[0], reverse=True)

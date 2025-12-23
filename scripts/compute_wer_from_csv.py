@@ -32,6 +32,18 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Print per-sentence comparisons"
     )
+    parser.add_argument(
+        "--start-idx",
+        type=int,
+        default=None,
+        help="Start trial index (inclusive). Default: 0"
+    )
+    parser.add_argument(
+        "--end-idx",
+        type=int,
+        default=None,
+        help="End trial index (exclusive). Default: all trials"
+    )
     return parser.parse_args()
 
 
@@ -51,9 +63,17 @@ def main():
     # Ensure predictions are sorted by id
     predictions_df = predictions_df.sort_values("id").reset_index(drop=True)
 
+    # Filter by trial index range if specified
+    start_idx = args.start_idx if args.start_idx is not None else 0
+    end_idx = args.end_idx if args.end_idx is not None else len(transcripts)
+
+    # Filter predictions by id range
+    predictions_df = predictions_df[(predictions_df["id"] >= start_idx) & (predictions_df["id"] < end_idx)]
+    print(f"  Filtered to trials [{start_idx}, {end_idx}): {len(predictions_df)} predictions")
+
     # Extract predicted texts in order
     predicted_sentences = predictions_df["text"].tolist()
-    ground_truth_sentences = transcripts
+    ground_truth_sentences = list(transcripts[start_idx:end_idx])
 
     # Ensure same length
     if len(predicted_sentences) != len(ground_truth_sentences):

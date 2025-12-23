@@ -47,25 +47,27 @@ def parse_args() -> argparse.Namespace:
                         help="Name of the encoder model (used for logits path and wandb logging)")
     parser.add_argument("--trial-indices", type=int, nargs="*", default=None,
                         help="List of trial indices to decode (e.g., --trial-indices 0 5 10). Default: all trials in logits file")
-    parser.add_argument("--beam-size", type=int, default=500, help="CTC beam size")
-    parser.add_argument("--model", default="google/gemma-3-270m", help="HF causal LM checkpoint")
+    parser.add_argument("--start-trial-idx", type=int, default=None,
+                        help="Start index (inclusive). Use with --end-trial-idx for a range.")
+    parser.add_argument("--end-trial-idx", type=int, default=None,
+                        help="End index (exclusive). Use with --start-trial-idx for a range.")
+    parser.add_argument("--beam-size", type=int, default=250, help="CTC beam size")
+    parser.add_argument("--model", default="meta-llama/Llama-3.2-3B", help="HF causal LM checkpoint")
     parser.add_argument("--hf-token", default=None, help="Optional HF token")
-    parser.add_argument("--lm-weight", type=float, default=3, help="Fusion weight")
-    parser.add_argument("--word-insertion-bonus", type=float, default=10, help="Bonus at boundaries")
+    parser.add_argument("--lm-weight", type=float, default=1, help="Fusion weight")
+    parser.add_argument("--word-insertion-bonus", type=float, default=2.1, help="Bonus at boundaries")
     parser.add_argument("--max-context-length", type=int, default=512, help="Token budget")
     parser.add_argument("--device", default="cuda:1", help="Torch device")
     parser.add_argument("--logits", type=Path, default=None, help="NPZ logits file (default: derived from encoder-model-name)")
     parser.add_argument("--tokens", type=Path, default=Path(DEFAULT_TOKENS), help="units file")
     parser.add_argument("--lexicon", type=Path, default=Path(DEFAULT_LEXICON), help="lexicon file")
-    parser.add_argument("--top-k", type=int, default=10, help="Number of top beams to display per trial")
-    parser.add_argument("--num-homophone-beams", type=int, default=2, help="Number of text interpretations (homophones) to track per beam")
-    parser.add_argument("--beam-prune-threshold", type=float, default=17.0, help="Prune beams that are more than this many log-prob points below the best.")
-    parser.add_argument("--homophone-prune-threshold", type=float, default=17.0, help="Prune homophones more than this many log-prob points below the best.")
+    parser.add_argument("--top-k", type=int, default=20, help="Number of top beams to display per trial")
+    parser.add_argument("--num-homophone-beams", type=int, default=3, help="Number of text interpretations (homophones) to track per beam")
+    parser.add_argument("--beam-prune-threshold", type=float, default=20, help="Prune beams that are more than this many log-prob points below the best.")
+    parser.add_argument("--homophone-prune-threshold", type=float, default=10, help="Prune homophones more than this many log-prob points below the best.")
     parser.add_argument("--beam-beta", type=float, default=np.log(7), help="Bonus added to extending beams (not blank/repeat). Boosts probability of emitting new characters.")
     parser.add_argument("--beam-blank-penalty", type=float, default=0, help="Penalty subtracted from blank emissions.")
-    parser.add_argument("--logit-scale", type=float, default=0.5, help="Scalar multiplier for encoder logits.")
-    parser.add_argument("--length-norm-alpha", type=float, default=1.0,
-                        help="Length normalization exponent. Score = log_prob / length^alpha. Set to 0 to disable.")
+    parser.add_argument("--logit-scale", type=float, default=0.4, help="Scalar multiplier for encoder logits.")
     parser.add_argument(
         "--results-filename",
         type=str,
@@ -120,7 +122,19 @@ def main():
     K = args.top_k
 
     # Determine trial indices to decode
-    if args.trial_indices is None:
+    if args.trial_indices is not None:
+        # Explicit list provided
+        print(f"Using {len(args.trial_indices)} explicitly provided trial indices")
+    elif args.start_trial_idx is not None or args.end_trial_idx is not None:
+        # Start/end range provided
+        logits_npz = np.load(args.logits)
+        trial_keys = [k for k in logits_npz.keys() if k.startswith("arr_")]
+        all_indices = sorted([int(k.split("_")[1]) for k in trial_keys])
+        start = args.start_trial_idx if args.start_trial_idx is not None else 0
+        end = args.end_trial_idx if args.end_trial_idx is not None else max(all_indices) + 1
+        args.trial_indices = list(range(start, end))
+        print(f"Using trial range [{start}, {end}) = {len(args.trial_indices)} trials")
+    else:
         # Default: all trials in logits file
         logits_npz = np.load(args.logits)
         trial_keys = [k for k in logits_npz.keys() if k.startswith("arr_")]
@@ -224,17 +238,8 @@ def main():
         scores = result.scores[0].cpu().numpy()
         valid_indices = [i for i, s in enumerate(scores) if s != -float('inf')]
 
-        # Apply length normalization: score / length^alpha
-        def get_normalized_score(idx):
-            raw_score = scores[idx]
-            text = result.context_texts[0][idx][0][1]  # Best text for this beam
-            length = len(text.split()) if text.strip() else 1  # Word count, min 1
-            if args.length_norm_alpha == 0:
-                return raw_score
-            return raw_score / (length ** args.length_norm_alpha)
-
-        # Sort valid indices by descending normalized score
-        valid_indices_sorted = sorted(valid_indices, key=get_normalized_score, reverse=True)
+        # Sort valid indices by descending score
+        valid_indices_sorted = sorted(valid_indices, key=lambda i: scores[i], reverse=True)
         topk_indices = valid_indices_sorted[:K]
         # context_texts[batch][beam] is now List[Tuple[float, str]], get best text (index 0)
         decoded_beams = [result.context_texts[0][i][0][1] for i in topk_indices]
@@ -253,21 +258,23 @@ def main():
 
     
         # Print Status
-        best_raw_score = scores[topk_indices[0]] if topk_indices else 0
-        best_norm_score = get_normalized_score(topk_indices[0]) if topk_indices else 0
-        print(f"Trial {trial_idx:3d} | {trial_elapsed*1000:.1f}ms | Raw: {best_raw_score:.2f} | Norm: {best_norm_score:.2f}")
+        best_score = scores[topk_indices[0]] if topk_indices else 0
+        print(f"Trial {trial_idx:3d} | {trial_elapsed*1000:.1f}ms | Score: {best_score:.2f}")
         print(f"  GT:   {ground_truth}")
         print(f"  Best: {best_text}")
         print(f"  Top {K} beams (with {args.num_homophone_beams} homophone interpretations each):")
         for rank, i in enumerate(topk_indices):
             beam_score = result.scores[0, i].item()
-            norm_score = get_normalized_score(i)
             all_texts = result.context_texts[0][i]  # List of (lm_score, text) tuples
-            text = all_texts[0][1]
-            word_count = len(text.split()) if text.strip() else 1
-            print(f"  #{rank:02d} | raw={beam_score:.2f} | norm={norm_score:.2f} | words={word_count}")
+            print(f"  #{rank:02d} | score={beam_score:.2f}")
             for k_idx, (lm_score, text) in enumerate(all_texts):
                 print(f"       H{k_idx}: lm={lm_score:.4f} | {text}")
+
+        # Check if "economy's" appears in any beam
+        for i in valid_indices:
+            for lm_score, text in result.context_texts[0][i]:
+                if "economy's" in text.lower():
+                    print(f"  >>> FOUND 'economy's' in beam {i}: {text}")
         print("-" * 60)
 
         # Explicit memory cleanup to prevent accumulation across trials
