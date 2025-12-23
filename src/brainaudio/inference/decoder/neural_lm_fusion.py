@@ -186,6 +186,15 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
         super().__init__(weight, homophone_aggregation, device)
         self.model = model
         self.tokenizer = tokenizer
+        
+        if self.tokenizer.pad_token is None:
+            # Common fix for Llama/GPT models: use EOS token as padding
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+            self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
+            
+            # Update the model config to match, just in case
+            self.model.config.pad_token_id = self.tokenizer.eos_token_id
+            
         self.tokenizer.padding_side = "right"
         self.max_context_length = max_context_length
         self.word_insertion_bonus = word_insertion_bonus

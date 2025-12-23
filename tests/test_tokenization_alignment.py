@@ -90,8 +90,7 @@ def test_word_token_extraction(tokenizer, context: str, word: str, verbose: bool
 def run_tests():
     """Run test suite with various context and word combinations."""
 
-    print("Loading GPT-2 tokenizer...")
-    tokenizer = AutoTokenizer.from_pretrained("gpt2")
+    tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.2-3B")
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
