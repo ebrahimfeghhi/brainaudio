@@ -61,8 +61,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--logits", type=Path, default=None, help="NPZ logits file (default: derived from encoder-model-name)")
     parser.add_argument("--tokens", type=Path, default=Path(DEFAULT_TOKENS), help="units file")
     parser.add_argument("--lexicon", type=Path, default=Path(DEFAULT_LEXICON), help="lexicon file")
-    parser.add_argument("--top-k", type=int, default=4, help="Number of top beams to display per trial")
-    parser.add_argument("--num-homophone-beams", type=int, default=3, help="Number of text interpretations (homophones) to track per beam")
+    parser.add_argument("--top-k", type=int, default=10, help="Number of top beams to display per trial")
+    parser.add_argument("--num-homophone-beams", type=int, default=5, help="Number of text interpretations (homophones) to track per beam")
     parser.add_argument("--beam-prune-threshold", type=float, default=15, help="Prune beams that are more than this many log-prob points below the best.")
     parser.add_argument("--homophone-prune-threshold", type=float, default=10, help="Prune homophones more than this many log-prob points below the best.")
     parser.add_argument("--beam-beta", type=float, default=np.log(7), help="Bonus added to extending beams (not blank/repeat). Boosts probability of emitting new characters.")
@@ -71,7 +71,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--results-filename",
         type=str,
-        default=datetime.now().strftime("%m/%d_%H%M"),
+        default=datetime.now().strftime("%m_%d_%H%M"),
         help="Filename for saving results (will be placed in /home/ebrahim/brainaudio/results directory)"
     )
     

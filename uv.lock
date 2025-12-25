@@ -246,6 +246,7 @@ dependencies = [
     { name = "hydra-core" },
     { name = "ipykernel" },
     { name = "kaldifst" },
+    { name = "kenlm" },
     { name = "lightning" },
     { name = "matplotlib" },
     { name = "numpy" },
@@ -277,6 +278,7 @@ requires-dist = [
     { name = "hydra-core", specifier = ">=1.3.2" },
     { name = "ipykernel", specifier = ">=6.30.1" },
     { name = "kaldifst", specifier = ">=1.7.17" },
+    { name = "kenlm", specifier = ">=0.3.0" },
     { name = "lightning", specifier = ">=2.5.6" },
     { name = "matplotlib", specifier = ">=3.10.6" },
     { name = "numpy", specifier = ">=2.3.3" },
@@ -1257,6 +1259,12 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/06/12/59ec9fd17ed128cf6f8bf36a69f3ad3e03812b856c1e8785b9fd79a797d6/kaldifst-1.7.17-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:31bc316702382a4c2427999d2bdb3d57b2bfb1333b8a20d10d328e2a7ef29a65", size = 5631365, upload-time = "2025-09-01T13:55:57.624Z" },
     { url = "https://files.pythonhosted.org/packages/df/c4/ece538e3f5bbb091a9ae68f2ec0c02a18b2cdb60f1cb9f973586f95b3631/kaldifst-1.7.17-cp314-cp314-win32.whl", hash = "sha256:8cde76483ffe39edf747a7b1133e364546d2eca49e36975c27e92842f9499b72", size = 9062227, upload-time = "2025-09-01T13:58:53.994Z" },
 ]
+
+[[package]]
+name = "kenlm"
+version = "0.3.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/02/6e/f4e159cef39ea4ef2244b4aa32857d447d60a5d0ee269e1b1f8d3723c03e/kenlm-0.3.0.tar.gz", hash = "sha256:c4628bb9fb63c8a6f9240035b8b037385cfc404cb72e933cf48878291edac1e8", size = 427500, upload-time = "2025-04-07T13:26:38.795Z" }
 
 [[package]]
 name = "kiwisolver"

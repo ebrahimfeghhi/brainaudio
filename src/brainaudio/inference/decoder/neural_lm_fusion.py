@@ -19,11 +19,31 @@ from abc import ABC, abstractmethod
 from typing import List, Optional, TYPE_CHECKING
 import torch
 import torch.nn.functional as F
-import truecase
 
 if TYPE_CHECKING:
     from .batched_beam_decoding_utils import BatchedBeamHyps
     from .lexicon_constraint import LexiconConstraint
+
+
+def get_capitalization_variants(word: str) -> List[str]:
+    """
+    Generate capitalization variants of a word.
+
+    Args:
+        word: The input word (typically lowercase from lexicon)
+
+    Returns:
+        List of unique capitalization variants: [lowercase, Capitalized]
+    """
+    if not word:
+        return [word]
+
+    variants = set()
+    variants.add(word.lower())        # lowercase: "their"
+    variants.add(word.capitalize())   # Capitalized: "Their"
+
+    return list(variants)
+
 
 class NeuralLanguageModelFusion(ABC):
     
@@ -168,7 +188,7 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
         device: torch.device = None,
         max_context_length: int = 512,
         word_insertion_bonus: float = 0.0,
-        scoring_chunk_size: int = 32,
+        scoring_chunk_size: int = 128,
     ):
         """
         Initialize HuggingFace LM fusion.
@@ -211,7 +231,82 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
             if current_device != self.device:
                 self.model.to(self.device)
         self.model.eval()
-        
+
+    @torch.no_grad()
+    def _score_words_with_kv_cache(
+        self,
+        context: str,
+        words: List[str]
+    ) -> List[float]:
+        """
+        Score multiple words for a single context using KV caching.
+
+        1. Run one forward pass on context to get KV cache + last logits
+        2. For single-token words: look up score directly from last logits
+        3. For multi-token words: use KV cache for remaining tokens
+
+        Args:
+            context: The context string (e.g., "He is also a member of the")
+            words: List of candidate words (e.g., ["royal", "Royal", "real"])
+
+        Returns:
+            List of scores (weighted log-probs + word_insertion_bonus) for each word
+        """
+        if not words:
+            return []
+
+        # Step 1: Tokenize context
+        if context:
+            context_ids = self.tokenizer.encode(context, add_special_tokens=True, return_tensors="pt")
+            context_ids = context_ids.to(self.device)
+        else:
+            # Empty context - use BOS token
+            bos_id = self.tokenizer.bos_token_id or self.tokenizer.eos_token_id
+            context_ids = torch.tensor([[bos_id]], device=self.device)
+
+        # Step 2: Forward pass on context to get KV cache and last logits
+        outputs = self.model(context_ids, use_cache=True)
+        past_kv = outputs.past_key_values  # KV cache for all layers
+        last_logits = outputs.logits[:, -1, :]  # [1, vocab_size] - logits for next token
+
+        # Step 3: Tokenize all words and compute scores
+        log_probs_vocab = F.log_softmax(last_logits, dim=-1)  # [1, vocab_size]
+
+        scores = []
+        for word in words:
+            # Tokenize word: with leading space if context exists, without if empty context
+            # This matches how the original builds full_text = f"{context} {word}" vs full_text = word
+            if context:
+                word_text = " " + word
+            else:
+                word_text = word
+            word_ids = self.tokenizer.encode(word_text, add_special_tokens=False)
+
+            if not word_ids:
+                scores.append(self.word_insertion_bonus)
+                continue
+
+            # First token score: look up directly from last_logits
+            first_token_id = word_ids[0]
+            total_score = log_probs_vocab[0, first_token_id].item()
+
+            # Multi-token words: need additional forward pass with KV cache
+            if len(word_ids) > 1:
+                # Run forward pass with first N-1 tokens using KV cache
+                remaining_tokens = torch.tensor([word_ids[:-1]], device=self.device)
+                outputs = self.model(remaining_tokens, past_key_values=past_kv, use_cache=False)
+
+                # Get log probs for each subsequent token
+                logits = outputs.logits  # [1, N-1, vocab_size]
+                log_probs = F.log_softmax(logits, dim=-1)
+
+                for i in range(len(word_ids) - 1):
+                    next_token_id = word_ids[i + 1]
+                    total_score += log_probs[0, i, next_token_id].item()
+
+            scores.append(self.weight * total_score + self.word_insertion_bonus)
+
+        return scores
 
     @torch.no_grad()
     def score_continuations(self, contexts: List[str], candidate_words: List[List[str]]) -> List[List[float]]:
@@ -230,23 +325,22 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
         for context, candidates in zip(contexts, candidate_words):
             for word in candidates:
                 # Construct full text
+                # Don't add space before punctuation
                 if not context:
                     full_text = word
                 elif context.endswith(" ") or word.startswith(" "):
                     full_text = f"{context}{word}"
+                elif word and word[0] in '.,!?;:\'\"':
+                    full_text = f"{context}{word}"
                 else:
                     full_text = f"{context} {word}"
 
-                # Apply truecase for proper capitalization before LLM scoring
-                full_text = truecase.get_true_case(full_text)
-
-                # Extract the truecased context (everything before the last word)
-                # This ensures start_idx is computed from the same tokenization as full_text
-                truecased_context = full_text.rsplit(" ", 1)[0] if " " in full_text else ""
-
-                # Compute start_idx from the truecased context
-                prefix_ids = self.tokenizer.encode(truecased_context, add_special_tokens=True)
-                start_idx = len(prefix_ids) - 1
+                # Compute start_idx from the context
+                if context:
+                    prefix_ids = self.tokenizer.encode(context, add_special_tokens=True)
+                    start_idx = len(prefix_ids) - 1
+                else:
+                    start_idx = 0
 
                 flat_texts.append(full_text)
                 candidate_start_indices.append(start_idx)
@@ -377,7 +471,17 @@ def apply_lm_fusion_post_selection(
             # context_text_tuples: List[Tuple[float, str]] where each tuple is (lm_score, text)
             # Currently this list has 1 element (will grow up to K when homophones are encountered)
             context_text_tuples = beam_hyps.context_texts[b][k]
-            candidate_words = [lexicon.word_list[idx] for idx in word_indices]
+
+            # Get base homophones from lexicon
+            base_words = [lexicon.word_list[idx] for idx in word_indices]
+
+            # Expand with capitalization variants (e.g., "their" -> ["their", "Their"])
+            candidate_words = []
+            for word in base_words:
+                candidate_words.extend(get_capitalization_variants(word))
+
+            # Remove duplicates while preserving order
+            candidate_words = list(dict.fromkeys(candidate_words))
 
             to_score.append((b, k, context_text_tuples, candidate_words))
 
@@ -475,9 +579,9 @@ def apply_lm_end_of_sentence_scoring(
     """
     Add end-of-sentence probability to beam scores.
 
-    For each beam, scores the probability of a period "." following the
-    current context text and adds it to the beam score. This helps the LM
-    prefer complete, well-formed sentences.
+    For each beam, scores the probability of ".", "?", or "!" following the
+    current context text. Uses the best scoring punctuation to update the
+    beam score and appends it to the text.
 
     Args:
         lm_fusion: The neural LM fusion module (or None to skip).
@@ -487,6 +591,7 @@ def apply_lm_end_of_sentence_scoring(
         return
 
     batch_size, beam_size = beam_hyps.scores.shape
+    eos_candidates = [".", "?", "!"]
 
     # Collect all contexts that need EOS scoring
     contexts = []
@@ -506,8 +611,8 @@ def apply_lm_end_of_sentence_scoring(
             # Use the best (first) text interpretation
             _, text = context_tuples[0]
 
-            # Skip if text already ends with a period
-            if text.rstrip().endswith('.'):
+            # Skip if text already ends with sentence-ending punctuation
+            if text.rstrip() and text.rstrip()[-1] in '.?!':
                 continue
 
             contexts.append(text)
@@ -516,11 +621,26 @@ def apply_lm_end_of_sentence_scoring(
     if not contexts:
         return
 
-    # Score "." for all contexts in one batched call
-    candidate_words = [["."]] * len(contexts)
-    eos_scores = lm_fusion.score_continuations(contexts, candidate_words)
+    # Score ".", "?", "!" for all contexts in one batched call
+    candidate_words = [eos_candidates] * len(contexts)
+    all_eos_scores = lm_fusion.score_continuations(contexts, candidate_words)
 
-    # Add EOS scores to beam scores
-    for (b, k), scores in zip(beam_indices, eos_scores):
-        eos_score = scores[0]  # Only one candidate (".")
-        beam_hyps.scores[b, k] += eos_score
+    # For each beam, pick the best punctuation and update scores/text
+    for (b, k), eos_scores in zip(beam_indices, all_eos_scores):
+        # Find best punctuation
+        best_idx = max(range(len(eos_candidates)), key=lambda i: eos_scores[i])
+        best_punct = eos_candidates[best_idx]
+        best_score = eos_scores[best_idx]
+
+        # Update lm_score in context_texts tuples and append punctuation to text
+        context_tuples = beam_hyps.context_texts[b][k]
+        updated_tuples = []
+        for lm_score, text in context_tuples:
+            updated_tuples.append((lm_score + best_score, text + best_punct))
+        beam_hyps.context_texts[b][k] = updated_tuples
+
+        # Update beam score: acoustic_score stays the same, lm_score increases
+        beam_hyps.scores[b, k] += best_score
+
+        # Update hash based on new best text
+        beam_hyps.context_texts_hash[b][k] = hash(updated_tuples[0][1])

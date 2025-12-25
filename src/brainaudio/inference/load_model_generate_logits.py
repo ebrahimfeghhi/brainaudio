@@ -209,9 +209,9 @@ def save_transcripts(manifest_paths, partition, save_paths):
             
             X, y, X_len, y_len, dayIdxs, transcripts = batch
             
-            transcript_trial = transcripts[0].replace(".", "").lower()
+            #transcript_trial = transcripts[0].replace(".", "").lower()
             
-            transcriptions.append(transcript_trial)
+            transcriptions.append(transcripts)
             
         save_path = f"{save_paths[participant_id]}/transcripts_{partition}.pkl"
         with open(save_path, 'wb') as handle:

@@ -389,7 +389,12 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                 # Set invalid tokens to -inf so they won't be selected by topk
                 log_probs = torch.where(lexicon_mask, log_probs, INACTIVE_SCORE)
                 
-
+            ###
+            # step 2.2.6: apply LM fusion pre-selection (before pruning and recombination)
+            # log_probs is of shape batch size [B, beam_size, V+1]
+            # the goal now is to apply N-gram LM fusion to beam extensions that form valid words.       
+            ###
+                
             """
                 step 2.3: getting `beam_size` best candidates
                 log_probs.view(curr_batch_size, -1) reshapes log_probs to [B, beam_size * (V+1)]
@@ -401,7 +406,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             
             next_indices = next_candidates_indices // vocab_size # indices of beams being extended
             next_labels = next_candidates_indices % vocab_size # label indices
-        
+                    
             # step 2.3: pruning candidates with threshold `
             batch_next_scores = next_scores.view(curr_batch_size, -1)
             max_next_score = batch_next_scores.max(dim=-1, keepdim=True).values
@@ -463,12 +468,13 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                 )
 
         # After decoding is complete, add end-of-sentence probability
-        #if self.lm_fusion is not None:
-        #    from .neural_lm_fusion import apply_lm_end_of_sentence_scoring
-        #    apply_lm_end_of_sentence_scoring(
-        #        lm_fusion=self.lm_fusion,
-        #        beam_hyps=batched_beam_hyps,
-        #    )
+        if self.lm_fusion is not None:
+            print("Applying LM end-of-sentence scoring...")
+            from .neural_lm_fusion import apply_lm_end_of_sentence_scoring
+            apply_lm_end_of_sentence_scoring(
+                lm_fusion=self.lm_fusion,
+                beam_hyps=batched_beam_hyps,
+            )
 
         return batched_beam_hyps
     
