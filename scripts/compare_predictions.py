@@ -7,6 +7,7 @@ import argparse
 import pandas as pd
 from pathlib import Path
 from jiwer import wer as compute_wer
+import string
 
 
 DEFAULT_PREDICTIONS_CSV = "/home/ebrahim/nejm-brain-to-text/model_training/rnn_baseline_submission_file_valsplit.csv"
@@ -52,12 +53,25 @@ def parse_args() -> argparse.Namespace:
 
 
 def sentence_wer(prediction: str, reference: str) -> float:
-    """Compute WER for a single sentence (case-insensitive)."""
-    if not reference.strip():
-        return 0.0 if not prediction.strip() else 1.0
+    """Compute WER for a single sentence (case-insensitive, punctuation-stripped)."""
+    
+    # Create a translation table that maps every punctuation char to None
+    translator = str.maketrans('', '', string.punctuation)
+    
+    # 1. Normalization: Lowercase -> Remove Punctuation -> Strip whitespace
+    p_clean = prediction.lower().translate(translator).strip()
+    r_clean = reference.lower().translate(translator).strip()
+    
+    # 2. Handle empty references (e.g., silence or only punctuation)
+    if not r_clean:
+        return 0.0 if not p_clean else 1.0
+        
     try:
-        return compute_wer(reference.lower(), prediction.lower())
-    except:
+        # compute_wer must be defined in your scope (e.g. from jiwer)
+        return compute_wer(r_clean, p_clean)
+    except Exception as e:
+        # It is often better to print the error for debugging than to silently return 1.0
+        print(f"WER Calculation Error: {e}")
         return 1.0
 
 
