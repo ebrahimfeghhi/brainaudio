@@ -23,12 +23,12 @@ from .beam_helpers import (
     log_lm_watchlist_scores,
 )
 from .rnnt_utils import Hypothesis, NBestHypotheses
-from .neural_lm_fusion import NeuralLanguageModelFusion, HuggingFaceLMFusion
+from .neural_lm_fusion import NeuralLanguageModelFusion, HuggingFaceLMFusion, KenLMFusion
 
 __all__ = [
     'LexiconConstraint',
     'VectorizedLexiconConstraint',
-    'BatchedBeamCTCComputer', 
+    'BatchedBeamCTCComputer',
     'materialize_beam_transcript',
     'format_beam_phonemes',
     'strip_ctc',
@@ -43,6 +43,7 @@ __all__ = [
     'NBestHypotheses',
     'NeuralLanguageModelFusion',
     'HuggingFaceLMFusion',
+    'KenLMFusion',
     'apply_ctc_rules',
     'load_token_to_phoneme_mapping',
     'load_phoneme_to_word_mapping',

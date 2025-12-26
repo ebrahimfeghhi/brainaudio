@@ -17,6 +17,7 @@ from brainaudio.inference.decoder import (
     BatchedBeamCTCComputer,
     VectorizedLexiconConstraint,
     HuggingFaceLMFusion,
+    KenLMFusion,
 )
 from brainaudio.inference.decoder.beam_helpers import (
     decode_beam_texts,
@@ -51,11 +52,14 @@ def parse_args() -> argparse.Namespace:
                         help="Start index (inclusive). Use with --end-trial-idx for a range.")
     parser.add_argument("--end-trial-idx", type=int, default=None,
                         help="End index (exclusive). Use with --start-trial-idx for a range.")
-    parser.add_argument("--beam-size", type=int, default=250, help="CTC beam size")
+    parser.add_argument("--beam-size", type=int, default=1000, help="CTC beam size")
     parser.add_argument("--model", default="meta-llama/Llama-3.2-3B", help="HF causal LM checkpoint")
     parser.add_argument("--hf-token", default=None, help="Optional HF token")
-    parser.add_argument("--lm-weight", type=float, default=1, help="Fusion weight")
+    parser.add_argument("--lm-weight", type=float, default=1, help="Neural LM fusion weight")
     parser.add_argument("--word-insertion-bonus", type=float, default=1.5, help="Bonus at boundaries")
+    parser.add_argument("--ngram-model", type=str, default="/data2/brain2text/lm/lm_dec19_huge_4gram.kenlm",
+                        help="Path to KenLM n-gram model")
+    parser.add_argument("--ngram-weight", type=float, default=0, help="N-gram LM fusion weight")
     parser.add_argument("--max-context-length", type=int, default=512, help="Token budget")
     parser.add_argument("--device", default="cuda:1", help="Torch device")
     parser.add_argument("--logits", type=Path, default=None, help="NPZ logits file (default: derived from encoder-model-name)")
@@ -63,11 +67,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lexicon", type=Path, default=Path(DEFAULT_LEXICON), help="lexicon file")
     parser.add_argument("--top-k", type=int, default=10, help="Number of top beams to display per trial")
     parser.add_argument("--num-homophone-beams", type=int, default=5, help="Number of text interpretations (homophones) to track per beam")
-    parser.add_argument("--beam-prune-threshold", type=float, default=15, help="Prune beams that are more than this many log-prob points below the best.")
-    parser.add_argument("--homophone-prune-threshold", type=float, default=10, help="Prune homophones more than this many log-prob points below the best.")
+    parser.add_argument("--beam-prune-threshold", type=float, default=25, help="Prune beams that are more than this many log-prob points below the best.")
+    parser.add_argument("--homophone-prune-threshold", type=float, default=6, help="Prune homophones more than this many log-prob points below the best.")
     parser.add_argument("--beam-beta", type=float, default=np.log(7), help="Bonus added to extending beams (not blank/repeat). Boosts probability of emitting new characters.")
     parser.add_argument("--beam-blank-penalty", type=float, default=0, help="Penalty subtracted from blank emissions.")
-    parser.add_argument("--logit-scale", type=float, default=0.4, help="Scalar multiplier for encoder logits.")
+    parser.add_argument("--logit-scale", type=float, default=0.8, help="Scalar multiplier for encoder logits.")
     parser.add_argument(
         "--results-filename",
         type=str,
@@ -188,11 +192,19 @@ def main():
         word_insertion_bonus=args.word_insertion_bonus
     )
 
+    # Create N-gram LM fusion for pre-pruning scoring
+    #ngram_lm_fusion = KenLMFusion(
+    #    model_path=args.ngram_model,
+    #    weight=args.ngram_weight,
+    #    word_insertion_bonus=0.0,  # Only apply word bonus in neural LM
+    #)
+
     decoder = BatchedBeamCTCComputer(
         blank_index=lexicon.blank_index,
         beam_size=args.beam_size,
         lexicon=lexicon,
-        lm_fusion=lm_fusion,
+        lm_fusion=lm_fusion,  # Neural LM disabled for testing
+        ngram_lm_fusion=None,
         allow_cuda_graphs=False,
         num_homophone_beams=args.num_homophone_beams,
         beam_threshold=args.beam_prune_threshold,
@@ -289,6 +301,7 @@ def main():
     print(f"Processed {len(decoded_sentences)} trials in {total_elapsed:.2f}s")
     print(f"Beam size: {args.beam_size}, Homophone beams: {args.num_homophone_beams}, Prune threshold: {args.homophone_prune_threshold}")
     print(f"Ground truth in beams: {gt_in_beams_count}/{len(decoded_sentences)} ({100*gt_in_beams_count/len(decoded_sentences):.1f}%)")
+    print(f"LLM forward passes: {lm_fusion.get_call_count()}")
 
 # Compute Metrics
     try:

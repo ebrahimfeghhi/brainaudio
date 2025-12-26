@@ -167,6 +167,88 @@ class DummyLMFusion(NeuralLanguageModelFusion):
         return scores
 
 
+class KenLMFusion(NeuralLanguageModelFusion):
+    """
+    N-gram LM fusion using KenLM.
+
+    Fast CPU-based n-gram scoring. Useful for pre-pruning before expensive neural LM.
+
+    Example usage:
+        >>> lm = KenLMFusion("/path/to/model.kenlm", weight=0.5)
+        >>> scores = lm.score_continuations(["He is a"], [["member", "Member"]])
+    """
+
+    def __init__(
+        self,
+        model_path: str,
+        weight: float = 0.3,
+        word_insertion_bonus: float = 0.0,
+    ):
+        """
+        Initialize KenLM fusion.
+
+        Args:
+            model_path: Path to .kenlm or .arpa file
+            weight: Weight for LM scores
+            word_insertion_bonus: Bonus added per word
+        """
+        super().__init__(weight=weight, homophone_aggregation='max', device=None)
+
+        import kenlm
+        self.model = kenlm.Model(model_path)
+        self.word_insertion_bonus = word_insertion_bonus
+        self.kenlm = kenlm  # Keep reference for State creation
+
+        # Log10 to natural log conversion factor
+        self.log10_to_ln = 2.302585092994046  # ln(10)
+
+        print(f"[KenLMFusion] Loaded {model_path}, weight={weight}")
+
+    def score_continuations(
+        self,
+        contexts: List[str],
+        candidate_words: List[List[str]]
+    ) -> List[List[float]]:
+        """
+        Score candidate words given contexts using KenLM.
+
+        Lowercases words before scoring (n-gram models are typically lowercase).
+        Returns the same score for all capitalization variants.
+        """
+        all_scores = []
+
+        for context, candidates in zip(contexts, candidate_words):
+            # Build state from context
+            state = self.kenlm.State()
+            self.model.BeginSentenceWrite(state)
+
+            # Process context words to build up state
+            context_lower = context.lower().strip()
+            if context_lower:
+                for word in context_lower.split():
+                    out_state = self.kenlm.State()
+                    self.model.BaseScore(state, word, out_state)
+                    state = out_state
+
+            # Score each candidate (deduplicate by lowercase)
+            lowercase_to_score = {}
+            for word in candidates:
+                word_lower = word.lower()
+                if word_lower not in lowercase_to_score:
+                    out_state = self.kenlm.State()
+                    # BaseScore returns log10 probability
+                    log10_score = self.model.BaseScore(state, word_lower, out_state)
+                    # Convert to natural log and apply weight
+                    score = self.weight * (log10_score * self.log10_to_ln) + self.word_insertion_bonus
+                    lowercase_to_score[word_lower] = score
+
+            # Return scores in original order (same score for all case variants)
+            scores = [lowercase_to_score[word.lower()] for word in candidates]
+            all_scores.append(scores)
+
+        return all_scores
+
+
 class HuggingFaceLMFusion(NeuralLanguageModelFusion):
     """
     Neural LM fusion using HuggingFace transformers (GPT-2, LLaMA, etc).
@@ -188,7 +270,7 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
         device: torch.device = None,
         max_context_length: int = 512,
         word_insertion_bonus: float = 0.0,
-        scoring_chunk_size: int = 128,
+        scoring_chunk_size: int = 256,
     ):
         """
         Initialize HuggingFace LM fusion.
@@ -222,6 +304,9 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
         
         self.device = device if device is not None else next(self.model.parameters()).device
 
+        # Counter for tracking LLM forward passes
+        self.llm_call_count = 0
+
         print(f"[HuggingFaceLMFusion] word_insertion_bonus={self.word_insertion_bonus}, weight={self.weight}")
 
         # Move model to device and set to eval mode
@@ -232,81 +317,13 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
                 self.model.to(self.device)
         self.model.eval()
 
-    @torch.no_grad()
-    def _score_words_with_kv_cache(
-        self,
-        context: str,
-        words: List[str]
-    ) -> List[float]:
-        """
-        Score multiple words for a single context using KV caching.
+    def reset_call_count(self):
+        """Reset the LLM call counter to 0."""
+        self.llm_call_count = 0
 
-        1. Run one forward pass on context to get KV cache + last logits
-        2. For single-token words: look up score directly from last logits
-        3. For multi-token words: use KV cache for remaining tokens
-
-        Args:
-            context: The context string (e.g., "He is also a member of the")
-            words: List of candidate words (e.g., ["royal", "Royal", "real"])
-
-        Returns:
-            List of scores (weighted log-probs + word_insertion_bonus) for each word
-        """
-        if not words:
-            return []
-
-        # Step 1: Tokenize context
-        if context:
-            context_ids = self.tokenizer.encode(context, add_special_tokens=True, return_tensors="pt")
-            context_ids = context_ids.to(self.device)
-        else:
-            # Empty context - use BOS token
-            bos_id = self.tokenizer.bos_token_id or self.tokenizer.eos_token_id
-            context_ids = torch.tensor([[bos_id]], device=self.device)
-
-        # Step 2: Forward pass on context to get KV cache and last logits
-        outputs = self.model(context_ids, use_cache=True)
-        past_kv = outputs.past_key_values  # KV cache for all layers
-        last_logits = outputs.logits[:, -1, :]  # [1, vocab_size] - logits for next token
-
-        # Step 3: Tokenize all words and compute scores
-        log_probs_vocab = F.log_softmax(last_logits, dim=-1)  # [1, vocab_size]
-
-        scores = []
-        for word in words:
-            # Tokenize word: with leading space if context exists, without if empty context
-            # This matches how the original builds full_text = f"{context} {word}" vs full_text = word
-            if context:
-                word_text = " " + word
-            else:
-                word_text = word
-            word_ids = self.tokenizer.encode(word_text, add_special_tokens=False)
-
-            if not word_ids:
-                scores.append(self.word_insertion_bonus)
-                continue
-
-            # First token score: look up directly from last_logits
-            first_token_id = word_ids[0]
-            total_score = log_probs_vocab[0, first_token_id].item()
-
-            # Multi-token words: need additional forward pass with KV cache
-            if len(word_ids) > 1:
-                # Run forward pass with first N-1 tokens using KV cache
-                remaining_tokens = torch.tensor([word_ids[:-1]], device=self.device)
-                outputs = self.model(remaining_tokens, past_key_values=past_kv, use_cache=False)
-
-                # Get log probs for each subsequent token
-                logits = outputs.logits  # [1, N-1, vocab_size]
-                log_probs = F.log_softmax(logits, dim=-1)
-
-                for i in range(len(word_ids) - 1):
-                    next_token_id = word_ids[i + 1]
-                    total_score += log_probs[0, i, next_token_id].item()
-
-            scores.append(self.weight * total_score + self.word_insertion_bonus)
-
-        return scores
+    def get_call_count(self) -> int:
+        """Get the current LLM call count."""
+        return self.llm_call_count
 
     @torch.no_grad()
     def score_continuations(self, contexts: List[str], candidate_words: List[List[str]]) -> List[List[float]]:
@@ -372,6 +389,7 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
             attention_mask = inputs.attention_mask
 
             # Forward pass for this chunk
+            self.llm_call_count += 1
             outputs = self.model(input_ids, attention_mask=attention_mask)
 
             # Shift and Gather
@@ -644,3 +662,86 @@ def apply_lm_end_of_sentence_scoring(
 
         # Update hash based on new best text
         beam_hyps.context_texts_hash[b][k] = hash(updated_tuples[0][1])
+
+
+def apply_ngram_lm_fusion_pre_selection(
+    ngram_lm: NeuralLanguageModelFusion | None,
+    lexicon: 'LexiconConstraint',
+    beam_hyps: 'BatchedBeamHyps',
+    log_probs: torch.Tensor,
+    blank_index: int,
+    boundary_token: int,
+) -> None:
+    """
+    Apply n-gram LM scores to log_probs BEFORE topk selection.
+
+    This modifies log_probs in-place, adding n-gram scores to the boundary token
+    for beams that would complete a valid word.
+
+    Args:
+        ngram_lm: KenLM fusion module (or None to skip)
+        lexicon: Lexicon constraint for word lookup
+        beam_hyps: Current beam hypotheses
+        log_probs: Log probabilities tensor [batch_size, beam_size, vocab_size] - modified in-place
+        blank_index: Index of blank token
+        boundary_token: Word boundary token index
+    """
+    from .beam_helpers import (
+        materialize_beam_transcript,
+        collapse_ctc_sequence
+    )
+
+    if ngram_lm is None:
+        return
+
+    batch_size, beam_size, vocab_size = log_probs.shape
+
+    # Collect beams that need scoring
+    to_score = []  # List of (b, k, context_text, candidate_words)
+
+    for b in range(batch_size):
+        for k in range(beam_size):
+            # Skip pruned beams
+            if beam_hyps.scores[b, k] == float('-inf'):
+                continue
+
+            # Only score if we're NOT already at a boundary
+            # (i.e., only on first boundary token, not consecutive ones)
+            last_label = beam_hyps.last_label[b, k].item()
+            if last_label == boundary_token:
+                continue
+
+            # Get current phoneme sequence
+            seq_raw = materialize_beam_transcript(beam_hyps, b, k)
+            seq_ctc = collapse_ctc_sequence(seq_raw.tolist(), blank_index)
+
+            # Check what words would be completed if we emit boundary token
+            _, at_boundary, word_indices = lexicon.get_valid_next_tokens_with_word_info(seq_ctc)
+
+            if not at_boundary or not word_indices:
+                continue
+
+            # Get context text (best interpretation)
+            context_tuples = beam_hyps.context_texts[b][k]
+            if context_tuples:
+                context_text = context_tuples[0][1]  # Best text interpretation
+            else:
+                context_text = ""
+
+            # Get candidate words (lowercase only - n-gram doesn't distinguish case)
+            candidate_words = list(set(lexicon.word_list[idx].lower() for idx in word_indices))
+
+            to_score.append((b, k, context_text, candidate_words))
+
+    if not to_score:
+        return
+
+    # Batch score all contexts
+    contexts = [item[2] for item in to_score]
+    candidates = [item[3] for item in to_score]
+    all_scores = ngram_lm.score_continuations(contexts, candidates)
+
+    # Apply best score to log_probs for boundary token
+    for (b, k, _, _), scores in zip(to_score, all_scores):
+        best_score = max(scores) if scores else 0.0
+        log_probs[b, k, boundary_token] += best_score
