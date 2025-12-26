@@ -186,7 +186,6 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         allow_cuda_graphs: bool = True,
         lexicon: LexiconConstraint = None,
         lm_fusion: NeuralLanguageModelFusion = None,
-        ngram_lm_fusion: NeuralLanguageModelFusion = None,
         lm_beam_limit: Optional[int] = None,
         num_homophone_beams: int = 1,
         homophone_prune_threshold: Optional[float] = 10.0,
@@ -204,8 +203,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             beam_threshold: threshold for pruning candidates.
             allow_cuda_graphs: whether to allow CUDA graphs. Defaults to True.
             lexicon: optional LexiconConstraint to constrain beam search to valid words. Defaults to None.
-            lm_fusion: optional NeuralLanguageModelFusion for word-level LM rescoring (after pruning). Defaults to None.
-            ngram_lm_fusion: optional N-gram LM fusion for pre-pruning scoring. Defaults to None.
+            lm_fusion: optional NeuralLanguageModelFusion for word-level LM rescoring. Defaults to None.
             lm_beam_limit: optional cap on how many beams per batch element receive neural LM scoring at a word boundary.
             num_homophone_beams: number of text interpretations (homophones) to track per beam. Defaults to 1.
             homophone_prune_threshold: if set, prune homophone candidates whose LM score is more than this
@@ -236,7 +234,6 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
 
         self.lexicon = lexicon
         self.lm_fusion = lm_fusion
-        self.ngram_lm_fusion = ngram_lm_fusion
         self.lm_beam_limit = lm_beam_limit
         self.num_homophone_beams = num_homophone_beams
         self.homophone_prune_threshold = homophone_prune_threshold
@@ -244,8 +241,6 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         # Warn if lm_fusion is used without lexicon
         if self.lm_fusion is not None and self.lexicon is None:
             logging.warning("lm_fusion is enabled but lexicon is None. Neural LM fusion requires lexicon for word boundary detection.")
-        if self.ngram_lm_fusion is not None and self.lexicon is None:
-            logging.warning("ngram_lm_fusion is enabled but lexicon is None. N-gram LM fusion requires lexicon for word boundary detection.")
 
     def force_cuda_graphs_mode(self, mode: Optional[Union[str, CudaGraphsMode]]):
         """
@@ -394,21 +389,6 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                 # Set invalid tokens to -inf so they won't be selected by topk
                 log_probs = torch.where(lexicon_mask, log_probs, INACTIVE_SCORE)
                 
-            # step 2.2.6: apply N-gram LM fusion pre-selection (before pruning)
-            if self.ngram_lm_fusion is not None and self.lexicon is not None:
-                from .neural_lm_fusion import apply_ngram_lm_fusion_pre_selection
-
-                boundary_token = getattr(self.lexicon, "word_boundary_token", None)
-                if boundary_token is not None:
-                    apply_ngram_lm_fusion_pre_selection(
-                        ngram_lm=self.ngram_lm_fusion,
-                        lexicon=self.lexicon,
-                        beam_hyps=batched_beam_hyps,
-                        log_probs=log_probs,
-                        blank_index=self._blank_index,
-                        boundary_token=boundary_token,
-                    )
-
             """
                 step 2.3: getting `beam_size` best candidates
                 log_probs.view(curr_batch_size, -1) reshapes log_probs to [B, beam_size * (V+1)]

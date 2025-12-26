@@ -1,6 +1,6 @@
 """Neural Language Model fusion with KV caching for efficient beam search decoding."""
 
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Tuple
 import torch
 import torch.nn.functional as F
 
@@ -103,6 +103,26 @@ class HuggingFaceLMFusionKV(NeuralLanguageModelFusion):
         self.cache_access_order.clear()
         torch.cuda.empty_cache()
 
+    def cleanup_unused_cache(self, active_context_texts: List[str]):
+        """
+        Remove cache entries for contexts no longer in use.
+        Call this after beam pruning to free memory from pruned beams.
+
+        Args:
+            active_context_texts: List of context strings still in use by surviving beams.
+                                  Pass the best text from each beam's context_texts.
+        """
+        active_hashes = set(hash(ctx) for ctx in active_context_texts)
+        to_remove = [h for h in list(self.kv_cache.keys()) if h not in active_hashes]
+
+        for h in to_remove:
+            del self.kv_cache[h]
+            if h in self.cache_access_order:
+                self.cache_access_order.remove(h)
+
+        if to_remove:
+            torch.cuda.empty_cache()
+
     def _evict_lru(self):
         """Evict least recently used cache entry if over capacity."""
         while len(self.kv_cache) >= self.max_cache_size and self.cache_access_order:
@@ -159,7 +179,7 @@ class HuggingFaceLMFusionKV(NeuralLanguageModelFusion):
         return kv_cache, last_logits
 
     @torch.no_grad()
-    def _score_word_with_cache(
+    def _score_word_and_cache_extension(
         self,
         context: str,
         word: str,
@@ -167,7 +187,10 @@ class HuggingFaceLMFusionKV(NeuralLanguageModelFusion):
         last_logits: torch.Tensor
     ) -> float:
         """
-        Score a single word using cached KV state.
+        Score a word using cached KV state AND save extended cache for new context.
+
+        This is the key optimization: after scoring "member" with context "He is a",
+        we save the extended KV cache for "He is a member" so future scoring is instant.
 
         Args:
             context: The context string
@@ -178,6 +201,20 @@ class HuggingFaceLMFusionKV(NeuralLanguageModelFusion):
         Returns:
             Weighted log probability score for the word
         """
+        # Build new context string
+        if not context:
+            new_context = word
+        elif context.endswith(" ") or word.startswith(" "):
+            new_context = f"{context}{word}"
+        elif word and word[0] in '.,!?;:\'"':
+            new_context = f"{context}{word}"
+        else:
+            new_context = f"{context} {word}"
+
+        # Check if we already have cache for the extended context
+        new_context_hash = hash(new_context)
+        already_cached = new_context_hash in self.kv_cache
+
         # Tokenize the word (with leading space if context exists)
         if context:
             word_text = " " + word
@@ -195,20 +232,27 @@ class HuggingFaceLMFusionKV(NeuralLanguageModelFusion):
         first_token_id = word_ids[0]
         total_score = log_probs[0, first_token_id].item()
 
-        # Multi-token words need additional forward pass
-        if len(word_ids) > 1:
-            # Process remaining tokens using KV cache
-            remaining_ids = torch.tensor([word_ids[:-1]], device=self.device)
-            self.llm_call_count += 1
-            outputs = self.model(remaining_ids, past_key_values=kv_cache, use_cache=False)
+        # Process ALL word tokens to get extended KV cache
+        all_word_ids = torch.tensor([word_ids], device=self.device)
+        self.llm_call_count += 1
+        outputs = self.model(all_word_ids, past_key_values=kv_cache, use_cache=True)
 
-            # Get log probs for subsequent tokens
-            logits = outputs.logits  # [1, N-1, vocab_size]
-            token_log_probs = F.log_softmax(logits, dim=-1)
+        # Get log probs for subsequent tokens (if multi-token word)
+        if len(word_ids) > 1:
+            logits = outputs.logits  # [1, N, vocab_size]
+            token_log_probs = F.log_softmax(logits[:, :-1, :], dim=-1)
 
             for i in range(len(word_ids) - 1):
                 next_token_id = word_ids[i + 1]
                 total_score += token_log_probs[0, i, next_token_id].item()
+
+        # Save extended KV cache for the new context (skip if already cached)
+        if not already_cached:
+            extended_kv = outputs.past_key_values
+            new_last_logits = outputs.logits[:, -1, :]  # [1, vocab_size]
+            self._evict_lru()
+            self.kv_cache[new_context_hash] = (new_context, extended_kv, new_last_logits.clone())
+            self._update_access_order(new_context_hash)
 
         return self.weight * total_score + self.word_insertion_bonus
 
@@ -241,7 +285,7 @@ class HuggingFaceLMFusionKV(NeuralLanguageModelFusion):
 
             scores = []
             for word in candidates:
-                score = self._score_word_with_cache(context, word, kv_cache, last_logits)
+                score = self._score_word_and_cache_extension(context, word, kv_cache, last_logits)
                 scores.append(score)
 
             all_scores.append(scores)
