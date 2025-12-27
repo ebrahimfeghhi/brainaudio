@@ -18,6 +18,7 @@ from brainaudio.inference.decoder import (
     VectorizedLexiconConstraint,
     HuggingFaceLMFusion,
 )
+from brainaudio.inference.decoder.ngram_lm import NGramGPULanguageModel
 from brainaudio.inference.decoder.beam_helpers import (
     decode_beam_texts,
     load_log_probs,
@@ -55,19 +56,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model", default="meta-llama/Llama-3.2-3B", help="HF causal LM checkpoint")
     parser.add_argument("--hf-token", default=None, help="Optional HF token")
     parser.add_argument("--lm-weight", type=float, default=1, help="Neural LM fusion weight")
-    parser.add_argument("--word-insertion-bonus", type=float, default=1.5, help="Bonus at boundaries")
+    parser.add_argument("--word-insertion-bonus", type=float, default=5, help="Bonus at boundaries")
     parser.add_argument("--max-context-length", type=int, default=512, help="Token budget")
     parser.add_argument("--device", default="cuda:0", help="Torch device")
     parser.add_argument("--logits", type=Path, default=None, help="NPZ logits file (default: derived from encoder-model-name)")
     parser.add_argument("--tokens", type=Path, default=Path(DEFAULT_TOKENS), help="units file")
     parser.add_argument("--lexicon", type=Path, default=Path(DEFAULT_LEXICON), help="lexicon file")
-    parser.add_argument("--top-k", type=int, default=10, help="Number of top beams to display per trial")
-    parser.add_argument("--num-homophone-beams", type=int, default=5, help="Number of text interpretations (homophones) to track per beam")
-    parser.add_argument("--beam-prune-threshold", type=float, default=18, help="Prune beams that are more than this many log-prob points below the best.")
-    parser.add_argument("--homophone-prune-threshold", type=float, default=6, help="Prune homophones more than this many log-prob points below the best.")
+    parser.add_argument("--top-k", type=int, default=1000, help="Number of top beams to display per trial")
+    parser.add_argument("--num-homophone-beams", type=int, default=4, help="Number of text interpretations (homophones) to track per beam")
+    parser.add_argument("--beam-prune-threshold", type=float, default=1e4, help="Prune beams that are more than this many log-prob points below the best.")
+    parser.add_argument("--homophone-prune-threshold", type=float, default=4, help="Prune homophones more than this many log-prob points below the best.")
     parser.add_argument("--beam-beta", type=float, default=np.log(7), help="Bonus added to extending beams (not blank/repeat). Boosts probability of emitting new characters.")
     parser.add_argument("--beam-blank-penalty", type=float, default=0, help="Penalty subtracted from blank emissions.")
-    parser.add_argument("--logit-scale", type=float, default=0.6, help="Scalar multiplier for encoder logits.")
+    parser.add_argument("--logit-scale", type=float, default=0.4, help="Scalar multiplier for encoder logits.")
     parser.add_argument(
         "--results-filename",
         type=str,
@@ -84,6 +85,23 @@ def parse_args() -> argparse.Namespace:
         "--load-in-4bit",
         action="store_true",
         help="Load model in 4-bit quantization (requires bitsandbytes)"
+    )
+    parser.add_argument(
+        "--use-phoneme-lm",
+        action="store_true",
+        help="Enable phoneme-level n-gram LM for frame-level scoring"
+    )
+    parser.add_argument(
+        "--phoneme-lm-path",
+        type=str,
+        default=None,
+        help="Path to phoneme LM ARPA file. If not provided, uses dummy uniform LM for testing."
+    )
+    parser.add_argument(
+        "--phoneme-lm-weight",
+        type=float,
+        default=0.3,
+        help="Weight for phoneme LM fusion (default: 0.3)"
     )
 
     return parser.parse_args()
@@ -188,6 +206,29 @@ def main():
         word_insertion_bonus=args.word_insertion_bonus,
     )
 
+    # Create phoneme-level n-gram LM if enabled
+    fusion_models = []
+    fusion_models_alpha = []
+    if args.use_phoneme_lm:
+        # Phoneme LM vocab size = 40 (39 phonemes + word boundary, excluding CTC blank)
+        PHONEME_LM_VOCAB_SIZE = 40
+
+        if args.phoneme_lm_path:
+            print(f"[INFO] Loading phoneme LM from {args.phoneme_lm_path}")
+            phoneme_lm = NGramGPULanguageModel.from_arpa(
+                args.phoneme_lm_path,
+                vocab_size=PHONEME_LM_VOCAB_SIZE,
+                token_offset=100,
+            )
+        else:
+            print("[INFO] Using dummy uniform phoneme LM for testing")
+            phoneme_lm = NGramGPULanguageModel.dummy_unigram_lm(vocab_size=PHONEME_LM_VOCAB_SIZE)
+
+        phoneme_lm = phoneme_lm.to(device)
+        fusion_models.append(phoneme_lm)
+        fusion_models_alpha.append(args.phoneme_lm_weight)
+        print(f"[INFO] Phoneme LM enabled with weight={args.phoneme_lm_weight}")
+
     decoder = BatchedBeamCTCComputer(
         blank_index=lexicon.blank_index,
         beam_size=args.beam_size,
@@ -199,6 +240,8 @@ def main():
         homophone_prune_threshold=args.homophone_prune_threshold,
         beam_beta=args.beam_beta,
         beam_blank_penalty=args.beam_blank_penalty,
+        fusion_models=fusion_models if fusion_models else None,
+        fusion_models_alpha=fusion_models_alpha if fusion_models_alpha else None,
     )
 
     transcripts = None
@@ -262,11 +305,21 @@ def main():
         print(f"Trial {trial_idx:3d} | {trial_elapsed*1000:.1f}ms | Score: {best_score:.2f}")
         print(f"  GT:   {ground_truth}")
         print(f"  Best: {best_text}")
+
+        # Import helpers for phoneme printing
+        from brainaudio.inference.decoder import materialize_beam_transcript, collapse_ctc_sequence
+
         print(f"  Top {K} beams (with {args.num_homophone_beams} homophone interpretations each):")
         for rank, i in enumerate(topk_indices):
             beam_score = result.scores[0, i].item()
             all_texts = result.context_texts[0][i]  # List of (lm_score, text) tuples
-            print(f"  #{rank:02d} | score={beam_score:.2f}")
+
+            # Get phoneme sequence for this beam
+            seq_raw = materialize_beam_transcript(result, 0, i)
+            seq_collapsed = collapse_ctc_sequence(seq_raw.tolist(), lexicon.blank_index)
+            phoneme_names = [lexicon.token_to_symbol.get(idx, f"?{idx}") for idx in seq_collapsed]
+
+            print(f"  #{rank:02d} | score={beam_score:.2f} | {' '.join(phoneme_names)}")
             for k_idx, (lm_score, text) in enumerate(all_texts):
                 print(f"       H{k_idx}: lm={lm_score:.4f} | {text}")
 

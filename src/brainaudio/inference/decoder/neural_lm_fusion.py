@@ -496,6 +496,8 @@ def apply_lm_fusion_post_selection(
             # Expand with capitalization variants (e.g., "their" -> ["their", "Their"])
             candidate_words = []
             for word in base_words:
+                if word == 'profession':
+                    breakpoint()
                 candidate_words.extend(get_capitalization_variants(word))
 
             # Remove duplicates while preserving order

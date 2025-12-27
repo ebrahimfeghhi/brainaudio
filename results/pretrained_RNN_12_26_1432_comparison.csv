@@ -1,0 +1,390 @@
+# ERROR ANALYSIS
+# Metric                  LLM Beam Search       RNN Baseline   Difference
+# ----------------------------------------------------------------------
+# Substitutions                       746                542         +204
+# Insertions                           35                 31           +4
+# Deletions                            41                 21          +20
+# ----------------------------------------------------------------------
+# Total Errors                        822                594         +228
+# Hits (Correct)                     8658               8882         -224
+# ----------------------------------------------------------------------
+# WER                              8.70%             6.29%       +2.41%
+#
+id,llm_wer,baseline_wer,category,ground_truth,llm_prediction,baseline_prediction
+7,0.17,0.17,SAME,this is like a cruelty joke,This is like a realty joke.,this is like a crusty joke
+16,0.2,0.0,WORSE,he is also a member of the royal irish academy,He is also a member of the Real Iras Academy.,he is also a member of the royal irish academy
+20,0.11,0.0,WORSE,you just really can't tell what's going to happen,You just really can't tell what's going to.,you just really can't tell what's going to happen
+23,0.2,0.0,WORSE,it's really not too difficult,It's really not too.,it's really not too difficult
+29,0.12,0.12,SAME,and it also helps when they were winning,And it also helps when they were wedding.,and it also helps when they were wearing
+46,0.0,0.14,BETTER,i don't know where the answer is,I don't know where the answer is.,i don't know where the house is
+53,0.14,0.0,WORSE,he said he's been saying one more,He said is been saying one more.,he said he's been saying one more
+54,0.0,0.12,BETTER,i can't really think of anything else offhand,I can't really think of anything else offhand.,i can't really think of anything else fate
+67,0.0,0.25,BETTER,he put up all of his ash trays,He put up all of his ash trays.,he put up all of his oak trees
+73,0.33,0.33,SAME,invasion of burma,Invasion of Rommel.,invasion of mobile
+77,0.0,0.2,BETTER,he had a hot pad,He had a hot pad.,he had a hot pan
+92,0.17,0.33,BETTER,their economy's a little bit weak,their condiments a little bit weak.,their economy it's a little bit weak
+106,0.14,0.0,WORSE,i have some neighbors across the field,I have some neighbours across the field.,i have some neighbors across the field
+113,0.25,0.0,WORSE,people donate more money,People didn't more money.,people donate more money
+117,0.17,0.17,SAME,i think because it costs less,I think because it cars less.,i think because it was less
+118,0.2,0.0,WORSE,it's a weakness and all,It's a wellness and all.,it's a weakness and all
+123,0.4,0.4,SAME,streaming season is opening boys,Dreaming season is open boys!,driving season is open boys
+127,0.2,0.0,WORSE,the victims' families and things,The Fifties Families and Things.,the victims' families and things
+134,0.2,0.0,WORSE,it's like a major production,It's like a major.,it's like a major production
+135,0.1,0.0,WORSE,we ended up watching it for a couple of hours,We ended up watching it for a couple of.,we ended up watching it for a couple of hours
+136,0.25,0.25,SAME,you live in garland,You live in?,you live in cali
+137,0.33,0.0,WORSE,anything on that,Anything on?,anything on that
+139,0.12,0.0,WORSE,what will be a luxury in the future,What will be a luxury in the?,what will be a luxury in the future
+148,0.2,0.0,WORSE,helps them understand the world,helps them understand the.,helps them understand the world
+150,0.17,0.17,SAME,i like that they run tense,I like that they run.,i like that they run tests
+151,0.12,0.12,SAME,just like how you said my father was,Just like how you said my father.,just like how you said my father why
+153,0.67,0.0,WORSE,guided by voices,Garden by.,guided by voices
+155,0.18,0.09,WORSE,i wanted him to win best actor on top of it,I wouldn't him to win best actor on top of.,i wouldn't him to win best actor on top of it
+157,0.17,0.0,WORSE,you look down at your arm,You look down at your r.,you look down at your arm
+158,0.67,0.67,SAME,the bermuda triangle,The permit.,the permit trial
+159,0.5,0.5,SAME,he's nine months old,He's dead mass old.,he's the most old
+161,0.33,0.33,SAME,a male profession,A male.,a male professor
+162,0.5,0.25,WORSE,the islanders sleep inside,The lovers sleep.,the lovers sleep inside
+163,0.2,0.4,BETTER,they are the detroit delegates,They are the Detroit.,they are the detroit tell us
+164,0.67,0.0,WORSE,they have coupons,They have cute pies.,they have coupons
+165,0.8,0.4,WORSE,i can't believe they can,I get big the.,i get it they can
+167,0.14,0.14,SAME,in a new house everything is white,In a new house everything is.,in a new house everything is what
+168,0.25,0.0,WORSE,easiest way out maybe,Easiest way out?,easiest way out maybe
+169,0.5,0.5,SAME,that will help solve our problems,That will have some our.,that will have some our problem
+172,0.33,0.17,WORSE,there are also these various disclosures,There are also this various.,there are also these various disclosure
+173,0.33,0.0,WORSE,enjoy the holidays,Enjoy the.,enjoy the holidays
+174,0.33,0.0,WORSE,no easy choices,No easy.,no easy choices
+176,0.5,0.12,WORSE,on probation or parole and killed someone else,On profession or befall and kid someone.,on probation or parole and killed someone
+178,0.14,0.29,BETTER,i don't think they're in a conspiracy,I don't think they're in a.,i don't think there is a conspiracy
+180,0.33,0.11,WORSE,trump's budget is just a proposal at this point,Trust Trump's budget is just a propeller at this.,from trump's budget is just a proposal at this point
+181,0.11,0.0,WORSE,we've had one as long as i can remember,We've had one as long as I can.,we've had one as long as i can remember
+189,0.2,0.4,BETTER,tax year of eighty one,Tax year of any one.,last year of any one
+193,0.12,0.0,WORSE,tim would like to take on other genres,Tim would like to take on other service.,tim would like to take on other genres
+195,0.25,0.0,WORSE,through the newspaper reviews,Through the newspaper reveals.,through the newspaper reviews
+203,0.17,0.0,WORSE,you can't get all of us,You you can't get all of us.,you can't get all of us
+204,0.25,0.25,SAME,i think the newsmen,I think the Newman.,i think the movement
+213,0.5,0.0,WORSE,tactical decision,Technical Decision.,tactical decision
+219,0.25,0.0,WORSE,a liberal arts school,A a liberal arts school.,a liberal arts school
+222,0.0,0.33,BETTER,you actually hand quilted it yourself,You actually hand quilted it yourself?,you actually had wanted it yourself
+229,0.12,0.0,WORSE,you can come and go as you please,You can come and go as you place.,you can come and go as you please
+231,0.12,0.12,SAME,owning on them and making payments on them,Owning on them an making payments on them.,owning on them than making payments on them
+234,0.25,0.0,WORSE,just the regular channel,Just the regular.,just the regular channel
+235,0.25,0.0,WORSE,he plays pretty regularly,He plays pretty.,he plays pretty regularly
+238,0.22,0.11,WORSE,oh well no point in dwelling on the past,Who Well No point in wailing on the past.,well no point in dwelling on the past
+242,1.5,2.5,BETTER,zoology department,You lit depart.,you call it a party
+245,0.14,0.0,WORSE,that's still not enough for a total,That's still not enough for a.,that's still not enough for a total
+247,0.33,0.5,BETTER,pay and exhaustion and you know,Pay an exception and you know.,an exception and you know
+248,0.2,0.0,WORSE,all my aunts and uncles,All my aunts and Oelkers.,all my aunts and uncles
+249,0.4,0.2,WORSE,a restaurant that employs minorities,A wrecker that employs.,a restaurant that employs minority
+252,0.43,0.14,WORSE,i have more energy when i exercise,I have for inducing when I injustices.,i have more energy when i injustices
+264,0.17,0.0,WORSE,i get great distance hitting it,I get great distance eating it.,i get great distance hitting it
+267,0.5,0.25,WORSE,regime change in iran,region change in around.,regime change in early
+272,0.25,0.25,SAME,he was a courier,He was a Tory.,he was a carry
+284,0.0,0.2,BETTER,they are tempting at times,They are tempting at times.,they are something at times
+286,0.33,0.17,WORSE,put a cramp in your viewing,But a cramp in your veering?,but a cramp in your viewing
+294,0.18,0.09,WORSE,i love all the windows that they have out now too,I love all the winders that they have out now to.,i love all the wonders that they have out now too
+296,0.2,0.0,WORSE,it'll go through the slot,It'll go through the lot.,it'll go through the slot
+301,0.25,0.0,WORSE,because that's perfectly clean,Because that's presently clean.,because that's perfectly clean
+305,0.0,0.25,BETTER,i don't like administration,I don't like administration.,i don't like a
+318,0.0,0.25,BETTER,barbecues and mexican food,Barbecues and Mexican food.,beans and mexican food
+329,0.12,0.12,SAME,no deaths have been reported in the city,No gangs have been reported in the city.,no names have been reported in the city
+332,0.08,0.08,SAME,this is the price paid for counting eggs rather than chicken embryos,This is the price paid for counting eggs rather than chicken ambiance.,this is the price paid for counting eggs rather than chicken habeas
+335,0.0,0.08,BETTER,and everyone involved in the case bar the jury had been here before,And everyone involved in the case bar the jury had been here before.,and everyone involved in the case for the jury had been here before
+338,0.09,0.09,SAME,oh so you need to put away the milk and cereal,Who so you need to put away the milk and cereal?,so you need to put away the milk and cereal
+342,0.22,0.22,SAME,i'm not even disputing the results of the board,I'm not even disputing the Russell's of the point.,i'm not even disputing the result of the point
+343,0.12,0.0,WORSE,and hurricane jose had not turned north yet,and Hurricane Jose and not turned north yet.,and hurricane jose had not turned north yet
+347,0.33,0.44,BETTER,i just stood there and soaked it all up,I just to start there and sort it all up.,just to start there and set it all up
+349,0.25,0.25,SAME,i was on crutches,I was on trenches.,i was on trenton
+353,0.12,0.0,WORSE,i don't know whether you did yours first,I don't know whether you did years first.,i don't know whether you did yours first
+354,0.43,0.43,SAME,the sticky slide rugs under the carpet,The stinging cloud grass under the carpet.,the stinking cloud grass under the carpet
+361,0.29,0.0,WORSE,wilkinson had no regrets about her decision,Walton and had no regrets about her decision.,wilkinson had no regrets about her decision
+370,0.4,0.4,SAME,like the old hank williams,Like the old week winners?,like the old he was
+372,0.5,0.17,WORSE,taylor attributed this to confirmation bias,dealer intermittent this to confirmation buyers.,dealer attributed this to confirmation bias
+376,0.07,0.07,SAME,he can consistently score the damage you need to prowl your hand into play,He can consistently score the damage you need to trial your hand into play.,he can consistently score the damage you need to roll your hand into play
+380,0.18,0.18,SAME,pasquale thinks a similar argument should be made for search engines,Baswell things a similar argument should be made for search engines.,swell things a similar argument should be made for search engines
+381,0.44,0.11,WORSE,the hercules and rainbow stag beetles are highlights here,The Hercules and Grable stack medals are headlines here.,the hercules and rainbow stag beetles are headlines here
+386,0.07,0.0,WORSE,also at that time we were starting to hate each other a little bit,also at that time we were starting to hate is other a little bit.,also at that time we were starting to hate each other a little bit
+387,0.09,0.0,WORSE,are either or both dogs considered dangerous under davis county ordinance,Are either or both dogs decided dangerous under Davis County ordinance?,are either or both dogs considered dangerous under davis county ordinance
+388,0.25,0.25,SAME,target and difficulty calculations,Carted and Difficulty Calculations.,started and difficulty calculations
+390,0.12,0.0,WORSE,the quantity you chose exceeds the quantity available,The quantity you chose isn't the quantity available.,the quantity you chose exceeds the quantity available
+393,0.1,0.0,WORSE,is it a novelty or a real coin of importance,Is it a novelty or a real card of importance?,is it a novelty or a real coin of importance
+404,0.14,0.0,WORSE,they were pretty much in good taste,They were pretty much in good tastes.,they were pretty much in good taste
+411,0.25,0.0,WORSE,see things like that,C things like that.,see things like that
+419,0.25,0.25,SAME,almost like a tingling,Almost like a Delling.,almost like a killing
+421,0.25,0.25,SAME,i noticed those dogs,I noticed those tags.,i noticed those talks
+424,0.14,0.0,WORSE,what kind of dog do you have,What Kind of Dog To You Have?,what kind of dog do you have
+430,0.3,0.1,WORSE,there are no more vehicle tokens spread across the map,There are no more vehicle talkers straight at the map.,there are no more vehicle tokens spread out the map
+431,0.12,0.0,WORSE,where is the evidence that they possess consciousness,Where is the evidence that they possess consciences?,where is the evidence that they possess consciousness
+432,0.22,0.0,WORSE,nevertheless i roll my eyes as i get up,Nevertheless I grow my house as I get up.,nevertheless i roll my eyes as i get up
+433,0.38,0.5,BETTER,people will do humiliating grotesque things for ambition,People will do Immunity Protect things for Oppression.,people will do much to protect things for a
+435,0.33,0.11,WORSE,they send off emissaries to start new cancer colonies,They said of emissaries to start new cancer colleges.,they set off emissaries to start new cancer colonies
+439,0.3,0.2,WORSE,check out ebay craigslist and other online sites for deals,Check out Eby cracks leaks and other online sites for deals.,check out be priceless and other online sites for deals
+440,0.15,0.0,WORSE,sign up for our daily newsletter of the top stories in courier country,Sign up for our daily newsletter of the top stories in Korea wanting.,sign up for our daily newsletter of the top stories in courier country
+441,0.22,0.11,WORSE,such threats are a violation of the un charter,Such threats are a violation of the U. N. Charter.,such threats are a violation of the union charter
+446,0.17,0.0,WORSE,once they have children over here,was they have children over here.,once they have children over here
+449,0.14,0.14,SAME,i like just looking at the billboards,I like just looking at the babies.,i like just looking at the boys
+467,0.25,0.0,WORSE,basically the guy commits,Basically the guy commenced.,basically the guy commits
+469,0.6,1.0,BETTER,waves born exercising boat grateful,ways born exercising but crystal.,way more exciting but stressful
+470,0.4,0.6,BETTER,shop spraying mathematics developing nashville,Shop Storing Mathematics Developing Cancel.,shop storing mathematics developer castle
+471,1.0,1.0,SAME,run bargains hopeless persists meals,Gun bodies endless percents mills.,one bothers endless percent miles
+472,0.6,0.6,SAME,keeps allowed monarch strap uses,Kits allowed mimic trap uses.,it's allowed my shop uses
+474,0.4,0.4,SAME,supported according key arrive crush,Supported according t arrive cross.,supported according to arrive cross
+475,0.25,0.25,SAME,playing traditional used flat,Laying traditional used flat.,making traditional used flat
+476,0.5,0.5,SAME,turquoise teams dollars concentration wind's stupidly,Cause teams dollars concentration wins commonly.,cause teams dollars concentration was commonly
+477,0.67,0.67,SAME,pops against idol accurate crop steak,Pass unused idle accurate crop stick.,pass goes idle accurate crop stick
+478,0.8,0.8,SAME,kept touring shallows hang everyone,Cat during collars ing everyone.,but during sal's thing everyone
+479,0.6,0.8,BETTER,terms news earning by commitment,Dog's Nose Awning by Commitment.,dog's nose honoring my commitment
+481,0.2,0.6,BETTER,elk diplomatic plates reimbursed names,Elk diplomatic please reimbursed names.,all diplomatic please reboot names
+482,0.25,0.5,BETTER,first terror slips done,First Dairy Slips Done!,first tear slips down
+483,0.33,0.33,SAME,ice hairs blooming coming opinion take,Eyes has blooming coming opinion take.,is blooming coming opinion take
+485,0.2,0.8,BETTER,grade nucleus arrive excess destroying,Grade nucleus arrive access destroying.,great necklace of axes destroying
+486,0.25,0.5,BETTER,bonsai meeting ghost mainly,bonsai meeting coast mainly.,bonsai meaning just mainly
+487,0.2,0.4,BETTER,resale telling serious understanding moral,resell telling serious understanding moral.,we sell telling serious understanding moral
+488,1.0,0.8,WORSE,democratically reduces carbon cramped baked,Differently produces common crowd paint.,drastically reduces common red paint
+489,0.25,0.0,WORSE,we're paying basketball people,We're being basketball people.,we're paying basketball people
+493,0.25,0.0,WORSE,either savings or investment,Either Sevens or Investment.,either savings or investment
+494,0.14,0.0,WORSE,magnified vision able to see at night,Rectified vision able to see at night.,magnified vision able to see at night
+499,0.14,0.0,WORSE,live without dessert for the most part,live without dissent for the most part.,live without dessert for the most part
+503,0.25,0.12,WORSE,it seems like you get hit the worst,It seems like you get it the watch.,it seems like you get it the worst
+514,0.14,0.0,WORSE,not all men pay their employees less,Not all mean pay their employees less.,not all men pay their employees less
+515,0.25,0.25,SAME,also known as welfare,Also known as Wiley.,also known as well
+516,0.09,0.0,WORSE,will the game be priced differently during and after early access,Well the game be priced differently during and after early access.,will the game be priced differently during and after early access
+518,0.25,0.08,WORSE,the product i tried was their mini corn dogs which were superb,The prided I tried was their many corn dog which were superb.,the product i tried was their mini corn dog which were superb
+519,0.11,0.0,WORSE,vancouver teacher faces disciplinary action for harassing gay student,Vancouver teacher faces disciplinary action for arresting gay student.,vancouver teacher faces disciplinary action for harassing gay student
+527,0.07,0.0,WORSE,and if i'm so blessed by the gods i'll never have to kill again,And if I'm so blessed by the guards I'll never have to kill again.,and if i'm so blessed by the gods i'll never have to kill again
+528,0.1,0.0,WORSE,your birthday and age won't be visible to other users,Your Birthing and Age won't be visible to other users.,your birthday and age won't be visible to other users
+530,0.08,0.0,WORSE,a man with a small pension is a ward of the government,A man with a small kitchen is a ward of the government.,a man with a small pension is a ward of the government
+531,0.18,0.27,BETTER,this week's pick is an algorithm that can diagnose a stroke,This week's pick is an acronym that can diagnose a drug.,this week's pic is an angle that can diagnose a drug
+533,0.38,0.38,SAME,the birch canoe slid on the smooth planks,The birch canoe leaned on the smooths place.,the birch canoe leaned on the school's place
+534,0.25,0.0,WORSE,glue the sheet to the dark blue background,Glue the sheet to the junk blue placard.,glue the sheet to the dark blue background
+538,0.14,0.0,WORSE,the juice of lemons makes fine punch,The choose of lemons makes fine punch.,the juice of lemons makes fine punch
+540,0.5,0.25,WORSE,the hogs were fed chopped corn and garbage,The hands were feed chopped cord and carbon.,the hands were fed chopped corn and cabbage
+541,0.43,0.14,WORSE,four hours of steady work faced us,For hours of study work find us.,four hours of steady work found us
+543,0.11,0.11,SAME,the fish twisted and turned on the bent hook,The fish twisted and turned on the bait hook.,the fish twisted and turned on the boat hook
+544,0.1,0.1,SAME,press the pants and sew a button on the vest,Press the bast and sew a button on the vest.,press the bass and sew a button on the vest
+546,0.11,0.11,SAME,the beauty of the view stunned the young boy,The beauty of the view stared the young boy.,the beauty of the view sent the young boy
+552,0.14,0.14,SAME,hoist the load to your left shoulder,horse the load to your left shoulder.,once the load to your left shoulder
+553,0.33,0.33,SAME,a vegetable garden,he vegetable garden.,vegetable garden
+558,0.11,0.0,WORSE,we can't find a place that will take everything,We get find a place that will take everything.,we can't find a place that will take everything
+564,0.0,0.17,BETTER,the productivity and the training costs,The productivity and the training costs.,the productivity and the training cost
+569,0.14,0.14,SAME,what kind of running do you do,What kind of running to you do?,what kind of riding do you do
+571,0.25,0.0,WORSE,how large is williams,How large is Willens?,how large is williams
+575,0.43,0.57,BETTER,the frosty air passed through the coat,The funding here bust through the coat.,the friend he just threw the coat
+576,0.62,0.25,WORSE,the crooked maze failed to fool the mouse,The hurricane makes field to full the most.,the hockey mask failed to fool the mouse
+580,0.14,0.14,SAME,the wagon moved on well oiled wheels,The walk-in moved on well oiled wheels.,the water moved on well oiled wheels
+581,0.14,0.0,WORSE,march the soldiers past the next hill,much the soldiers past the next hill.,march the soldiers past the next hill
+582,0.29,0.14,WORSE,a cup of sugar makes sweet fudge,A cup of city makes sweet fun.,a cup of city makes sweet fudge
+583,0.29,0.14,WORSE,place a rosebush near the porch steps,Place a rum punch near the porch steps.,place a recess near the porch steps
+586,0.5,0.12,WORSE,use a pencil to write the first draft,Use a a basal to rate the first trap.,use a pencil to write the first trap
+587,0.25,0.0,WORSE,he ran half way to the hardware store,He read half way to the outerwear store.,he ran half way to the hardware store
+588,0.5,0.5,SAME,the clock struck to mark the third period,The luck struck to my the side bearing.,the look stuck to my the third pairing
+590,0.14,0.0,WORSE,cars and busses stalled in snow drifts,Cars and busses stalled in snow drips.,cars and busses stalled in snow drifts
+591,0.3,0.2,WORSE,the set of china hit the floor with a crash,The seat of Chenier hit the floor with a touch.,the set of jenner hit the floor with a judge
+592,0.2,0.1,WORSE,this is a grand season for hikes on the road,This is a ground season for Hutch on the road.,this is a grand season for hutch on the road
+593,0.0,0.11,BETTER,the dune rose from the edge of the water,The dune rose from the edge of the water.,the moon rose from the edge of the water
+595,0.11,0.0,WORSE,a yacht slid around the point into the bay,A yacht leaned around the point into the bay.,a yacht slid around the point into the bay
+596,0.25,0.0,WORSE,the two met while playing on the sand,The two mate while laying on the sand.,the two met while playing on the sand
+597,0.38,0.0,WORSE,the ink stain dried on the finished page,The eke scene tried on the finished page.,the ink stain dried on the finished page
+599,0.14,0.0,WORSE,the lease ran out in sixteen weeks,The lease run out in sixteen weeks.,the lease ran out in sixteen weeks
+601,0.12,0.12,SAME,they told me that this was the topic,They told me that this was the coming.,they told me that this was the comic
+604,0.25,0.25,SAME,they both cooperate together,They both coppery together.,they both compete together
+607,0.2,0.2,SAME,train accidents and everything else,Train oxidize and everything else.,train accident and everything else
+617,0.2,0.2,SAME,if you don't refute it,If you don't resent it.,if you don't repeat it
+618,0.25,0.0,WORSE,thank you for participating,Thank you for persistently.,thank you for participating
+621,0.25,0.0,WORSE,inside the jail there,Inside the chill there.,inside the jail there
+622,0.11,0.0,WORSE,what should be done to avoid all these problems,What should be done to avoid all this problems?,what should be done to avoid all these problems
+624,0.2,0.2,SAME,it's called reviewing my life,It's called Revealing My Life.,it's called living my life
+663,0.1,0.2,BETTER,i get less time to be with children these days,I get less time to be with children this days.,i get less time to be with children this day
+670,0.11,0.11,SAME,i would love to have more of these too,I would love to have more of these to.,i would love to have more of these two
+686,0.2,0.4,BETTER,sports miss companies aren't television,Sports miss companies art television.,sports most companies are television
+687,0.4,0.2,WORSE,drug newspaper you'll report baby,Truck newspaper Yule report baby.,from newspaper you'll report baby
+689,0.2,0.8,BETTER,avoid anymore we'd guys oil,Avoid anymore weed guys oil.,avoid any more white guys all
+692,0.0,0.2,BETTER,child boys classical clothes team,Child Boys Classical Clothes Team.,sad boys classical clothes team
+695,0.4,0.2,WORSE,you'll middle benefits education lives,Yule Middle Benefits Education Life.,you'll middle benefits education life
+696,0.17,0.33,BETTER,mother testing second easier program number,Mother Testing Second Easier Chrome Program Number.,mother testing circuit easier from program number
+697,0.0,0.4,BETTER,coming sun york favorite food,Coming Sun York Favorite Food.,coming soon your favorite food
+698,0.4,0.6,BETTER,grew spend men necessarily you've,Grow spend mean necessarily you've.,go spend mean necessarily you
+699,0.4,0.2,WORSE,vote month expected fan nursing,foot month expected fine nursing.,vote month expected for nursing
+700,0.0,0.4,BETTER,thank york catch along set,thank york catch along set.,think york can along set
+701,0.2,0.4,BETTER,mother team system amount texas,Mother Team System Amount Taxes.,other team system amount taxes
+702,0.4,0.4,SAME,story noise sounds eight friends,story noise sounds it it friends.,story noise sounds is it friends
+703,0.33,0.33,SAME,line talked turn depends across weekend,lined talked to depends across weekend.,i talked to depends across weekend
+708,0.11,0.0,WORSE,i know what the deal was in the past,I knew what the deal was in the past.,i know what the deal was in the past
+711,0.12,0.0,WORSE,they gave variety of benefits to their employees,They gave variety of benefits to their employments.,they gave variety of benefits to their employees
+727,0.0,0.17,BETTER,how much is your card worth,How much is your card worth?,how much is your car worth
+731,0.12,0.0,WORSE,stones with runes on them served as checkpoints,Stones with ruins on them served as checkpoints.,stones with runes on them served as checkpoints
+736,0.17,0.0,WORSE,it seems like you walk quicker,It seems like you work quicker.,it seems like you walk quicker
+739,0.17,0.0,WORSE,join us for an upcoming event,Join us for and upcoming event!,join us for an upcoming event
+740,0.29,0.0,WORSE,do you believe in the dallas cowboys,Do you believe in the Palace Compares?,do you believe in the dallas cowboys
+744,0.25,0.5,BETTER,real rough type camping,Real rough time camping.,real rough time coming
+763,0.43,0.0,WORSE,i often listen to this wonderful music,I I hope and listen to this wonderful music.,i often listen to this wonderful music
+785,0.22,0.11,WORSE,this will not matter much in the long run,This will not better as much in the long run.,this will not matter as much in the long run
+798,0.14,0.0,WORSE,i have lived in illinois and dallas,I have lived in Illinois in Dallas.,i have lived in illinois and dallas
+804,0.0,0.17,BETTER,i bought these new clothes today,I bought these new clothes today.,i bought this new clothes today
+826,0.14,0.0,WORSE,evening is the best time for reading,Evening is the best time for wedding.,evening is the best time for reading
+842,0.0,0.17,BETTER,that woman will check this fact,That woman will check this fact.,that woman will take this fact
+845,0.29,0.0,WORSE,the joy of an early morning walk,The Joy of an Early Marnie Mark!,the joy of an early morning walk
+846,0.43,0.14,WORSE,it is easier to go without food,It is easy to go with out food.,it is easy to go without food
+848,0.11,0.22,BETTER,the baby will stick its head in the food,The baby will stick its is in the food.,the baby will stick it is in the food
+850,0.4,0.0,WORSE,we should turn around and pick her up from school,We should guard aground and big or up from school.,we should turn around and pick her up from school
+851,0.29,0.29,SAME,the car will go north from here,The car will go north the hear.,the car will go for the here
+852,0.1,0.0,WORSE,they must think if they can live with this decision,They must think if they can love with this decision.,they must think if they can live with this decision
+856,0.3,0.0,WORSE,can you put the book down for a few minutes,Can you book the book can for a cool minutes?,can you put the book down for a few minutes
+859,0.29,0.0,WORSE,we talked about this the other day,We we talk about this the other day.,we talked about this the other day
+864,0.11,0.11,SAME,we need to work more on the social part,We we need to work more on the social part.,we will need to work more on the social part
+868,0.22,0.11,WORSE,do you know that i've never seen a monkey,Do you know that have never seen a puppy?,do you know that i've never seen a puppy
+872,0.17,0.17,SAME,i think it's caused a lot,I think it's cost a lot.,i think it's got a lot
+873,0.2,0.0,WORSE,if you haven't slowed down,If you haven't cleaned down.,if you haven't slowed down
+874,0.0,0.2,BETTER,keeps to their own turf,Keeps to their own turf.,keep to their own turf
+880,0.29,0.29,SAME,wasn't allowed to run a lawn mower,Wasn't allowed to run a learn more.,wasn't allowed to run a lot more
+887,0.0,0.12,BETTER,i mean i've haven't had it that long,I mean I've haven't had it that long.,i mean i haven't had it that long
+889,0.0,0.2,BETTER,check out our free versions,Check out our free versions.,check out our free version
+891,0.17,0.0,WORSE,i'm in charge of raising them,I'm in choice of raising them.,i'm in charge of raising them
+903,0.11,0.22,BETTER,employees should do some field work when they join,Employees should do some field work when the join.,employees should do some field work when the sun
+904,0.14,0.14,SAME,where is that awful noise coming from,Where is is that awful noise coming from?,where it is that awful noise coming from
+906,0.11,0.0,WORSE,the old newspaper will have a report on this,The old newspaper will have a real report on this.,the old newspaper will have a report on this
+910,0.17,0.17,SAME,the work gets easier with experience,The work Kids easier with experience.,the work is easier with experience
+912,0.22,0.11,WORSE,i have been working on this since early morning,I have been working on this since only money.,i have been working on this since early monday
+929,0.11,0.0,WORSE,how much time do you spend with your children,How much time to you spend with your children?,how much time do you spend with your children
+936,0.17,0.0,WORSE,there were no reports of casualties,There were no records of casualties.,there were no reports of casualties
+942,0.33,0.0,WORSE,it is like winning the lottery,It is like meaning the literally.,it is like winning the lottery
+944,0.29,0.29,SAME,pets can be a lot of trouble,Best can be a lot of devil.,but can be a lot of people
+946,0.4,0.6,BETTER,the movie is slow burning,The moving is slow money.,the moving is so funny
+947,0.1,0.2,BETTER,we don't listen to any elevator music at my house,We don't listen to any invented music at my house.,we don't listen to any of the music at my house
+953,0.43,0.43,SAME,now some people object during primary debates,Now some people obsessed very primary depends.,now some people about their primary depends
+955,0.14,0.0,WORSE,the recipe doesn't require kneading the dough,The recipe rises require kneading the dough.,the recipe doesn't require kneading the dough
+956,0.29,0.14,WORSE,they could sell five million of those,They got sell five million of things.,they could sell five million of things
+959,0.11,0.22,BETTER,in those situations i don't know how to behave,In this situations I don't know how to behave.,in this situation i don't know how to behave
+960,0.25,0.25,SAME,it would be fun just to win one,It would be fine just to what one.,it would be fine just to run one
+962,0.57,0.0,WORSE,especially with butter and honey on them,Expressly with potter at any on them.,especially with butter and honey on them
+963,0.12,0.0,WORSE,i'm interested in having it in my office,I'm interested in having it it my office.,i'm interested in having it in my office
+970,0.3,0.0,WORSE,i miss the intellectual stimulation of taking classes in college,I mix the interracial simulation of taking classes in college.,i miss the intellectual stimulation of taking classes in college
+990,0.2,0.0,WORSE,my real concern is this,My real accent is this.,my real concern is this
+991,0.4,0.0,WORSE,it's been kind of scary,It's been tent of story.,it's been kind of scary
+992,0.43,0.14,WORSE,they would have never picked it out,They would had never packed it it.,they would have never picked it up
+993,0.44,0.0,WORSE,that is why they're kind of behind on work,That is why their count of about at work.,that is why they're kind of behind on work
+997,0.22,0.0,WORSE,i just want to enjoy myself a little bit,I just want to enjoy Mises a lit bit.,i just want to enjoy myself a little bit
+999,0.62,0.25,WORSE,it costs ten or twenty dollars per ounce,It costs get or walking dallas boo 's.,it costs ten or twenty dollars to s
+1000,0.14,0.0,WORSE,of course it's real convenient for you,Of nice it's real convenient for you.,of course it's real convenient for you
+1001,0.2,0.2,SAME,it's something that interests me,It's something that tests me.,it's something that suits me
+1002,0.29,0.14,WORSE,and my insurance is about to expire,At my Lawrence is about to expire.,my insurance is about to expire
+1003,0.4,0.3,WORSE,i sew clothes for them every once in a while,I so close for them every works in a will.,so close for them every once in a while
+1004,0.29,0.43,BETTER,we were interested in the local schools,We were elicited in the long schools.,we were sitting in the long school
+1005,0.3,0.0,WORSE,he won a free trip or something along those lines,He won a free trip or something ring this large.,he won a free trip or something along those lines
+1008,0.14,0.14,SAME,i still like the new york giants,I still like the New York stations.,i still like the new york station
+1009,0.67,0.83,BETTER,i studied environmental engineering in college,I stated via butter generic in college.,i tied for a better generic in college
+1010,0.29,0.29,SAME,my son really wanted a pet bird,My son really wanted a big bed.,my son really wanted a big mac
+1011,0.22,0.22,SAME,one of the biggest creatures in the animal kingdom,One of the biggest creatures as the animal king.,one of the biggest creatures of the animal kill
+1012,0.75,0.58,WORSE,have you seen that one about survivors in the amazon rain forest,Have you set what bit survives the images we varied.,have you said what about surviving the amazon may vary
+1038,0.71,0.57,WORSE,occasionally the conversation turns into an argument,Casually the conversation takes into a in ultimate.,occasionally the conversation takes to a an element
+1045,0.14,0.0,WORSE,she'll be two years old in july,She'll be two years old in color.,she'll be two years old in july
+1046,0.14,0.0,WORSE,i filed my taxes early this year,I filed my taxes only this year.,i filed my taxes early this year
+1059,0.11,0.0,WORSE,i guess because we don't go out that much,I guess because we don't care out that much.,i guess because we don't go out that much
+1069,0.25,0.12,WORSE,for legal assistant and that's what i know,Four legal insisted and that's what I know.,for legal assistance and that's what i know
+1074,0.25,0.0,WORSE,it's really hard to,It's really out to.,it's really hard to
+1085,0.25,0.25,SAME,they're not owning homes,They're not owning hopes.,they're not owning up
+1092,0.14,0.0,WORSE,it's kind of like drawing this line,It's kind of like trying this line.,it's kind of like drawing this line
+1098,0.4,0.2,WORSE,they needed a smaller setting,They didn't a smaller stating.,they didn't a smaller setting
+1101,0.2,0.2,SAME,you like pets and things,You like bakes and things?,you like books and things
+1105,0.2,0.0,WORSE,it's up by green bay,It's up by Reed Bay.,it's up by green bay
+1107,0.12,0.0,WORSE,i make a lot of my christmas presents,I make a lot of my Christmas versions.,i make a lot of my christmas presents
+1111,0.14,0.0,WORSE,that decision is expected early next week,That decision is imparted early next week.,that decision is expected early next week
+1112,0.2,0.1,WORSE,my brother is five years younger than my sister is,My pretty is five ways younger than my sister is.,my printer is five years younger than my sister is
+1113,0.33,0.0,WORSE,it is fine,It is find.,it is fine
+1115,0.2,0.1,WORSE,he scored better than we did on the final exam,He scored better that we did on the final Excel.,he scored better than we did on the final set
+1117,0.2,0.0,WORSE,yeah i really mean that,There I really mean that.,yeah i really mean that
+1122,0.67,0.67,SAME,i was accused of selling drugs,I was un ende of silly dogs.,i was a kind of silly dogs
+1127,0.75,0.75,SAME,the door bell rang,The Store Bill Y.,the store will work
+1128,0.0,0.11,BETTER,i try not to use insecticides on my lawn,I try not to use insecticides on my lawn.,i try not to use insecticide on my lawn
+1131,0.08,0.08,SAME,after graduation the students will go on to a variety of colleges,After Decimation the students will go on to a variety of colleges.,after consummation the students will go on to a variety of colleges
+1132,0.6,0.4,WORSE,it's still in great shape,It's tell in grade same.,it's still a great same
+1140,0.22,0.11,WORSE,we went to go see the godfather part three,We went to to see the devil part three.,we went to go see the devil part three
+1143,0.17,0.0,WORSE,give a voice to the voiceless,Give a Voice to the Restless.,give a voice to the voiceless
+1145,0.0,0.25,BETTER,i absolutely loved it,I absolutely loved it.,i absolutely love it
+1146,0.43,0.43,SAME,either way they always spell it wrong,Other way they always build it why?,other way they always did it were
+1154,0.12,0.0,WORSE,they fell out because of his drug addiction,They fell out because of his drug addition.,they fell out because of his drug addiction
+1184,0.22,0.0,WORSE,and i think he's as guilty as the devil,And I think he's as county as the never.,and i think he's as guilty as the devil
+1191,0.18,0.0,WORSE,so imagine all of his lines being spoken in that voice,So a Badgett all of his lines being spoken in that voice.,so imagine all of his lines being spoken in that voice
+1213,0.25,0.0,WORSE,my husband travels frequently,My accent travels frequently.,my husband travels frequently
+1220,0.17,0.0,WORSE,i had found an entry point,I had found and entry point.,i had found an entry point
+1223,0.2,0.0,WORSE,business as usual for traders,Basis as usual for traders.,business as usual for traders
+1224,0.17,0.0,WORSE,they gave us a special deal,They gave us a basal deal.,they gave us a special deal
+1227,0.0,0.11,BETTER,he kept his tone light and casual but firm,He kept his tone light and casual but firm.,he kept his tone light and casual but from
+1230,0.25,0.0,WORSE,a fairly good amount,A family good amount.,a fairly good amount
+1246,0.4,0.6,BETTER,satan rejoiced with his birth,Sentence regards with his birth.,set a record with his birth
+1250,0.11,0.11,SAME,take a stash of books or small quiet toys,Take a stacks of books or small quiet toys.,take a stack of books or small quiet toys
+1252,0.25,0.0,WORSE,it was written at a third grade level,It was rented at a third when level.,it was written at a third grade level
+1253,0.38,0.12,WORSE,they're doing a lot of good research here,They're doing a lot and did concerns here.,they're doing a lot of good reasons here
+1254,0.2,0.0,WORSE,if it does the job,If it does the time.,if it does the job
+1255,0.2,0.0,WORSE,do you like to travel,Do you like to drivel?,do you like to travel
+1256,0.33,0.33,SAME,the state and the city are contradicting each other,The state and the city are confronting its stalled.,the state and the city are confronting it today
+1257,0.5,0.5,SAME,how did researchers reach this conclusion,I did presages write this conclusion.,did prisoners write this conclusion
+1259,0.22,0.22,SAME,the measure passed the house by a landslide vote,The measure passed the House by a London mood.,the measure passed the house by a london move
+1260,0.5,0.5,SAME,they sent us a little booklet to read,The said has a little billet to read.,the site has a little bullet to read
+1262,0.6,0.6,SAME,between the rows and all,Repeat the phrase an all.,repeat the phrase at all
+1263,0.4,0.3,WORSE,we have a dog too so that adds to it,We have a dog to so not have to in.,we have a dog too so not as to in
+1265,0.14,0.43,BETTER,my husband is real into sports too,My husband is real into mice too.,my husband is really into voice to
+1267,0.43,0.29,WORSE,i'm going to visit florida and louisiana,I'm going to visit Verity and Louise Yeutter.,i'm going to visit family in louisiana
+1268,0.14,0.0,WORSE,cars have come down in price significantly,Cars have come down in price.,cars have come down in price significantly
+1270,0.15,0.08,WORSE,i kind of wish that they had a little league for the boys,I kind of wish that they had a little lick for the wars.,i kind of wish that they had a little look for the boys
+1271,0.44,0.33,WORSE,and that is the best book to go through,And not is the must be to log through.,and not is the best way to learn through
+1272,0.29,0.14,WORSE,it's nice to have a pet dog,It's not to have a bad dog.,it's nice to have a bad dog
+1274,0.57,0.14,WORSE,the rich people started leaving the city,The rest people cited living the data.,the right people started leaving the city
+1280,0.2,0.0,WORSE,but it didn't get the upper part of my body,But it didn't get the hopper part of my patty.,but it didn't get the upper part of my body
+1296,0.12,0.0,WORSE,i wouldn't want them to be on drugs,I wouldn't what them to be on drugs.,i wouldn't want them to be on drugs
+1312,0.33,0.0,WORSE,i'm getting a gut feeling here,I'm getting a got filling here.,i'm getting a gut feeling here
+1314,0.0,0.33,BETTER,while it's healing take it easy,While it's healing take it easy.,well it's only take it easy
+1316,0.14,0.0,WORSE,didn't mean to cut you off there,Didn't mean to get you off there.,didn't mean to cut you off there
+1320,0.22,0.0,WORSE,keeping things concise is usually the way to go,Company things contours is usually the way to go.,keeping things concise is usually the way to go
+1323,1.0,0.86,WORSE,i hope everything works out up there,A in easing those in all their.,if anything goes on in there
+1324,0.83,0.67,WORSE,are you pleased with this decision,If you leave the keys ignition.,he leaves with his decision
+1325,0.25,0.25,SAME,the town is just over the hill here,The tune is She's Over The Hill Here.,the dude is so over the hill here
+1327,0.56,0.44,WORSE,in other words there is a choice to make,It other words the is joy to work.,in other words the is going to work
+1328,0.17,0.33,BETTER,that does not seem quite fair,That does not seem plain fair.,that does not seem paid for
+1329,0.67,0.33,WORSE,that is horrible,This is Emerick.,that is over
+1331,0.29,0.29,SAME,it was a prime time football game,It was a point ten football game.,it was a big ten football game
+1332,1.0,0.0,WORSE,not too long ago,Matt to Lacock.,not too long ago
+1333,0.62,0.12,WORSE,she has had really good luck this year,She is at Platy Gun Lake this year.,she has had pretty good luck this year
+1334,0.4,0.0,WORSE,i went back to school and got my master's degree,I went back to store it at my sisters degree.,i went back to school and got my master's degree
+1335,0.29,0.0,WORSE,i hope everything works out up there,I hope other thing works out up there.,i hope everything works out up there
+1336,0.67,0.67,SAME,are you pleased with this decision,I see played the this decision.,she played the this decision
+1339,0.33,0.22,WORSE,in other words there is a choice to make,It other words there is a price to pay.,in other words there is a price to pay
+1340,0.5,0.0,WORSE,that does not seem quite fair,That does that same one fair.,that does not seem quite fair
+1341,0.33,1.0,BETTER,that is horrible,That is caterpillar.,that is quite a bit
+1342,0.44,0.44,SAME,fill the jar to the top with boiling water,File the try to the time with blowing water.,while they try to the time with boiling water
+1345,0.12,0.38,BETTER,she has had really good luck this year,She has had pretty good luck this year.,we have had pretty good luck this year
+1346,0.3,0.0,WORSE,i went back to school and got my master's degree,I went back to store I got my nurses degree.,i went back to school and got my master's degree
+1348,0.22,0.0,WORSE,college credit for community service is a good idea,Knowledge readied for community service is a good idea.,college credit for community service is a good idea
+1349,0.25,0.0,WORSE,ethical and religious views on need and pleasure,Lexical and religious fields on need and pleasure.,ethical and religious views on need and pleasure
+1352,0.09,0.0,WORSE,mix some cream sauce with it and pour it over rice,Mix some cream sauce with it and boil it over rice.,mix some cream sauce with it and pour it over rice
+1353,0.33,0.0,WORSE,people are dropping out of school,People are camping out of cure.,people are dropping out of school
+1360,0.09,0.09,SAME,you don't have to be an expert to play this game,You don't have to be an Upson to play this game.,you don't have to be an option to play this game
+1365,0.38,0.0,WORSE,the first demonstration of a touch screen display,The first demonstration of a chart when displayed.,the first demonstration of a touch screen display
+1368,0.17,0.17,SAME,if you bring some more stuff,If you made some more stuff.,if you need some more stuff
+1378,0.38,0.75,BETTER,they can't do as good of a job,They can't too as too of a game.,they get to have two of them
+1379,0.25,0.0,WORSE,it's a nice place,It's a guy's place.,it's a nice place
+1380,0.4,0.0,WORSE,everybody is sitting here screaming,Everybody is city here something.,everybody is sitting here screaming
+1381,0.5,0.12,WORSE,i just can't do those types of puzzles,I just can do those steps some bases.,i just can't do those types of bases
+1382,0.45,0.55,BETTER,if their skirts are above the knee they are too short,If their kids are appeal the me they are to write.,if their kids are up to the mean they are to write
+1384,0.33,0.5,BETTER,especially if he's a repeat offender,Exceptionally if is a repeat offender.,essentially it is a repeat offender
+1386,0.6,0.2,WORSE,some new types of furniture,Some new tasks are manager.,some new piece of furniture
+1388,0.43,0.43,SAME,it was about nine o'clock at night,It was before mine along at night.,it was before man along at night
+1389,0.62,0.75,BETTER,how is your boss at your new job,R is so bags at your move from.,ar is so bad that your move from
+1390,0.12,0.12,SAME,which is probably about what their equity is,Which is probably about what their aponte is.,which is probably about what their company is
+1391,0.33,0.0,WORSE,my father is the man in the corduroy jacket,My something is the man in the Garter Dragon.,my father is the man in the corduroy jacket
+1396,0.5,0.0,WORSE,keep it clean please,Keep in clean place.,keep it clean please
+1398,0.1,0.0,WORSE,about how many calls have you made on this system,About how many calls of you made on this system?,about how many calls have you made on this system
+1399,0.12,0.25,BETTER,i don't know what you think about that,I don't know what the think about that.,i don't know what the thing about that
+1400,0.88,0.62,WORSE,eat slowly chew well and enjoy the meal,It sorely drew well and a gear the male or.,it slowly grew well and agree the tell all
+1401,0.25,0.0,WORSE,i'd like to see silence of the lambs,I'd like to see talents of the knives.,i'd like to see silence of the lambs
+1402,0.12,0.12,SAME,we are quite simply at a tipping point,We are quite simply at a tippy point.,we are quite simply at a peak point
+1404,0.17,0.0,WORSE,just forty miles north of here,Just funny miles north of here.,just forty miles north of here
+1405,0.25,0.25,SAME,look at the statistics,Look at the sections.,look at the section
+1407,0.2,0.4,BETTER,losers all the way around,Listens all the way around.,this is all the way around
+1408,0.33,0.33,SAME,i drove a cadillac back then,I drove a Donnelly by then.,i drove a tunnel but then
+1415,0.29,0.14,WORSE,the only other place i've ever vacationed,The only other place have ever vacation.,the only other place i've ever vacation
+1417,0.12,0.12,SAME,they had snacks and story time and everything,They had squats and story time and everything.,they had sex and story time and everything
+1418,0.12,0.12,SAME,because of a service that they could provide,Because of a service that they could define.,because of a service that they could buy
+1419,0.43,0.29,WORSE,not just with the visit to pittsburgh,Don't just with the pressing to pencil.,not just with the pressing to pixel
+1420,0.67,0.33,WORSE,there's no deductions,There's all technicians.,there's no tension
+1422,0.29,0.0,WORSE,i don't know if you've tried it,I don't know if you'd try it.,i don't know if you've tried it
+1423,0.67,0.33,WORSE,barometric pressure drops during a tornado,Parametric pressure crafts doing a cornett.,barometric pressure drops during the morning

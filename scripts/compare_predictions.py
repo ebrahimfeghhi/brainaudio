@@ -1,12 +1,12 @@
 """
 Compare predictions from LLM beam search against RNN baseline.
-Prints sentences where the WER differs between the two methods.
+Prints sentences where the predictions differ between the two methods.
 """
 
 import argparse
 import pandas as pd
 from pathlib import Path
-from jiwer import wer as compute_wer
+from jiwer import wer as compute_wer, process_words
 import string
 
 
@@ -145,6 +145,12 @@ def main():
         llm_wer = sentence_wer(llm_pred, ground_truth)
         baseline_wer = sentence_wer(baseline_pred, ground_truth)
 
+        # Check if predictions differ (normalized: lowercase, no punctuation)
+        translator = str.maketrans('', '', string.punctuation)
+        llm_normalized = llm_pred.lower().translate(translator).strip()
+        baseline_normalized = baseline_pred.lower().translate(translator).strip()
+        text_differs = llm_normalized != baseline_normalized
+
         # Categorize
         if llm_wer < baseline_wer:
             category = "BETTER"
@@ -166,7 +172,39 @@ def main():
             "llm_wer": llm_wer,
             "baseline_wer": baseline_wer,
             "category": category,
+            "text_differs": text_differs,
         })
+
+    # Count sentences with different text
+    diff_text_count = sum(1 for r in results if r["text_differs"])
+    same_wer_diff_text_count = sum(1 for r in results if r["category"] == "SAME" and r["text_differs"])
+
+    # Compute aggregate WER and error types (case-insensitive, punctuation removed)
+    translator = str.maketrans('', '', string.punctuation)
+    llm_preds_all = [r["llm_pred"].lower().translate(translator).strip() for r in results]
+    baseline_preds_all = [r["baseline_pred"].lower().translate(translator).strip() for r in results]
+    gts_all = [r["ground_truth"].lower().translate(translator).strip() for r in results]
+
+    # Process words to get detailed error counts
+    llm_output = process_words(gts_all, llm_preds_all)
+    baseline_output = process_words(gts_all, baseline_preds_all)
+
+    # Print error analysis first
+    print("\n" + "=" * 80)
+    print("ERROR ANALYSIS")
+    print("=" * 80)
+    print(f"{'Metric':<20} {'LLM Beam Search':>18} {'RNN Baseline':>18} {'Difference':>12}")
+    print("-" * 80)
+    print(f"{'Substitutions':<20} {llm_output.substitutions:>18} {baseline_output.substitutions:>18} {llm_output.substitutions - baseline_output.substitutions:>+12}")
+    print(f"{'Insertions':<20} {llm_output.insertions:>18} {baseline_output.insertions:>18} {llm_output.insertions - baseline_output.insertions:>+12}")
+    print(f"{'Deletions':<20} {llm_output.deletions:>18} {baseline_output.deletions:>18} {llm_output.deletions - baseline_output.deletions:>+12}")
+    print("-" * 80)
+    llm_total_errors = llm_output.substitutions + llm_output.insertions + llm_output.deletions
+    baseline_total_errors = baseline_output.substitutions + baseline_output.insertions + baseline_output.deletions
+    print(f"{'Total Errors':<20} {llm_total_errors:>18} {baseline_total_errors:>18} {llm_total_errors - baseline_total_errors:>+12}")
+    print(f"{'Hits (Correct)':<20} {llm_output.hits:>18} {baseline_output.hits:>18} {llm_output.hits - baseline_output.hits:>+12}")
+    print("-" * 80)
+    print(f"{'WER':<20} {llm_output.wer:>17.2%} {baseline_output.wer:>17.2%} {(llm_output.wer - baseline_output.wer)*100:>+11.2f}%")
 
     # Print summary
     print("\n" + "=" * 80)
@@ -177,22 +215,12 @@ def main():
     print(f"  LLM worse than baseline:  {worse_count} ({100*worse_count/len(results):.1f}%)")
     print(f"  Same WER:                 {same_count} ({100*same_count/len(results):.1f}%)")
     print(f"    (Both perfect:          {both_perfect})")
+    print(f"  Different text:           {diff_text_count} ({100*diff_text_count/len(results):.1f}%)")
+    print(f"    (Same WER, diff text:   {same_wer_diff_text_count})")
 
-    # Compute aggregate WER (case-insensitive)
-    llm_preds_all = [r["llm_pred"].lower() for r in results]
-    baseline_preds_all = [r["baseline_pred"].lower() for r in results]
-    gts_all = [r["ground_truth"].lower() for r in results]
-
-    llm_agg_wer = compute_wer(gts_all, llm_preds_all)
-    baseline_agg_wer = compute_wer(gts_all, baseline_preds_all)
-
-    print(f"\nAggregate WER:")
-    print(f"  LLM beam search: {llm_agg_wer:.4f} ({llm_agg_wer*100:.2f}%)")
-    print(f"  RNN baseline:    {baseline_agg_wer:.4f} ({baseline_agg_wer*100:.2f}%)")
-
-    # Print detailed comparisons
+    # Print detailed comparisons (only sentences where text differs)
     if args.show_better or args.show_all_diff:
-        better_results = [r for r in results if r["category"] == "BETTER"]
+        better_results = [r for r in results if r["category"] == "BETTER" and r["text_differs"]]
         if better_results:
             print("\n" + "=" * 80)
             print(f"LLM BETTER THAN BASELINE ({len(better_results)} sentences)")
@@ -204,7 +232,7 @@ def main():
                 print(f"  Baseline: {r['baseline_pred']}")
 
     if args.show_worse or args.show_all_diff:
-        worse_results = [r for r in results if r["category"] == "WORSE"]
+        worse_results = [r for r in results if r["category"] == "WORSE" and r["text_differs"]]
         if worse_results:
             print("\n" + "=" * 80)
             print(f"LLM WORSE THAN BASELINE ({len(worse_results)} sentences)")
@@ -215,22 +243,57 @@ def main():
                 print(f"  LLM:      {r['llm_pred']}")
                 print(f"  Baseline: {r['baseline_pred']}")
 
-    # Save sentences with different WER to CSV
-    diff_results = [r for r in results if r["category"] != "SAME"]
+    if args.show_all_diff:
+        # Show sentences where text differs but WER is the same
+        same_wer_diff_text = [r for r in results if r["category"] == "SAME" and r["text_differs"]]
+        if same_wer_diff_text:
+            print("\n" + "=" * 80)
+            print(f"SAME WER BUT DIFFERENT TEXT ({len(same_wer_diff_text)} sentences)")
+            print("=" * 80)
+            for r in same_wer_diff_text:
+                print(f"\n[{r['idx']}] WER: {r['llm_wer']:.2f} (same for both)")
+                print(f"  GT:       {r['ground_truth']}")
+                print(f"  LLM:      {r['llm_pred']}")
+                print(f"  Baseline: {r['baseline_pred']}")
+
+    # Save sentences with different text to CSV (includes both different WER and same WER but different text)
+    diff_results = [r for r in results if r["text_differs"]]
     if diff_results:
+        # Build error analysis header
+        header_lines = [
+            "# ERROR ANALYSIS",
+            f"# {'Metric':<20} {'LLM Beam Search':>18} {'RNN Baseline':>18} {'Difference':>12}",
+            f"# {'-'*70}",
+            f"# {'Substitutions':<20} {llm_output.substitutions:>18} {baseline_output.substitutions:>18} {llm_output.substitutions - baseline_output.substitutions:>+12}",
+            f"# {'Insertions':<20} {llm_output.insertions:>18} {baseline_output.insertions:>18} {llm_output.insertions - baseline_output.insertions:>+12}",
+            f"# {'Deletions':<20} {llm_output.deletions:>18} {baseline_output.deletions:>18} {llm_output.deletions - baseline_output.deletions:>+12}",
+            f"# {'-'*70}",
+            f"# {'Total Errors':<20} {llm_total_errors:>18} {baseline_total_errors:>18} {llm_total_errors - baseline_total_errors:>+12}",
+            f"# {'Hits (Correct)':<20} {llm_output.hits:>18} {baseline_output.hits:>18} {llm_output.hits - baseline_output.hits:>+12}",
+            f"# {'-'*70}",
+            f"# {'WER':<20} {llm_output.wer:>17.2%} {baseline_output.wer:>17.2%} {(llm_output.wer - baseline_output.wer)*100:>+11.2f}%",
+            "#",
+        ]
+
         comparison_df = pd.DataFrame([
             {
                 "id": r["idx"],
                 "llm_wer": round(r["llm_wer"], 2),
                 "baseline_wer": round(r["baseline_wer"], 2),
+                "category": r["category"],
                 "ground_truth": r["ground_truth"],
                 "llm_prediction": r["llm_pred"],
                 "baseline_prediction": r["baseline_pred"],
             }
             for r in diff_results
         ])
-        comparison_df.to_csv(output_csv_path, index=False)
-        print(f"\nSaved {len(diff_results)} differing sentences to {output_csv_path}")
+
+        # Write header then CSV
+        with open(output_csv_path, 'w') as f:
+            f.write('\n'.join(header_lines) + '\n')
+            comparison_df.to_csv(f, index=False)
+
+        print(f"\nSaved {len(diff_results)} sentences with different predictions to {output_csv_path}")
 
 
 if __name__ == "__main__":

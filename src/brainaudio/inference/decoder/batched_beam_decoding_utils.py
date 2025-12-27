@@ -416,10 +416,9 @@ class BatchedBeamHyps:
             hyps_equal = (
                 hashed_tensor[:, :, None] == hashed_tensor[:, None, :]
             )
-
-                    
+        
         else: 
-            
+                
             hyps_equal = (
                 (self.transcript_hash[:, :, None] == self.transcript_hash[:, None, :])
                 & (self.last_label[:, :, None] == self.last_label[:, None, :])
