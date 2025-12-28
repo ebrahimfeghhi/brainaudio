@@ -52,11 +52,11 @@ def parse_args() -> argparse.Namespace:
                         help="Start index (inclusive). Use with --end-trial-idx for a range.")
     parser.add_argument("--end-trial-idx", type=int, default=None,
                         help="End index (exclusive). Use with --start-trial-idx for a range.")
-    parser.add_argument("--beam-size", type=int, default=1000, help="CTC beam size")
+    parser.add_argument("--beam-size", type=int, default=250, help="CTC beam size")
     parser.add_argument("--model", default="meta-llama/Llama-3.2-3B", help="HF causal LM checkpoint")
     parser.add_argument("--hf-token", default=None, help="Optional HF token")
     parser.add_argument("--lm-weight", type=float, default=1, help="Neural LM fusion weight")
-    parser.add_argument("--word-insertion-bonus", type=float, default=5, help="Bonus at boundaries")
+    parser.add_argument("--word-insertion-bonus", type=float, default=1.5, help="Bonus at boundaries")
     parser.add_argument("--max-context-length", type=int, default=512, help="Token budget")
     parser.add_argument("--device", default="cuda:0", help="Torch device")
     parser.add_argument("--logits", type=Path, default=None, help="NPZ logits file (default: derived from encoder-model-name)")
@@ -64,7 +64,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lexicon", type=Path, default=Path(DEFAULT_LEXICON), help="lexicon file")
     parser.add_argument("--top-k", type=int, default=1000, help="Number of top beams to display per trial")
     parser.add_argument("--num-homophone-beams", type=int, default=4, help="Number of text interpretations (homophones) to track per beam")
-    parser.add_argument("--beam-prune-threshold", type=float, default=1e4, help="Prune beams that are more than this many log-prob points below the best.")
+    parser.add_argument("--beam-prune-threshold", type=float, default=15, help="Prune beams that are more than this many log-prob points below the best.")
     parser.add_argument("--homophone-prune-threshold", type=float, default=4, help="Prune homophones more than this many log-prob points below the best.")
     parser.add_argument("--beam-beta", type=float, default=np.log(7), help="Bonus added to extending beams (not blank/repeat). Boosts probability of emitting new characters.")
     parser.add_argument("--beam-blank-penalty", type=float, default=0, help="Penalty subtracted from blank emissions.")
@@ -94,8 +94,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--phoneme-lm-path",
         type=str,
-        default=None,
-        help="Path to phoneme LM ARPA file. If not provided, uses dummy uniform LM for testing."
+        default="/home/ebrahim/brainaudio/test_phoneme_bigram.arpa",
+        help="Path to phoneme LM ARPA file."
     )
     parser.add_argument(
         "--phoneme-lm-weight",
@@ -213,16 +213,12 @@ def main():
         # Phoneme LM vocab size = 40 (39 phonemes + word boundary, excluding CTC blank)
         PHONEME_LM_VOCAB_SIZE = 40
 
-        if args.phoneme_lm_path:
-            print(f"[INFO] Loading phoneme LM from {args.phoneme_lm_path}")
-            phoneme_lm = NGramGPULanguageModel.from_arpa(
-                args.phoneme_lm_path,
-                vocab_size=PHONEME_LM_VOCAB_SIZE,
-                token_offset=100,
-            )
-        else:
-            print("[INFO] Using dummy uniform phoneme LM for testing")
-            phoneme_lm = NGramGPULanguageModel.dummy_unigram_lm(vocab_size=PHONEME_LM_VOCAB_SIZE)
+        print(f"[INFO] Loading phoneme LM from {args.phoneme_lm_path}")
+        phoneme_lm = NGramGPULanguageModel.from_arpa(
+            args.phoneme_lm_path,
+            vocab_size=PHONEME_LM_VOCAB_SIZE,
+            token_offset=100,
+        )
 
         phoneme_lm = phoneme_lm.to(device)
         fusion_models.append(phoneme_lm)

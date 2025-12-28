@@ -13,3 +13,7 @@ wheels/
 # Other
 scripts/wandb/
 third_party/
+
+# Language models
+*.arpa
+*.binary
