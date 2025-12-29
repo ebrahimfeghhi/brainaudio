@@ -363,7 +363,9 @@ class SuffixTreeStorage:
 
     def _find_state(self, symbols: tuple[int, ...], bos_id: int) -> int:
         """
-        Find the state given sequence of symbols
+        Find the state given sequence of symbols. If the exact n-gram doesn't exist,
+        recursively backs off to shorter suffixes until a match is found.
+
         Args:
             symbols: sequence of symbols
             bos_id: ID of the Begin-of-Sentence symbol
@@ -372,7 +374,12 @@ class SuffixTreeStorage:
             state in tree for the last symbol
         """
         if len(symbols) > 1:
-            return self._arc_cache[tuple(symbols)]
+            key = tuple(symbols)
+            if key in self._arc_cache:
+                return self._arc_cache[key]
+            # N-gram doesn't exist, back off to shorter suffix
+            return self._find_state(symbols[1:], bos_id=bos_id)
+        
         assert len(symbols) == 1
         label = symbols[0]
         if label == bos_id:
@@ -437,6 +444,7 @@ class SuffixTreeStorage:
 
     def _add_ngram(self, ngram: NGram, bos_id: int):
         """Helper to add ngram"""
+        
         assert len(ngram.symbols) == self._cur_order
         if self._cur_order == self.max_order:
             self._add_ngram_max_order(ngram=ngram, bos_id=bos_id)
@@ -651,7 +659,8 @@ class NGramGPULanguageModel(ModelPT):
         vocab_size: int,
         normalize_unk: bool = True,
         use_triton: bool | None = None,
-        token_offset: int = DEFAULT_TOKEN_OFFSET,
+        token_offset: int | None = DEFAULT_TOKEN_OFFSET,
+        vocab_map: dict[str, int] | None = None,
     ) -> "NGramGPULanguageModel":
         """
         Constructor from ARPA LM (text format).
@@ -664,7 +673,9 @@ class NGramGPULanguageModel(ModelPT):
             use_triton: allow using Triton implementation;
                 None (default) means "auto" (used if available), True means forced mode
                 (will crash if Triton is unavailable)
-            token_offset: offset for the tokens used for building ARPA LM
+            token_offset: offset for the tokens used for building ARPA LM (ignored if vocab_map is provided)
+            vocab_map: optional mapping from token strings to integer IDs. If provided, token_offset is ignored.
+                Useful for character-level LMs with non-ASCII ordering or special tokens like <sp>.
 
         Returns:
             NGramGPULanguageModel instance
@@ -688,7 +699,7 @@ class NGramGPULanguageModel(ModelPT):
             # add ngrams to suffix tree
             ngram_cur_order_i = 0
             cur_order = 1
-            for ngram in tqdm(cls._read_ngrams(f=f, token_offset=token_offset), total=total_ngrams):
+            for ngram in tqdm(cls._read_ngrams(f=f, token_offset=token_offset, vocab_map=vocab_map), total=total_ngrams):
                 if ngram_cur_order_i == 0:
                     suffix_tree_np._start_adding_ngrams_for_order(order=cur_order, max_ngrams=order2cnt[cur_order])
                 ngram_cur_order_i += 1
@@ -818,9 +829,9 @@ class NGramGPULanguageModel(ModelPT):
         return order2cnt
 
     @classmethod
-    def _read_ngrams(cls, f, token_offset: int) -> Iterator[NGram]:
-        special_words_pattern = '|'.join(re.escape(symbol) for symbol in _SPECIAL_SYMBOLS_MAP)
-        pattern = re.compile(rf'({special_words_pattern}|.)\s?')
+    def _read_ngrams(cls, f, token_offset: int | None, vocab_map: dict[str, int] | None = None) -> Iterator[NGram]:
+        # Pattern captures <...> tokens as single units, or individual characters
+        pattern = re.compile(r'(<[^>]+>|.)\s?')
         for line in f:
             if line.endswith("\n"):
                 line = line[:-1]
@@ -834,11 +845,16 @@ class NGramGPULanguageModel(ModelPT):
             if line.startswith("\\"):
                 continue
 
-            ngram = cls._line_to_ngram(line=line, pattern=pattern, token_offset=token_offset)
+            ngram = cls._line_to_ngram(line=line, pattern=pattern, token_offset=token_offset, vocab_map=vocab_map)
             yield ngram
 
     @staticmethod
-    def _line_to_ngram(line: str, pattern: re.Pattern, token_offset: int) -> NGram:
+    def _line_to_ngram(
+        line: str,
+        pattern: re.Pattern,
+        token_offset: int | None,
+        vocab_map: dict[str, int] | None = None,
+    ) -> NGram:
         """Parse ARPA line to N-Gram structure"""
         weight, symbols_str, *backoff_opt = line.split("\t")
         if backoff_opt:
@@ -849,10 +865,18 @@ class NGramGPULanguageModel(ModelPT):
         weight = _log_10_to_e(float(weight))
         symbols_re = pattern.findall(symbols_str)
 
-        symbols = tuple(
-            (ord(symbol) - token_offset if symbol not in _SPECIAL_SYMBOLS_MAP else _SPECIAL_SYMBOLS_MAP[symbol])
-            for symbol in symbols_re
-        )
+        if vocab_map is not None:
+            # Use explicit vocab mapping
+            symbols = tuple(
+                vocab_map[symbol] if symbol not in _SPECIAL_SYMBOLS_MAP else _SPECIAL_SYMBOLS_MAP[symbol]
+                for symbol in symbols_re
+            )
+        else:
+            # Use ord() with token_offset (original behavior)
+            symbols = tuple(
+                (ord(symbol) - token_offset if symbol not in _SPECIAL_SYMBOLS_MAP else _SPECIAL_SYMBOLS_MAP[symbol])
+                for symbol in symbols_re
+            )
         return NGram(symbols=symbols, weight=weight, backoff=backoff)
 
     def _init_from_suffix_tree_np(self, suffix_tree_np: SuffixTreeStorage):
