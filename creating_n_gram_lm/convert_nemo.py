@@ -26,8 +26,8 @@ print(f"Check: 'AA' maps to index {vocab_map['AA']} (Should be 0)")
 print(f"Check: 'SIL' maps to index {vocab_map['SIL']} (Should be 39)")
 
 # --- 3. Convert ---
-arpa_path = "/home/ebrahim/brainaudio/creating_n_gram_lm/phoneme_10gram.arpa"
-nemo_output_path = "/home/ebrahim/brainaudio/creating_n_gram_lm/phoneme_10gram.nemo"
+arpa_path = "/home/ebrahim/brainaudio/creating_n_gram_lm/huge_pruned_10gram.arpa"
+nemo_output_path = "/home/ebrahim/brainaudio/creating_n_gram_lm/huge_pruned_10gram.nemo"
 
 # vocab_size=40 for the 40 phonemes (no blank in LM)
 lm = NGramGPULanguageModel.from_arpa(
