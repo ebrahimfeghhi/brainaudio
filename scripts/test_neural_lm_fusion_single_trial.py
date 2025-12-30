@@ -58,17 +58,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lm-weight", type=float, default=1, help="Neural LM fusion weight")
     parser.add_argument("--word-insertion-bonus", type=float, default=1.5, help="Bonus at boundaries")
     parser.add_argument("--max-context-length", type=int, default=512, help="Token budget")
-    parser.add_argument("--device", default="cuda:0", help="Torch device")
+    parser.add_argument("--device", default="cuda:1", help="Torch device")
     parser.add_argument("--logits", type=Path, default=None, help="NPZ logits file (default: derived from encoder-model-name)")
     parser.add_argument("--tokens", type=Path, default=Path(DEFAULT_TOKENS), help="units file")
     parser.add_argument("--lexicon", type=Path, default=Path(DEFAULT_LEXICON), help="lexicon file")
-    parser.add_argument("--top-k", type=int, default=1000, help="Number of top beams to display per trial")
-    parser.add_argument("--num-homophone-beams", type=int, default=4, help="Number of text interpretations (homophones) to track per beam")
-    parser.add_argument("--beam-prune-threshold", type=float, default=15, help="Prune beams that are more than this many log-prob points below the best.")
-    parser.add_argument("--homophone-prune-threshold", type=float, default=4, help="Prune homophones more than this many log-prob points below the best.")
+    parser.add_argument("--top-k", type=int, default=10, help="Number of top beams to display per trial")
+    parser.add_argument("--num-homophone-beams", type=int, default=5, help="Number of text interpretations (homophones) to track per beam")
+    parser.add_argument("--beam-prune-threshold", type=float, default=30, help="Prune beams that are more than this many log-prob points below the best.")
+    parser.add_argument("--homophone-prune-threshold", type=float, default=7, help="Prune homophones more than this many log-prob points below the best.")
     parser.add_argument("--beam-beta", type=float, default=np.log(7), help="Bonus added to extending beams (not blank/repeat). Boosts probability of emitting new characters.")
     parser.add_argument("--beam-blank-penalty", type=float, default=0, help="Penalty subtracted from blank emissions.")
-    parser.add_argument("--logit-scale", type=float, default=0.4, help="Scalar multiplier for encoder logits.")
+    parser.add_argument("--logit-scale", type=float, default=0.8, help="Scalar multiplier for encoder logits.")
     parser.add_argument(
         "--results-filename",
         type=str,
@@ -77,9 +77,9 @@ def parse_args() -> argparse.Namespace:
     )
     
     parser.add_argument(
-        "--disable-wandb",
+        "--enable-wandb",
         action="store_true",
-        help="Disable W&B logging (default: enabled)"
+        help="Enable W&B logging (default: disabled)"
     )
     parser.add_argument(
         "--load-in-4bit",
@@ -87,20 +87,20 @@ def parse_args() -> argparse.Namespace:
         help="Load model in 4-bit quantization (requires bitsandbytes)"
     )
     parser.add_argument(
-        "--use-phoneme-lm",
+        "--no-phoneme-lm",
         action="store_true",
-        help="Enable phoneme-level n-gram LM for frame-level scoring"
+        help="Disable phoneme-level n-gram LM for frame-level scoring (default: enabled with dummy unigram LM)"
     )
     parser.add_argument(
         "--phoneme-lm-path",
         type=str,
-        default="/home/ebrahim/brainaudio/test_phoneme_bigram.arpa",
-        help="Path to phoneme LM ARPA file."
+        default="/home/ebrahim/brainaudio/creating_n_gram_lm/phoneme_6gram.nemo",
+        help="Path to phoneme LM file (.nemo). Set to 'none' to use dummy unigram LM."
     )
     parser.add_argument(
         "--phoneme-lm-weight",
         type=float,
-        default=0.3,
+        default=1,
         help="Weight for phoneme LM fusion (default: 0.3)"
     )
 
@@ -118,10 +118,10 @@ def main():
         args.logits = Path(f"/data2/brain2text/b2t_25/logits/{args.encoder_model_name}/logits_val.npz")
 
     # Initialize wandb run (before any wandb.log or Table calls)
-    if not args.disable_wandb:
+    if args.enable_wandb:
         import wandb
-        # REMOVE: wandb.online() 
-        
+        # REMOVE: wandb.online()
+
         wandb.init(
             project="brainaudio-neural-lm-fusion",
             config=vars(args),
@@ -129,9 +129,9 @@ def main():
             mode="online",    # <--- Force online mode here
             notes=notes       # <--- Pass notes here so they save as run metadata
         )
-        
+
         wandb.log({"notes": notes})
-            
+
     else:
         print("[wandb] W&B logging disabled")
 
@@ -206,20 +206,28 @@ def main():
         word_insertion_bonus=args.word_insertion_bonus,
     )
 
-    # Create phoneme-level n-gram LM if enabled
+    # Create phoneme-level n-gram LM if enabled (default: enabled with 6-gram LM)
     fusion_models = []
     fusion_models_alpha = []
-    if args.use_phoneme_lm:
-        # Phoneme LM vocab size = 40 (39 phonemes + word boundary, excluding CTC blank)
+    if not args.no_phoneme_lm:
+        # Phoneme LM vocab size = 40 (39 phonemes + SIL, no blank)
+        # CTC decoder handles mapping: CTC index i -> LM index i-1
         PHONEME_LM_VOCAB_SIZE = 40
 
-        print(f"[INFO] Loading phoneme LM from {args.phoneme_lm_path}")
-        phoneme_lm = NGramGPULanguageModel.from_arpa(
-            args.phoneme_lm_path,
-            vocab_size=PHONEME_LM_VOCAB_SIZE,
-            token_offset=100,
-        )
+        if args.phoneme_lm_path and args.phoneme_lm_path.lower() != "none":
+            print(f"[INFO] Loading phoneme LM from {args.phoneme_lm_path}")
+            phoneme_lm = NGramGPULanguageModel.from_nemo(
+                args.phoneme_lm_path,
+                vocab_size=PHONEME_LM_VOCAB_SIZE,
+                map_location=device,  # Load directly to target device
+            )
+        else:
+            print(f"[INFO] Using dummy unigram phoneme LM (vocab_size={PHONEME_LM_VOCAB_SIZE})")
+            phoneme_lm = NGramGPULanguageModel.dummy_unigram_lm(
+                vocab_size=PHONEME_LM_VOCAB_SIZE
+            )
 
+        # Force move all parameters and buffers to device
         phoneme_lm = phoneme_lm.to(device)
         fusion_models.append(phoneme_lm)
         fusion_models_alpha.append(args.phoneme_lm_weight)
@@ -261,6 +269,25 @@ def main():
         # Load single trial
         log_probs, _, lengths = load_log_probs(args.logits, [trial_idx], device)
         log_probs *= args.logit_scale
+
+        # Pad with frames that have high blank probability and uniform elsewhere
+        # This gives the decoder extra time to emit final tokens naturally
+        num_pad_frames = 5
+        vocab_size = log_probs.shape[-1]
+        blank_idx = 0  # Blank token in CTC vocab
+
+        # Create padding: uniform for non-blank, high prob for blank
+        uniform_log_prob = -np.log(vocab_size)  # Uniform distribution over vocab
+        padding = torch.full(
+            (log_probs.shape[0], num_pad_frames, vocab_size),
+            fill_value=uniform_log_prob,
+            device=device,
+            dtype=log_probs.dtype
+        )
+        padding[:, :, blank_idx] = 0.0  # High probability for blank (log prob = 0 → prob ≈ 1)
+
+        log_probs = torch.cat([log_probs, padding], dim=1)
+        lengths = lengths + num_pad_frames
 
         # Run Decoder
         if device.type == "cuda":
@@ -313,9 +340,13 @@ def main():
             # Get phoneme sequence for this beam
             seq_raw = materialize_beam_transcript(result, 0, i)
             seq_collapsed = collapse_ctc_sequence(seq_raw.tolist(), lexicon.blank_index)
-            phoneme_names = [lexicon.token_to_symbol.get(idx, f"?{idx}") for idx in seq_collapsed]
+            phoneme_names_collapsed = [lexicon.token_to_symbol.get(idx, f"?{idx}") for idx in seq_collapsed]
 
-            print(f"  #{rank:02d} | score={beam_score:.2f} | {' '.join(phoneme_names)}")
+            # Raw sequence (before CTC merging) - shows blanks and repeats
+            phoneme_names_raw = [lexicon.token_to_symbol.get(idx, f"?{idx}") for idx in seq_raw.tolist()]
+
+            print(f"  #{rank:02d} | score={beam_score:.2f} | {' '.join(phoneme_names_collapsed)}")
+            print(f"       Raw ({len(seq_raw)} frames): {' '.join(phoneme_names_raw[-30:])}")  # Last 30 tokens
             for k_idx, (lm_score, text) in enumerate(all_texts):
                 print(f"       H{k_idx}: lm={lm_score:.4f} | {text}")
 
@@ -367,7 +398,7 @@ def main():
     print(f"\nSaved predictions to {csv_path}")
 
     # --- wandb logging ---
-    if not args.disable_wandb:
+    if args.enable_wandb:
         try:
             import wandb
             # Log WER to wandb

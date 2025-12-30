@@ -309,6 +309,12 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
 
         print(f"[HuggingFaceLMFusion] word_insertion_bonus={self.word_insertion_bonus}, weight={self.weight}")
 
+        # Ensure we have a BOS token for scoring words at sentence start
+        # Some models (e.g., Qwen) don't have bos_token set, so fall back to eos_token
+        if self.tokenizer.bos_token is None:
+            self.tokenizer.bos_token = self.tokenizer.eos_token
+            self.tokenizer.bos_token_id = self.tokenizer.eos_token_id
+
         # Move model to device and set to eval mode
         # Skip .to() for quantized models as they may already be on the correct device
         if device is not None:
@@ -496,8 +502,8 @@ def apply_lm_fusion_post_selection(
             # Expand with capitalization variants (e.g., "their" -> ["their", "Their"])
             candidate_words = []
             for word in base_words:
-                if word == 'profession':
-                    breakpoint()
+                #if word == 'profession':
+                #    breakpoint()
                 candidate_words.extend(get_capitalization_variants(word))
 
             # Remove duplicates while preserving order
@@ -560,7 +566,7 @@ def apply_lm_fusion_post_selection(
                 new_text = f"{prev_text} {word}".strip()
                 all_candidates.append((new_lm_score, new_text))
                 
-                #if word == "economy's" or word == "economists":
+                #if word.lower() == "i" or word.lower() == "ai":
                 #    print(f"Text: {prev_text}, Candidate word: {word}")
                 #    print(f"Frame idx: {frame_idx}, Word: {word}, LM score: {word_lm_score}, Acoustic score: {base_score-prev_lm_score}")
                 #    breakpoint()

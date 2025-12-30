@@ -598,6 +598,7 @@ class NGramGPULanguageModel(ModelPT):
         lm_path: Path | str,
         vocab_size: int,
         use_triton: bool | None = None,
+        map_location: str | torch.device | None = "cpu",
     ) -> "NGramGPULanguageModel":
         """
         Constructor from Nemo checkpoint (state dict).
@@ -606,8 +607,9 @@ class NGramGPULanguageModel(ModelPT):
             lm_path: path to .nemo checkpoint
             vocab_size: model vocabulary size
             use_triton: allow using Triton implementation; None (default) means "auto" (used if available)
+            map_location: device to load the model to (default: "cpu")
         """
-        model = NGramGPULanguageModel.restore_from(restore_path=str(lm_path), map_location="cpu")
+        model = NGramGPULanguageModel.restore_from(restore_path=str(lm_path), map_location=map_location)
         model._resolve_final()
         assert model.vocab_size == vocab_size
         model.use_triton = use_triton if use_triton is not None else TRITON_AVAILABLE
@@ -863,16 +865,17 @@ class NGramGPULanguageModel(ModelPT):
         else:
             backoff = 0.0
         weight = _log_10_to_e(float(weight))
-        symbols_re = pattern.findall(symbols_str)
 
         if vocab_map is not None:
-            # Use explicit vocab mapping
+            # Use explicit vocab mapping with space-separated tokens (e.g., phonemes)
+            symbols_list = symbols_str.split()
             symbols = tuple(
                 vocab_map[symbol] if symbol not in _SPECIAL_SYMBOLS_MAP else _SPECIAL_SYMBOLS_MAP[symbol]
-                for symbol in symbols_re
+                for symbol in symbols_list
             )
         else:
-            # Use ord() with token_offset (original behavior)
+            # Use character-level parsing with ord() and token_offset (original behavior)
+            symbols_re = pattern.findall(symbols_str)
             symbols = tuple(
                 (ord(symbol) - token_offset if symbol not in _SPECIAL_SYMBOLS_MAP else _SPECIAL_SYMBOLS_MAP[symbol])
                 for symbol in symbols_re
@@ -1081,23 +1084,26 @@ class NGramGPULanguageModel(ModelPT):
         """
         batch_size = states.shape[0]
         device = states.device
+
         scores = torch.empty([batch_size, self.vocab_size], device=device, dtype=self.arcs_weights.dtype)
         new_states = torch.empty([batch_size, self.vocab_size], dtype=torch.long, device=device)
 
-        ngram_advance_triton_kernel[batch_size,](
-            vocab_size=self.vocab_size,
-            states_ptr=states,
-            new_states_ptr=new_states,
-            scores_ptr=scores,
-            start_state=self.START_STATE,
-            to_states_ptr=self.to_states,
-            ilabels_ptr=self.ilabels,
-            arcs_weights_ptr=self.arcs_weights,
-            start_end_arcs_ptr=self.start_end_arcs,
-            backoff_to_states_ptr=self.backoff_to_states,
-            backoff_weights_ptr=self.backoff_weights,
-            BLOCK_SIZE=triton.next_power_of_2(self.vocab_size),
-        )
+        # Set CUDA device context for Triton kernel launch (required for multi-GPU)
+        with torch.cuda.device(device):
+            ngram_advance_triton_kernel[batch_size,](
+                vocab_size=self.vocab_size,
+                states_ptr=states,
+                new_states_ptr=new_states,
+                scores_ptr=scores,
+                start_state=self.START_STATE,
+                to_states_ptr=self.to_states,
+                ilabels_ptr=self.ilabels,
+                arcs_weights_ptr=self.arcs_weights,
+                start_end_arcs_ptr=self.start_end_arcs,
+                backoff_to_states_ptr=self.backoff_to_states,
+                backoff_weights_ptr=self.backoff_weights,
+                BLOCK_SIZE=triton.next_power_of_2(self.vocab_size),
+            )
 
         return scores, new_states
 

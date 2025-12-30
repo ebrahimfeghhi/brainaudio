@@ -352,9 +352,10 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             float_dtype=decoder_outputs.dtype,
             model_type='ctc',
             num_homophone_beams=self.num_homophone_beams,
+            score_combination='max'
         )
         
-           # init fusion models
+         # init fusion models
         if self.fusion_models is not None:
             fusion_states_list = []
             fusion_states_candidates_list = []
@@ -365,6 +366,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                 )
                 fusion_states_candidates_list.append(None)
 
+        
         # Main decoding loop: process one acoustic frame at a time
         for frame_idx in range(curr_max_time):
             # active_mask: [B, beam_size] - True if this utterance hasn't ended yet at this frame
@@ -413,20 +415,65 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                 log_probs = torch.where(lexicon_mask, log_probs, INACTIVE_SCORE)
                 
             
+            # ==================== STEP 2.2: FUSION MODEL (N-GRAM LM) SCORING ====================
+            # This section integrates phoneme-level language model scores into the beam search.
+            # The LM provides P(next_phoneme | history) to bias the search toward likely phoneme sequences.
+
             if self.fusion_models is not None:
                 for fusion_idx, fusion_model in enumerate(self.fusion_models):
+
+                    # ----- ADVANCE THE LM: Get scores and next states for ALL possible phonemes -----
+                    # fusion_states_list[fusion_idx] contains the current LM state for each beam.
+                    # Shape: [B * beam_size] (flattened). Each state encodes the n-gram history.
+                    #
+                    # fusion_model.advance() returns:
+                    #   - fusion_scores: log P(phoneme | state) for each of the 40 phonemes
+                    #     Shape: [B * beam_size, 40] — one score per phoneme per beam
+                    #   - fusion_states_candidates: the LM state AFTER emitting each phoneme
+                    #     Shape: [B * beam_size, 40] — one next-state per phoneme per beam
+                    #     Example: if current state represents history "AH K", then:
+                    #       fusion_states_candidates[:, 0] = state for "AH K AA"
+                    #       fusion_states_candidates[:, 1] = state for "AH K AE"
+                    #       ... and so on for all 40 phonemes
                     fusion_scores, fusion_states_candidates = fusion_model.advance(
                         states=fusion_states_list[fusion_idx].view(-1)
                     )
-                    # LM vocab is CTC vocab without blank: LM index i = CTC index i+1
-                    # repeated_mask[..., 1:] selects non-blank tokens (CTC indices 1-40)
+
+                    # ----- ZERO OUT LM SCORES FOR REPEATED TOKENS -----
+                    # In CTC, emitting the same token twice in a row (e.g., "AA AA") does NOT produce
+                    # two phonemes — it just extends the duration of one phoneme. The LM should not
+                    # score these repeats because no new phoneme is being added to the sequence.
+                    #
+                    # repeated_mask: [B, beam_size, vocab_size] — True where token == last_token
+                    # repeated_mask[..., 1:]: [B, beam_size, 40] — same but excluding blank (index 0)
+                    #
+                    # torch.where(condition, value_if_true, value_if_false):
+                    #   - Where repeated_mask is True (repeat) → use 0 (no LM contribution)
+                    #   - Where repeated_mask is False (new phoneme) → use actual LM score
+                    #
+                    # fusion_scores is reshaped from [B*beam, 40] to [B, beam, 40] to match repeated_mask
                     fusion_scores = torch.where(
                         repeated_mask[..., 1:], 0, fusion_scores.view(curr_batch_size, self.beam_size, -1)
                     )
-                    # Add LM scores to non-blank tokens (CTC indices 1-40)
+
+                    # ----- ADD WEIGHTED LM SCORES TO ACOUSTIC SCORES -----
+                    # log_probs: [B, beam_size, vocab_size] = [B, beam, 41] — acoustic model scores
+                    # log_probs[..., 1:]: [B, beam, 40] — non-blank tokens only (CTC indices 1-40)
+                    #
+                    # Final score = acoustic_score + alpha * lm_score
+                    # where alpha (fusion_models_alpha) controls how much the LM influences decoding.
+                    # Higher alpha = LM has more influence; lower alpha = trust acoustic model more.
+                    #
+                    # Note: We don't add LM scores to blank (index 0) because blank doesn't represent
+                    # a phoneme — it's just a CTC mechanism for handling timing/alignment.
                     log_probs[..., 1:] += self.fusion_models_alpha[fusion_idx] * fusion_scores.view(
                         curr_batch_size, self.beam_size, -1
                     )
+
+                    # ----- STORE CANDIDATE STATES FOR LATER -----
+                    # After topk selection (step 2.3), we'll need to know what LM state to transition
+                    # to based on which token was actually selected. We store all 40 possible next
+                    # states here and will pick the right one in step 2.4.
                     fusion_states_candidates_list[fusion_idx] = fusion_states_candidates
 
                 
@@ -464,41 +511,121 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                 )
             
             prev_last_labels = torch.gather(batched_beam_hyps.last_label, dim=-1, index=next_indices)
-            
-               # step 2.4: preserving updated fusion states
-            if self.fusion_models is not None:
-                last_labels = torch.gather(batched_beam_hyps.last_label, dim=-1, index=next_indices)
-                blank_mask = next_labels == self._blank_index
-                repeating_mask = next_labels == last_labels
-                preserve_state_mask = repeating_mask | blank_mask | ~active_mask
 
-                # step 2.4.1: convert CTC indices to LM indices (CTC index i -> LM index i-1)
-                # For blanks, we use 0 as placeholder (won't be used due to preserve_state_mask)
+            # ==================== STEP 2.4: UPDATE FUSION MODEL (LM) STATES ====================
+            # After topk selection, we know which beams survived and what tokens they emitted.
+            # Now we need to update the LM state for each beam to reflect the newly emitted phoneme.
+            #
+            # Key insight: The LM state only changes when a NEW phoneme is emitted. It does NOT
+            # change for blanks or repeated tokens (CTC merging behavior).
+
+            if self.fusion_models is not None:
+
+                # ----- DETERMINE WHICH BEAMS SHOULD PRESERVE THEIR LM STATE -----
+                # last_labels: the previous token for each selected beam's parent
+                # Shape: [B, beam_size]
+                # We use next_indices to look up which parent beam each new beam came from.
+                last_labels = torch.gather(batched_beam_hyps.last_label, dim=-1, index=next_indices)
+
+                # blank_mask: True if this beam emitted a blank token
+                # Shape: [B, beam_size]
+                # Blank = CTC's way of saying "no phoneme at this frame"
+                blank_mask = next_labels == self._blank_index
+
+                # repeating_mask: True if this beam emitted the same token as its parent's last token
+                # Shape: [B, beam_size]
+                # In CTC, "AA AA" collapses to single "AA" — no new phoneme emitted
+                repeating_mask = next_labels == last_labels
+
+                # preserve_state_mask: True if we should KEEP the old LM state (not update it)
+                # Shape: [B, beam_size]
+                # We preserve state when:
+                #   - repeating_mask: repeated token (CTC merge, no new phoneme)
+                #   - blank_mask: blank emission (no phoneme)
+                #   - ~active_mask: utterance is finished
+                #   - inactive_candidate_mask: beam was pruned (has -inf score, next_labels = -1)
+                preserve_state_mask = repeating_mask | blank_mask | ~active_mask | inactive_candidate_mask
+
+                # ----- CONVERT CTC INDICES TO LM INDICES -----
+                # CTC vocabulary: [0=blank, 1=AA, 2=AE, ..., 40=SIL] — 41 tokens
+                # LM vocabulary:  [0=AA, 1=AE, ..., 39=SIL] — 40 tokens (no blank)
+                #
+                # Mapping: CTC index i → LM index (i - 1)
+                # Example: CTC index 1 (AA) → LM index 0
+                #          CTC index 40 (SIL) → LM index 39
+                #
+                # For blanks (CTC index 0), we use 0 as a placeholder. This value won't actually
+                # be used because preserve_state_mask will be True for blanks.
                 next_labels_lm = torch.where(blank_mask, 0, next_labels - 1)
-                # Clamp to valid range [0, vocab_size-1] to avoid index errors
+
+                # Clamp to valid range [0, 39] to prevent index-out-of-bounds errors.
+                # This handles edge cases like inactive beams with invalid label values.
                 next_labels_lm = next_labels_lm.clamp(min=0)
 
-                # step 2.4.2: gathering fusion states of extended hypotheses
-                # batch_fusion_states: [(BxBeam)]
-                # batch_fusion_states_candidates: [(BxBeam) x V (without blank)]
-
+                # ----- GATHER AND UPDATE LM STATES FOR EACH FUSION MODEL -----
                 for fusion_idx, fusion_model in enumerate(self.fusion_models):
+
+                    # --- Step A: Reshape candidate states for gathering ---
+                    # fusion_states_candidates_list[fusion_idx] was computed in step 2.2.
+                    # Original shape: [B * beam_size, 40] — flat batch, one row per beam, 40 next-states
+                    #
+                    # next_indices tells us which PARENT BEAM each selected candidate came from.
+                    # Shape: [B, beam_size] — values are in range [0, beam_size-1]
+                    #
+                    # To gather along the beam dimension, we need to expand next_indices to match
+                    # the last dimension (40 phonemes).
+                    # next_indices_extended: [B, beam_size, 40]
                     next_indices_extended = next_indices[:, :, None].expand(
                         curr_batch_size, self.beam_size, fusion_states_candidates_list[fusion_idx].shape[-1]
                     )
+
+                    # Reshape from [B*beam, 40] to [B, beam, 40] for gathering
                     fusion_states_candidates = fusion_states_candidates_list[fusion_idx].view(
                         curr_batch_size, self.beam_size, -1
                     )
+
+                    # --- Step B: Gather candidate states from parent beams ---
+                    # For each selected beam, get the 40 candidate next-states from its PARENT beam.
+                    # Before: fusion_states_candidates[b, parent_beam, phoneme] = state after emitting phoneme
+                    # After:  fusion_states_candidates[b, new_beam, phoneme] = state after emitting phoneme
+                    #         (now indexed by new beam position, but containing parent's candidates)
+                    #
+                    # Example: If new beam 0 came from parent beam 3, then after this gather:
+                    #   fusion_states_candidates[0, 0, :] = old fusion_states_candidates[0, 3, :]
                     fusion_states_candidates = torch.gather(
                         fusion_states_candidates, dim=1, index=next_indices_extended
                     )
+
+                    # --- Step C: Get previous LM states (for preserve_state_mask cases) ---
+                    # fusion_states_list[fusion_idx]: current LM states, shape [B * beam_size]
+                    # Reshape to [B, beam_size] and gather using next_indices to get parent states.
+                    # These are the states we'll use when preserve_state_mask is True.
                     fusion_states_prev = torch.gather(
                         fusion_states_list[fusion_idx].view(curr_batch_size, self.beam_size), dim=1, index=next_indices
                     )
+
+                    # --- Step D: Select the correct next state based on emitted token ---
+                    # fusion_states_candidates: [B, beam_size, 40] — 40 possible next states per beam
+                    # next_labels_lm: [B, beam_size] — which phoneme was actually emitted (LM index)
+                    #
+                    # We gather along the last dimension to pick the state corresponding to the
+                    # actually emitted phoneme.
+                    # next_labels_lm.unsqueeze(-1): [B, beam_size, 1] — index for gather
+                    # After gather: [B, beam_size, 1] → squeeze → [B, beam_size]
+                    #
+                    # Example: If beam emitted phoneme with LM index 5, we get:
+                    #   fusion_states[b, beam] = fusion_states_candidates[b, beam, 5]
                     fusion_states = torch.gather(
                         fusion_states_candidates, dim=-1, index=next_labels_lm.unsqueeze(-1)
                     ).squeeze(-1)
 
+                    # --- Step E: Apply preserve_state_mask to decide final state ---
+                    # Where preserve_state_mask is True (blank/repeat/inactive):
+                    #   → Keep the previous state (fusion_states_prev)
+                    # Where preserve_state_mask is False (new phoneme emitted):
+                    #   → Use the new state (fusion_states)
+                    #
+                    # Finally, flatten back to [B * beam_size] for the next frame.
                     fusion_states_list[fusion_idx] = torch.where(
                         preserve_state_mask, fusion_states_prev, fusion_states
                     ).view(-1)
@@ -563,7 +690,137 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
 
         return batched_beam_hyps
     
- 
+    @torch.no_grad()
+    def batched_beam_search_torch_original(
+        self, decoder_outputs: torch.Tensor, decoder_output_lengths: torch.Tensor
+    ) -> BatchedBeamHyps:
+        """
+        Pure PyTorch implementation of the batched beam search algorithm.
+
+        Args:
+            decoder_outputs (torch.Tensor): Tensor of shape [B, T, V+1], where B is the batch size,
+                T is the maximum sequence length, and V is the vocabulary size. The tensor contains log-probabilities.
+            decoder_output_lengths (torch.Tensor): Tensor of shape [B], contains lengths of each sequence in the batch.
+        Returns:
+            A list of NBestHypotheses objects, one for each sequence in the batch.
+        """
+
+        curr_batch_size, curr_max_time, vocab_size = decoder_outputs.shape
+
+        vocab = torch.arange(vocab_size, device=decoder_outputs.device, dtype=torch.long)
+        vocab_blank_mask = vocab == self._blank_index
+
+        batched_beam_hyps = BatchedBeamHyps(
+            batch_size=curr_batch_size,
+            beam_size=self.beam_size,
+            blank_index=self._blank_index,
+            init_length=curr_max_time + 1,
+            device=decoder_outputs.device,
+            float_dtype=decoder_outputs.dtype,
+            model_type='ctc',
+        )
+
+        # init fusion models
+        if self.fusion_models is not None:
+            fusion_states_list = []
+            fusion_states_candidates_list = []
+            for fusion_model in self.fusion_models:
+                fusion_model.to(decoder_outputs.device)
+                fusion_states_list.append(
+                    fusion_model.get_init_states(batch_size=curr_batch_size * self.beam_size, bos=True)
+                )
+                fusion_states_candidates_list.append(None)
+
+        for frame_idx in range(curr_max_time):
+            active_mask = frame_idx < decoder_output_lengths.unsqueeze(1)
+            repeated_mask = batched_beam_hyps.last_label[:, :, None] == vocab[None, None, :]
+            repeated_or_blank_mask = repeated_mask | vocab_blank_mask[None, None, :]
+
+            # step 2.1: getting the log probs and updating with fusion scores
+            log_probs = decoder_outputs[:, frame_idx, :].unsqueeze(1).repeat(1, self.beam_size, 1)
+            log_probs += batched_beam_hyps.scores.unsqueeze(-1)
+
+            # step 2.2: updating non-blank and non-repeating token scores with `beam_beta`
+            log_probs = torch.where(repeated_or_blank_mask, log_probs, log_probs + self.beam_beta)
+
+            if self.fusion_models is not None:
+                for fusion_idx, fusion_model in enumerate(self.fusion_models):
+                    fusion_scores, fusion_states_candidates = fusion_model.advance(
+                        states=fusion_states_list[fusion_idx].view(-1)
+                    )
+                    fusion_scores = torch.where(
+                        repeated_mask[..., :-1], 0, fusion_scores.view(curr_batch_size, self.beam_size, -1)
+                    )
+                    log_probs[..., :-1] += self.fusion_models_alpha[fusion_idx] * fusion_scores.view(
+                        curr_batch_size, self.beam_size, -1
+                    )
+                    fusion_states_candidates_list[fusion_idx] = fusion_states_candidates
+
+            # step 2.3: getting `beam_size` best candidates
+            next_scores, next_candidates_indices = torch.topk(
+                log_probs.view(curr_batch_size, -1), k=self.beam_size, largest=True, sorted=True
+            )
+            next_indices = next_candidates_indices // vocab_size
+            next_labels = next_candidates_indices % vocab_size
+
+            # step 2.3: pruning candidates with threshold `beam_threshold`
+            batch_next_scores = next_scores.view(curr_batch_size, -1)
+            max_next_score = batch_next_scores.max(dim=-1, keepdim=True).values
+            batch_next_scores.masked_fill_(batch_next_scores <= max_next_score - self.beam_threshold, INACTIVE_SCORE)
+            next_scores.view(curr_batch_size, self.beam_size, -1)
+
+            # step 2.4: preserving updated fusion states
+            if self.fusion_models is not None:
+                last_labels = torch.gather(batched_beam_hyps.last_label, dim=-1, index=next_indices)
+                blank_mask = next_labels == self._blank_index
+                repeating_mask = next_labels == last_labels
+                preserve_state_mask = repeating_mask | blank_mask | ~active_mask
+
+                # step 2.4.1: masking blanks and inactive labels to pass to fusion models, as fusion models do not support blanks
+                next_labels_masked = torch.where(blank_mask, 0, next_labels)
+
+                # step 2.4.2: gathering fusion states of extended hypotheses
+                # batch_fusion_states: [(BxBeam)]
+                # batch_fusion_states_candidates: [(BxBeam) x V (without blank)]
+
+                for fusion_idx, fusion_model in enumerate(self.fusion_models):
+                    next_indices_extended = next_indices[:, :, None].expand(
+                        curr_batch_size, self.beam_size, fusion_states_candidates_list[fusion_idx].shape[-1]
+                    )
+                    fusion_states_candidates = fusion_states_candidates_list[fusion_idx].view(
+                        curr_batch_size, self.beam_size, -1
+                    )
+                    fusion_states_candidates = torch.gather(
+                        fusion_states_candidates, dim=1, index=next_indices_extended
+                    )
+                    fusion_states_prev = torch.gather(
+                        fusion_states_list[fusion_idx].view(curr_batch_size, self.beam_size), dim=1, index=next_indices
+                    )
+                    fusion_states = torch.gather(
+                        fusion_states_candidates, dim=-1, index=next_labels_masked.unsqueeze(-1)
+                    ).squeeze(-1)
+
+                    fusion_states_list[fusion_idx] = torch.where(
+                        preserve_state_mask, fusion_states_prev, fusion_states
+                    ).view(-1)
+
+            # step 2.5: masking inactive hypotheses, updating + recombining batched beam hypoteses
+            next_labels = torch.where(active_mask, next_labels, NON_EXISTENT_LABEL_VALUE)
+            batched_beam_hyps.add_results_(next_indices, next_labels, next_scores)
+            batched_beam_hyps.recombine_hyps_()
+
+        # step 3: updating fusoin scores with eos scores
+        if self.fusion_models is not None:
+            for fusion_idx, fusion_model in enumerate(self.fusion_models):
+                # only GPUBoostingTreeModel does not support eos scores for CTC models by default
+                if not isinstance(fusion_model, GPUBoostingTreeModel):
+                    eos_score = fusion_model.get_final(fusion_states_list[fusion_idx]).view(
+                        batched_beam_hyps.scores.shape
+                    )
+                    batched_beam_hyps.scores += eos_score * self.fusion_models_alpha[fusion_idx]
+
+        return batched_beam_hyps
+    
     
     def batched_beam_search_cuda_graphs(
         self,
