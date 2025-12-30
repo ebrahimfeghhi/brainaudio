@@ -55,10 +55,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--beam-size", type=int, default=250, help="CTC beam size")
     parser.add_argument("--model", default="meta-llama/Llama-3.2-3B", help="HF causal LM checkpoint")
     parser.add_argument("--hf-token", default=None, help="Optional HF token")
-    parser.add_argument("--lm-weight", type=float, default=1, help="Neural LM fusion weight")
-    parser.add_argument("--word-insertion-bonus", type=float, default=1.5, help="Bonus at boundaries")
+    parser.add_argument("--lm-weight", type=float, default=0.5, help="Neural LM fusion weight")
+    parser.add_argument("--word-insertion-bonus", type=float, default=0, help="Bonus at boundaries")
     parser.add_argument("--max-context-length", type=int, default=512, help="Token budget")
-    parser.add_argument("--device", default="cuda:0", help="Torch device")
+    parser.add_argument("--device", default="cuda:1", help="Torch device")
     parser.add_argument("--logits", type=Path, default=None, help="NPZ logits file (default: derived from encoder-model-name)")
     parser.add_argument("--tokens", type=Path, default=Path(DEFAULT_TOKENS), help="units file")
     parser.add_argument("--lexicon", type=Path, default=Path(DEFAULT_LEXICON), help="lexicon file")
@@ -66,9 +66,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--num-homophone-beams", type=int, default=5, help="Number of text interpretations (homophones) to track per beam")
     parser.add_argument("--beam-prune-threshold", type=float, default=15, help="Prune beams that are more than this many log-prob points below the best.")
     parser.add_argument("--homophone-prune-threshold", type=float, default=7, help="Prune homophones more than this many log-prob points below the best.")
-    parser.add_argument("--beam-beta", type=float, default=np.log(7), help="Bonus added to extending beams (not blank/repeat). Boosts probability of emitting new characters.")
+    parser.add_argument("--beam-beta", type=float, default=0, help="Bonus added to extending beams (not blank/repeat). Boosts probability of emitting new characters.")
     parser.add_argument("--beam-blank-penalty", type=float, default=0, help="Penalty subtracted from blank emissions.")
-    parser.add_argument("--logit-scale", type=float, default=0.4, help="Scalar multiplier for encoder logits.")
+    parser.add_argument("--logit-scale", type=float, default=0.8, help="Scalar multiplier for encoder logits.")
     parser.add_argument(
         "--results-filename",
         type=str,
@@ -100,7 +100,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--phoneme-lm-weight",
         type=float,
-        default=1,
+        default=0.5,
         help="Weight for phoneme LM fusion (default: 0.3)"
     )
 
