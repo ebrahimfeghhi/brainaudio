@@ -411,20 +411,20 @@ class BatchedBeamHyps:
         
         hashed_tensor = torch.tensor(self.context_texts_hash, device=self.device)
         
-        if is_last_step:
-           
-            hyps_equal = (
-                hashed_tensor[:, :, None] == hashed_tensor[:, None, :]
-            )
+        #if is_last_step:
+        #   
+        #    hyps_equal = (
+        #       hashed_tensor[:, :, None] == hashed_tensor[:, None, :]
+        #   )
         
-        else: 
+        #else: 
                 
-            hyps_equal = (
-                (self.transcript_hash[:, :, None] == self.transcript_hash[:, None, :])
-                & (self.last_label[:, :, None] == self.last_label[:, None, :])
-                & (self.current_lengths_nb[:, :, None] == self.current_lengths_nb[:, None, :])
-                &  (hashed_tensor[:, :, None] == hashed_tensor[:, None, :])
-            )
+        hyps_equal = (
+            (self.transcript_hash[:, :, None] == self.transcript_hash[:, None, :])
+            & (self.last_label[:, :, None] == self.last_label[:, None, :])
+            & (self.current_lengths_nb[:, :, None] == self.current_lengths_nb[:, None, :])
+            &  (hashed_tensor[:, :, None] == hashed_tensor[:, None, :])
+        )
 
         if self.model_type == ASRModelTypeEnum.TDT:
             hyps_equal &= self.next_timestamp[:, :, None] == self.next_timestamp[:, None, :]

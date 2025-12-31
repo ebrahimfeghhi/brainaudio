@@ -4,10 +4,13 @@ Prints sentences where the predictions differ between the two methods.
 """
 
 import argparse
+import random
 import pandas as pd
 from pathlib import Path
 from jiwer import wer as compute_wer, process_words
 import string
+
+RANDOM_SEED = 42
 
 
 DEFAULT_PREDICTIONS_CSV = "/home/ebrahim/nejm-brain-to-text/model_training/rnn_baseline_submission_file_valsplit.csv"
@@ -243,6 +246,12 @@ def main():
                 print(f"  LLM:      {r['llm_pred']}")
                 print(f"  Baseline: {r['baseline_pred']}")
 
+            # Print indices in copy-pasteable format
+            worse_indices = [r['idx'] for r in worse_results]
+            print("\n" + "-" * 80)
+            print(f"Copy-pasteable trial indices ({len(worse_indices)} trials):")
+            print(' '.join(str(i) for i in worse_indices))
+
     if args.show_all_diff:
         # Show sentences where text differs but WER is the same
         same_wer_diff_text = [r for r in results if r["category"] == "SAME" and r["text_differs"]]
@@ -259,6 +268,66 @@ def main():
     # Save sentences with different text to CSV (includes both different WER and same WER but different text)
     diff_results = [r for r in results if r["text_differs"]]
     if diff_results:
+        # Get worse trial indices and compute WER for worse trials only
+        worse_results_for_csv = [r for r in diff_results if r["category"] == "WORSE"]
+        worse_indices = [r['idx'] for r in worse_results_for_csv]
+
+        # Compute WER for worse trials subset
+        if worse_results_for_csv:
+            worse_llm_preds = [r["llm_pred"].lower().translate(translator).strip() for r in worse_results_for_csv]
+            worse_baseline_preds = [r["baseline_pred"].lower().translate(translator).strip() for r in worse_results_for_csv]
+            worse_gts = [r["ground_truth"].lower().translate(translator).strip() for r in worse_results_for_csv]
+            worse_llm_output = process_words(worse_gts, worse_llm_preds)
+            worse_baseline_output = process_words(worse_gts, worse_baseline_preds)
+        else:
+            worse_llm_output = None
+            worse_baseline_output = None
+
+        # Compute WER for random subset of 50 worse trials (reproducible)
+        random_subset_size_50 = 50
+        random_subset_50_output = None
+        random_subset_50_baseline_output = None
+        random_subset_50_indices = []
+        if len(worse_results_for_csv) >= random_subset_size_50:
+            random.seed(RANDOM_SEED)
+            random_subset_50 = random.sample(worse_results_for_csv, random_subset_size_50)
+            random_subset_50_indices = [r['idx'] for r in random_subset_50]
+            random_50_llm_preds = [r["llm_pred"].lower().translate(translator).strip() for r in random_subset_50]
+            random_50_baseline_preds = [r["baseline_pred"].lower().translate(translator).strip() for r in random_subset_50]
+            random_50_gts = [r["ground_truth"].lower().translate(translator).strip() for r in random_subset_50]
+            random_subset_50_output = process_words(random_50_gts, random_50_llm_preds)
+            random_subset_50_baseline_output = process_words(random_50_gts, random_50_baseline_preds)
+
+        # Compute WER for random subset of 25 worse trials (reproducible)
+        random_subset_size_25 = 25
+        random_subset_25_output = None
+        random_subset_25_baseline_output = None
+        random_subset_25_indices = []
+        if len(worse_results_for_csv) >= random_subset_size_25:
+            random.seed(RANDOM_SEED)
+            random_subset_25 = random.sample(worse_results_for_csv, random_subset_size_25)
+            random_subset_25_indices = [r['idx'] for r in random_subset_25]
+            random_25_llm_preds = [r["llm_pred"].lower().translate(translator).strip() for r in random_subset_25]
+            random_25_baseline_preds = [r["baseline_pred"].lower().translate(translator).strip() for r in random_subset_25]
+            random_25_gts = [r["ground_truth"].lower().translate(translator).strip() for r in random_subset_25]
+            random_subset_25_output = process_words(random_25_gts, random_25_llm_preds)
+            random_subset_25_baseline_output = process_words(random_25_gts, random_25_baseline_preds)
+
+        # Compute WER for random subset of 10 worse trials (reproducible)
+        random_subset_size_10 = 10
+        random_subset_10_output = None
+        random_subset_10_baseline_output = None
+        random_subset_10_indices = []
+        if len(worse_results_for_csv) >= random_subset_size_10:
+            random.seed(RANDOM_SEED)
+            random_subset_10 = random.sample(worse_results_for_csv, random_subset_size_10)
+            random_subset_10_indices = [r['idx'] for r in random_subset_10]
+            random_10_llm_preds = [r["llm_pred"].lower().translate(translator).strip() for r in random_subset_10]
+            random_10_baseline_preds = [r["baseline_pred"].lower().translate(translator).strip() for r in random_subset_10]
+            random_10_gts = [r["ground_truth"].lower().translate(translator).strip() for r in random_subset_10]
+            random_subset_10_output = process_words(random_10_gts, random_10_llm_preds)
+            random_subset_10_baseline_output = process_words(random_10_gts, random_10_baseline_preds)
+
         # Build error analysis header
         header_lines = [
             "# ERROR ANALYSIS",
@@ -272,6 +341,34 @@ def main():
             f"# {'Hits (Correct)':<20} {llm_output.hits:>18} {baseline_output.hits:>18} {llm_output.hits - baseline_output.hits:>+12}",
             f"# {'-'*70}",
             f"# {'WER':<20} {llm_output.wer:>17.2%} {baseline_output.wer:>17.2%} {(llm_output.wer - baseline_output.wer)*100:>+11.2f}%",
+            "#",
+            f"# WER ON WORSE TRIALS ONLY ({len(worse_indices)} trials):",
+            f"# {'LLM WER':<20} {worse_llm_output.wer:>17.2%}" if worse_llm_output else "# No worse trials",
+            f"# {'Baseline WER':<20} {worse_baseline_output.wer:>17.2%}" if worse_baseline_output else "",
+            "#",
+            f"# WER ON RANDOM SUBSET OF {random_subset_size_50} WORSE TRIALS (seed={RANDOM_SEED}):" if random_subset_50_output else f"# (Fewer than {random_subset_size_50} worse trials, skipping random subset)",
+            f"# {'LLM WER':<20} {random_subset_50_output.wer:>17.2%}" if random_subset_50_output else "",
+            f"# {'Baseline WER':<20} {random_subset_50_baseline_output.wer:>17.2%}" if random_subset_50_baseline_output else "",
+            "#",
+            f"# RANDOM 50 SUBSET INDICES ({len(random_subset_50_indices)} trials):" if random_subset_50_indices else "",
+            f"{' '.join(str(i) for i in sorted(random_subset_50_indices))}" if random_subset_50_indices else "",
+            "#" if random_subset_50_indices else "",
+            f"# WER ON RANDOM SUBSET OF {random_subset_size_25} WORSE TRIALS (seed={RANDOM_SEED}):" if random_subset_25_output else f"# (Fewer than {random_subset_size_25} worse trials, skipping random subset)",
+            f"# {'LLM WER':<20} {random_subset_25_output.wer:>17.2%}" if random_subset_25_output else "",
+            f"# {'Baseline WER':<20} {random_subset_25_baseline_output.wer:>17.2%}" if random_subset_25_baseline_output else "",
+            "#",
+            f"# RANDOM 25 SUBSET INDICES ({len(random_subset_25_indices)} trials):" if random_subset_25_indices else "",
+            f"{' '.join(str(i) for i in sorted(random_subset_25_indices))}" if random_subset_25_indices else "",
+            "#" if random_subset_25_indices else "",
+            f"# WER ON RANDOM SUBSET OF {random_subset_size_10} WORSE TRIALS (seed={RANDOM_SEED}):" if random_subset_10_output else f"# (Fewer than {random_subset_size_10} worse trials, skipping random subset)",
+            f"# {'LLM WER':<20} {random_subset_10_output.wer:>17.2%}" if random_subset_10_output else "",
+            f"# {'Baseline WER':<20} {random_subset_10_baseline_output.wer:>17.2%}" if random_subset_10_baseline_output else "",
+            "#",
+            f"# RANDOM 10 SUBSET INDICES ({len(random_subset_10_indices)} trials):" if random_subset_10_indices else "",
+            f"{' '.join(str(i) for i in sorted(random_subset_10_indices))}" if random_subset_10_indices else "",
+            "#" if random_subset_10_indices else "",
+            f"# WORSE TRIAL INDICES ({len(worse_indices)} trials):",
+            f"{' '.join(str(i) for i in worse_indices)}",
             "#",
         ]
 

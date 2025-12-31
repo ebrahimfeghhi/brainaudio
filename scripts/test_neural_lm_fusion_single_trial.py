@@ -52,23 +52,23 @@ def parse_args() -> argparse.Namespace:
                         help="Start index (inclusive). Use with --end-trial-idx for a range.")
     parser.add_argument("--end-trial-idx", type=int, default=None,
                         help="End index (exclusive). Use with --start-trial-idx for a range.")
-    parser.add_argument("--beam-size", type=int, default=250, help="CTC beam size")
+    parser.add_argument("--beam-size", type=int, default=5, help="CTC beam size")
     parser.add_argument("--model", default="meta-llama/Llama-3.2-3B", help="HF causal LM checkpoint")
     parser.add_argument("--hf-token", default=None, help="Optional HF token")
-    parser.add_argument("--lm-weight", type=float, default=0.5, help="Neural LM fusion weight")
-    parser.add_argument("--word-insertion-bonus", type=float, default=0, help="Bonus at boundaries")
+    parser.add_argument("--lm-weight", type=float, default=1, help="Neural LM fusion weight")
+    parser.add_argument("--word-insertion-bonus", type=float, default=1.5, help="Bonus at boundaries")
     parser.add_argument("--max-context-length", type=int, default=512, help="Token budget")
-    parser.add_argument("--device", default="cuda:1", help="Torch device")
+    parser.add_argument("--device", default="cuda:0", help="Torch device")
     parser.add_argument("--logits", type=Path, default=None, help="NPZ logits file (default: derived from encoder-model-name)")
     parser.add_argument("--tokens", type=Path, default=Path(DEFAULT_TOKENS), help="units file")
     parser.add_argument("--lexicon", type=Path, default=Path(DEFAULT_LEXICON), help="lexicon file")
-    parser.add_argument("--top-k", type=int, default=10, help="Number of top beams to display per trial")
-    parser.add_argument("--num-homophone-beams", type=int, default=5, help="Number of text interpretations (homophones) to track per beam")
-    parser.add_argument("--beam-prune-threshold", type=float, default=15, help="Prune beams that are more than this many log-prob points below the best.")
+    parser.add_argument("--top-k", type=int, default=1, help="Number of top beams to display per trial")
+    parser.add_argument("--num-homophone-beams", type=int, default=3, help="Number of text interpretations (homophones) to track per beam")
+    parser.add_argument("--beam-prune-threshold", type=float, default=10, help="Prune beams that are more than this many log-prob points below the best.")
     parser.add_argument("--homophone-prune-threshold", type=float, default=7, help="Prune homophones more than this many log-prob points below the best.")
-    parser.add_argument("--beam-beta", type=float, default=0, help="Bonus added to extending beams (not blank/repeat). Boosts probability of emitting new characters.")
+    parser.add_argument("--beam-beta", type=float, default=3, help="Bonus added to extending beams (not blank/repeat). Boosts probability of emitting new characters.")
     parser.add_argument("--beam-blank-penalty", type=float, default=0, help="Penalty subtracted from blank emissions.")
-    parser.add_argument("--logit-scale", type=float, default=0.8, help="Scalar multiplier for encoder logits.")
+    parser.add_argument("--logit-scale", type=float, default=0.4, help="Scalar multiplier for encoder logits.")
     parser.add_argument(
         "--results-filename",
         type=str,
@@ -100,8 +100,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--phoneme-lm-weight",
         type=float,
-        default=0.5,
+        default=0.3,
         help="Weight for phoneme LM fusion (default: 0.3)"
+    )
+    parser.add_argument(
+        "--test-mode",
+        action="store_true",
+        help="Use logits_test.npz and skip WER computation"
     )
 
     return parser.parse_args()
@@ -110,12 +115,13 @@ def parse_args() -> argparse.Namespace:
 
 notes = "Running with simplified apply_lm_fusion_post_selection which only allows for one homophone per beam."
 
-def main():
+def main(): 
     args = parse_args()
 
     # Set default logits path based on encoder_model_name if not provided
     if args.logits is None:
-        args.logits = Path(f"/data2/brain2text/b2t_25/logits/{args.encoder_model_name}/logits_val.npz")
+        logits_filename = "logits_test.npz" if args.test_mode else "logits_val.npz"
+        args.logits = Path(f"/data2/brain2text/b2t_25/logits/{args.encoder_model_name}/{logits_filename}")
 
     # Initialize wandb run (before any wandb.log or Table calls)
     if args.enable_wandb:
@@ -249,16 +255,16 @@ def main():
     )
 
     transcripts = None
-    if TRANSCRIPTS_PKL.exists():
-        transcripts = pd.read_pickle(TRANSCRIPTS_PKL)
-    else:
-        print(f"Warning: Transcripts file not found at {TRANSCRIPTS_PKL}")
+    if not args.test_mode:
+        if TRANSCRIPTS_PKL.exists():
+            transcripts = pd.read_pickle(TRANSCRIPTS_PKL)
+        else:
+            print(f"Warning: Transcripts file not found at {TRANSCRIPTS_PKL}")
 
     # Results Containers
     decoded_sentences = []
     ground_truth_sentences = []
-    gt_in_beams_count = 0  # Track how often ground truth appears in beams
-    gt_in_beams_trials = []  # Track which trials have GT in beams
+    gt_in_beams_count = 0
 
     total_start_time = time.perf_counter()
 
@@ -270,24 +276,24 @@ def main():
         log_probs, _, lengths = load_log_probs(args.logits, [trial_idx], device)
         log_probs *= args.logit_scale
 
-        # Pad with frames that have high blank probability and uniform elsewhere
-        # This gives the decoder extra time to emit final tokens naturally
-        num_pad_frames = 5
+        # Pad with 1 frame: only blank and SIL are valid options
+        num_pad_frames = 1
         vocab_size = log_probs.shape[-1]
         blank_idx = 0  # Blank token in CTC vocab
+        sil_idx = -1  # SIL/word boundary token
 
-        # Create padding: uniform for non-blank, high prob for blank
-        uniform_log_prob = -np.log(vocab_size)  # Uniform distribution over vocab
+        # Create padding: -inf for all tokens except blank and SIL
         padding = torch.full(
             (log_probs.shape[0], num_pad_frames, vocab_size),
-            fill_value=uniform_log_prob,
+            fill_value=float('-inf'),
             device=device,
             dtype=log_probs.dtype
         )
-        padding[:, :, blank_idx] = 0.0  # High probability for blank (log prob = 0 → prob ≈ 1)
+        padding[:, :, blank_idx] = 0.0  # blank log prob = 0
+        padding[:, :, sil_idx] = 0.0  # SIL log prob = -beam_beta (cancels out beam_beta bonus if applied)
 
-        log_probs = torch.cat([log_probs, padding], dim=1)
-        lengths = lengths + num_pad_frames
+        #log_probs = torch.cat([log_probs, padding], dim=1)
+        #lengths = lengths + num_pad_frames
 
         # Run Decoder
         if device.type == "cuda":
@@ -312,21 +318,23 @@ def main():
         best_text = decoded_beams[0] if decoded_beams else ""
         decoded_sentences.append(best_text)
 
-        # Handle Ground Truth
+        # Handle Ground Truth (skip in test mode)
         ground_truth = ""
-        if isinstance(transcripts, (list, tuple)) and trial_idx < len(transcripts):
-            ground_truth = transcripts[trial_idx]
-        elif hasattr(transcripts, 'get'):
-            ground_truth = transcripts.get(trial_idx, "")
-        elif hasattr(transcripts, 'iloc'):
-            ground_truth = transcripts.iloc[trial_idx]
-        ground_truth_sentences.append(ground_truth)
+        if not args.test_mode:
+            if isinstance(transcripts, (list, tuple)) and trial_idx < len(transcripts):
+                ground_truth = transcripts[trial_idx]
+            elif hasattr(transcripts, 'get'):
+                ground_truth = transcripts.get(trial_idx, "")
+            elif hasattr(transcripts, 'iloc'):
+                ground_truth = transcripts.iloc[trial_idx]
+            ground_truth_sentences.append(ground_truth)
 
     
         # Print Status
         best_score = scores[topk_indices[0]] if topk_indices else 0
         print(f"Trial {trial_idx:3d} | {trial_elapsed*1000:.1f}ms | Score: {best_score:.2f}")
-        print(f"  GT:   {ground_truth}")
+        if not args.test_mode:
+            print(f"  GT:   {ground_truth}")
         print(f"  Best: {best_text}")
 
         # Import helpers for phoneme printing
@@ -368,16 +376,21 @@ def main():
     print("\n=== Final Results Summary ===")
     print(f"Processed {len(decoded_sentences)} trials in {total_elapsed:.2f}s")
     print(f"Beam size: {args.beam_size}, Homophone beams: {args.num_homophone_beams}, Prune threshold: {args.homophone_prune_threshold}")
-    print(f"Ground truth in beams: {gt_in_beams_count}/{len(decoded_sentences)} ({100*gt_in_beams_count/len(decoded_sentences):.1f}%)")
+    if not args.test_mode:
+        print(f"Ground truth in beams: {gt_in_beams_count}/{len(decoded_sentences)} ({100*gt_in_beams_count/len(decoded_sentences):.1f}%)")
     print(f"LLM forward passes: {lm_fusion.get_call_count()}")
 
-# Compute Metrics
-    try:
-        # Passing lists of strings as expected by standard WER calculators
-        _, wer, _ = _cer_and_wer(decoded_sentences, ground_truth_sentences)
-        print(f"\nAggregate WER: {wer:.4f}")
-    except Exception as e:
-        print(f"\nError computing WER: {e}")
+# Compute Metrics (skip in test mode)
+    wer = None
+    if not args.test_mode:
+        try:
+            # Passing lists of strings as expected by standard WER calculators
+            _, wer, _ = _cer_and_wer(decoded_sentences, ground_truth_sentences)
+            print(f"\nAggregate WER: {wer:.4f}")
+        except Exception as e:
+            print(f"\nError computing WER: {e}")
+    else:
+        print("\n[test-mode] Skipping WER computation")
 
     # Save results to CSV file
     results_dir = Path("/home/ebrahim/brainaudio/results")

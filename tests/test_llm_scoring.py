@@ -9,10 +9,10 @@ import time
 # 1. Using HuggingFaceLMFusion from decoder
 # ==========================================
 
-MODEL_NAME = "google/gemma-3-4b-pt"
+MODEL_NAME = "meta-llama/Llama-3.2-3B"
 USE_4BIT = True  # Toggle this to switch between quantized and full precision
 
-device = "cuda:1" if torch.cuda.is_available() else "cpu"
+device = "cuda:0" if torch.cuda.is_available() else "cpu"
 print(f"Loading {MODEL_NAME} on {device} (4-bit: {USE_4BIT})...")
 
 try:
@@ -57,7 +57,7 @@ contexts = [
     ""
 ]
 candidates = [
-    ["He is also a member of the royal", "He is also a member of the real"]
+    ["C things like that.", "See things like that."]
 ]
 
 print("\nRunning LM Fusion Scorer...")

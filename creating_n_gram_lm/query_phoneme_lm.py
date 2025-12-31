@@ -78,9 +78,13 @@ def score_sequence(lm: NGramGPULanguageModel, ids: list[int], device: str) -> di
     total_log_prob = scores.sum().item()
     total_with_eos = scores_with_eos.sum().item()
 
+    # Track state orders to detect backoff
+    state_orders = get_state_orders(lm, ids, device)
+
     return {
         'ids': ids,
         'per_position': per_position,
+        'state_orders': state_orders,
         'eos_score': eos_score,
         'total_log_prob': total_log_prob,
         'total_with_eos': total_with_eos,
@@ -89,26 +93,85 @@ def score_sequence(lm: NGramGPULanguageModel, ids: list[int], device: str) -> di
     }
 
 
+def get_state_orders(lm: NGramGPULanguageModel, ids: list[int], device: str) -> list[int]:
+    """
+    Track the state order (effective N-gram length) at each position.
+
+    Returns list of (state_order_before, state_order_after) for each token.
+    If state_order_before < position+1 (with BOS), it means backoff occurred.
+    """
+    state = lm.get_init_states(batch_size=1, bos=True)  # Start at BOS state
+    state_orders = []
+
+    for i, token_id in enumerate(ids):
+        # Order of current state (before consuming this token)
+        order_before = lm.state_order[state.item()].item()
+
+        # Get next states for all vocab items
+        _, next_states = lm.advance(state)
+
+        # Get the next state for this specific token
+        next_state = next_states[0, token_id].item()
+        order_after = lm.state_order[next_state].item()
+
+        # Expected order if no backoff: min(position + 2, max_order)
+        # position 0 after BOS -> order 2 (bigram), etc.
+        expected_order = min(i + 2, lm.max_order)
+
+        state_orders.append({
+            'position': i,
+            'token': IDX_TO_PHONEME[token_id],
+            'order_before': order_before,
+            'order_after': order_after,
+            'expected_order': expected_order,
+            'backed_off': order_after < expected_order,
+        })
+
+        state = torch.tensor([next_state], device=device)
+
+    return state_orders
+
+
 def print_result(result: dict) -> None:
     """Pretty-print scoring results."""
     ids = result['ids']
     per_pos = result['per_position']
+    state_orders = result.get('state_orders', [])
 
     print("\n  Position breakdown:")
-    print(f"    {'Pos':<4} {'Context':<30} {'Token':<6} {'Log P':>10}")
-    print(f"    {'-'*4} {'-'*30} {'-'*6} {'-'*10}")
+    print(f"    {'Pos':<4} {'Context':<25} {'Token':<6} {'Log P':>10} {'N-gram':>8} {'Backoff?':>10}")
+    print(f"    {'-'*4} {'-'*25} {'-'*6} {'-'*10} {'-'*8} {'-'*10}")
 
     for i, (tok_id, log_p) in enumerate(zip(ids, per_pos)):
         if i == 0:
             context = "<s>"
         else:
             context_ids = ids[:i]
-            context = "<s> " + ' '.join(IDX_TO_PHONEME[j] for j in context_ids[-5:])
-            if len(context_ids) > 5:
-                context = "... " + context[4:]
+            context = "<s> " + ' '.join(IDX_TO_PHONEME[j] for j in context_ids[-4:])
+            if len(context_ids) > 4:
+                context = "..." + context[3:]
 
         tok = IDX_TO_PHONEME[tok_id]
-        print(f"    {i:<4} {context:<30} {tok:<6} {log_p:>10.4f}")
+
+        # Get backoff info
+        if state_orders and i < len(state_orders):
+            order_info = state_orders[i]
+            ngram_str = f"{order_info['order_after']}-gram"
+            backed_off = "YES" if order_info['backed_off'] else "no"
+        else:
+            ngram_str = "?"
+            backed_off = "?"
+
+        print(f"    {i:<4} {context:<25} {tok:<6} {log_p:>10.4f} {ngram_str:>8} {backed_off:>10}")
+
+    # Show backoff summary if any backoffs occurred
+    if state_orders:
+        backoffs = [s for s in state_orders if s['backed_off']]
+        if backoffs:
+            print(f"\n  BACKOFF DETECTED at {len(backoffs)} position(s):")
+            for b in backoffs:
+                print(f"    - Position {b['position']} ({b['token']}): "
+                      f"expected {b['expected_order']}-gram, got {b['order_after']}-gram")
 
     print(f"\n  Total log-prob (no EOS):  {result['total_log_prob']:.4f}")
     print(f"  Total log-prob (with EOS): {result['total_with_eos']:.4f}")
@@ -142,13 +205,13 @@ def main():
     parser.add_argument(
         "--lm-path",
         type=str,
-        default="/home/ebrahim/brainaudio/creating_n_gram_lm/huge_pruned_10gram.nemo",
+        default="/home/ebrahim/brainaudio/creating_n_gram_lm/phoneme_6gram.nemo",
         help="Path to phoneme LM (.nemo or .arpa)"
     )
     parser.add_argument(
         "--device",
         type=str,
-        default="cuda:1" if torch.cuda.is_available() else "cpu",
+        default="cuda:0" if torch.cuda.is_available() else "cpu",
         help="Device to use (cuda:0/cuda:1/cpu)"
     )
     parser.add_argument(

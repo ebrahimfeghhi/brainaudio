@@ -9,7 +9,7 @@ DEFAULT_LEXICON = Path("/data2/brain2text/lm/vocab_lower_100k_pytorch_phoneme.tx
 # Define your phoneme sequences to check here:
 # =============================================================================
 QUERIES: List[List[str]] = [
-    ["P", "R", "AH", "F", "EH", "S", "ER", "|"]
+    ["P", "R", "AH", "F", "IH", "SH"]
 ]
 # =============================================================================
 

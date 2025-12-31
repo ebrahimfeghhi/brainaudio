@@ -369,6 +369,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         
         # Main decoding loop: process one acoustic frame at a time
         for frame_idx in range(curr_max_time):
+            
             # active_mask: [B, beam_size] - True if this utterance hasn't ended yet at this frame
             # decoder_output_lengths[b] tells us the actual (unpadded) length of utterance b
             # If frame_idx >= length, that utterance is done and we shouldn't update its beams
@@ -388,7 +389,12 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             log_probs = decoder_outputs[:, frame_idx, :].unsqueeze(1).repeat(1, self.beam_size, 1)
             log_probs += batched_beam_hyps.scores.unsqueeze(-1) # add current beam scores to every token in our beam
             
+                # step 2.2: updating non-blank and non-repeating token scores with `beam_beta`
+            #if frame_idx == curr_max_time - 5:  # First padding frame
+            #    breakpoint()
             # step 2.2: updating non-blank and non-repeating token scores with `beam_beta`
+
+                
             log_probs = torch.where(repeated_or_blank_mask, log_probs, log_probs + self.beam_beta)
 
             # step 2.2.1: apply blank penalty
@@ -476,7 +482,6 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                     # states here and will pick the right one in step 2.4.
                     fusion_states_candidates_list[fusion_idx] = fusion_states_candidates
 
-                
             """
                 step 2.3: getting `beam_size` best candidates
                 log_probs.view(curr_batch_size, -1) reshapes log_probs to [B, beam_size * (V+1)]
@@ -668,15 +673,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                     frame_idx=frame_idx
                 )
 
-        # After decoding is complete, add end-of-sentence probability
-        if self.lm_fusion is not None:
-            print("Applying LM end-of-sentence scoring...")
-            from .neural_lm_fusion import apply_lm_end_of_sentence_scoring
-            apply_lm_end_of_sentence_scoring(
-                lm_fusion=self.lm_fusion,
-                beam_hyps=batched_beam_hyps,
-            )
-            
+     
          # step 3: updating fusoin scores with eos scores
         if self.fusion_models is not None:
             for fusion_idx, fusion_model in enumerate(self.fusion_models):
@@ -686,6 +683,18 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                         batched_beam_hyps.scores.shape
                     )
                     batched_beam_hyps.scores += eos_score * self.fusion_models_alpha[fusion_idx]
+                    
+           # After decoding is complete, add end-of-sentence probability (with incomplete word handling)
+        if self.lm_fusion is not None:
+            print("Applying LM end-of-sentence scoring...")
+            from .neural_lm_fusion import apply_lm_end_of_sentence_with_incomplete_word
+            apply_lm_end_of_sentence_with_incomplete_word(
+                lm_fusion=self.lm_fusion,
+                lexicon=self.lexicon,
+                beam_hyps=batched_beam_hyps,
+                blank_index=self._blank_index,
+            )
+            
 
 
         return batched_beam_hyps
@@ -740,7 +749,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             log_probs = decoder_outputs[:, frame_idx, :].unsqueeze(1).repeat(1, self.beam_size, 1)
             log_probs += batched_beam_hyps.scores.unsqueeze(-1)
 
-            # step 2.2: updating non-blank and non-repeating token scores with `beam_beta`
+        
             log_probs = torch.where(repeated_or_blank_mask, log_probs, log_probs + self.beam_beta)
 
             if self.fusion_models is not None:

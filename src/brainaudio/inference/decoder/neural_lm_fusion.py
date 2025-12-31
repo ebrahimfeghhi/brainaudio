@@ -565,11 +565,15 @@ def apply_lm_fusion_post_selection(
                 new_lm_score = prev_lm_score + word_lm_score
                 new_text = f"{prev_text} {word}".strip()
                 all_candidates.append((new_lm_score, new_text))
-                
-                #if word.lower() == "i" or word.lower() == "ai":
-                #    print(f"Text: {prev_text}, Candidate word: {word}")
-                #    print(f"Frame idx: {frame_idx}, Word: {word}, LM score: {word_lm_score}, Acoustic score: {base_score-prev_lm_score}")
-                #    breakpoint()
+
+        # Deduplicate by lowercase text, keeping the best-scoring capitalization variant
+        # This prevents redundant entries like "Get arrested" vs "get arrested" vs "Get Arrested"
+        lowercase_to_best = {}  # lowercase_text -> (best_score, best_text)
+        for lm_score, text in all_candidates:
+            text_lower = text.lower()
+            if text_lower not in lowercase_to_best or lm_score > lowercase_to_best[text_lower][0]:
+                lowercase_to_best[text_lower] = (lm_score, text)
+        all_candidates = list(lowercase_to_best.values())
 
         # Sort by accumulated LM score (descending)
         all_candidates.sort(key=lambda x: x[0], reverse=True)
@@ -669,6 +673,204 @@ def apply_lm_end_of_sentence_scoring(
         beam_hyps.scores[b, k] += best_score
 
         # Update hash based on new best text
+        beam_hyps.context_texts_hash[b][k] = hash(updated_tuples[0][1])
+
+
+def apply_lm_end_of_sentence_with_incomplete_word(
+    lm_fusion: NeuralLanguageModelFusion | None,
+    lexicon: 'LexiconConstraint',
+    beam_hyps: 'BatchedBeamHyps',
+    blank_index: int,
+) -> None:
+    """
+    Add end-of-sentence probability to beam scores, considering incomplete words.
+
+    For each beam:
+    1. Check if the final phoneme sequence (after last boundary) maps to a valid word
+    2. If so, compute two options:
+       - Option A: current_text + best_eos (ignore incomplete word)
+       - Option B: current_text + completed_word + best_eos (include incomplete word)
+    3. Take the max of these two scores
+
+    Args:
+        lm_fusion: The neural LM fusion module (or None to skip).
+        lexicon: Lexicon constraint for word lookup.
+        beam_hyps: The beam hypotheses to update in-place.
+        blank_index: Index of the CTC blank token.
+    """
+    from .beam_helpers import (
+        materialize_beam_transcript,
+        collapse_ctc_sequence
+    )
+
+    if lm_fusion is None:
+        return
+
+    batch_size, beam_size = beam_hyps.scores.shape
+    eos_candidates = [".", "?", "!"]
+    boundary_token = lexicon.word_boundary_token
+
+    # Collect info for all beams
+    beam_info = []  # List of (b, k, text, has_incomplete_word, candidate_words)
+
+    for b in range(batch_size):
+        for k in range(beam_size):
+            # Skip pruned beams
+            if beam_hyps.scores[b, k] == float('-inf'):
+                continue
+
+            # Get the best text interpretation for this beam
+            context_tuples = beam_hyps.context_texts[b][k]
+            if not context_tuples:
+                continue
+
+            _, text = context_tuples[0]
+
+            # Skip if text already ends with sentence-ending punctuation
+            if text.rstrip() and text.rstrip()[-1] in '.?!':
+                continue
+
+            # Get phoneme sequence and check for incomplete word
+            seq_raw = materialize_beam_transcript(beam_hyps, b, k)
+            seq_ctc = collapse_ctc_sequence(seq_raw.tolist(), blank_index)
+
+            # Check if adding a boundary token would complete a valid word
+            # We do this by checking what valid tokens can follow, and if boundary is among them
+            valid_tokens, at_boundary, word_indices = lexicon.get_valid_next_tokens_with_word_info(seq_ctc)
+
+            candidate_words = []
+            # If boundary token is valid AND we're not already at a boundary (i.e., we have an incomplete word)
+            if boundary_token in valid_tokens and not at_boundary:
+                # Simulate adding boundary token to get the word indices
+                seq_with_boundary = seq_ctc + [boundary_token]
+                _, _, word_indices = lexicon.get_valid_next_tokens_with_word_info(seq_with_boundary)
+                # Get the words that would be formed
+                for idx in word_indices:
+                    word = lexicon.word_list[idx]
+                    # Add capitalization variants
+                    candidate_words.extend(get_capitalization_variants(word))
+                # Remove duplicates
+                candidate_words = list(dict.fromkeys(candidate_words))
+
+            beam_info.append((b, k, text, candidate_words))
+
+    if not beam_info:
+        return
+
+    # --- Batch LM scoring ---
+    # For each beam, we need to score:
+    # 1. text + eos (without incomplete word)
+    # 2. text + word + eos (with incomplete word, for each candidate word)
+
+    flat_contexts = []
+    flat_candidates = []
+    beam_mapping = []  # (beam_info_idx, scoring_type, word_idx)
+    # scoring_type: 'eos_only' or 'word_then_eos'
+
+    for info_idx, (b, k, text, candidate_words) in enumerate(beam_info):
+        # Option A: just EOS
+        flat_contexts.append(text)
+        flat_candidates.append(eos_candidates)
+        beam_mapping.append((info_idx, 'eos_only', None))
+
+        # Option B: word + EOS for each candidate word
+        for word_idx, word in enumerate(candidate_words):
+            word_with_space = f"{text} {word}".strip() if text else word
+            flat_contexts.append(word_with_space)
+            flat_candidates.append(eos_candidates)
+            beam_mapping.append((info_idx, 'word_then_eos', word_idx))
+
+    # Single batched LM call
+    all_scores = lm_fusion.score_continuations(flat_contexts, flat_candidates)
+
+    # --- Process results ---
+    # For each beam, find the best option
+    results_by_beam = {}  # info_idx -> {'eos_only': score, 'word_options': [(word, score), ...]}
+
+    for flat_idx, (info_idx, scoring_type, word_idx) in enumerate(beam_mapping):
+        if info_idx not in results_by_beam:
+            results_by_beam[info_idx] = {'eos_only': None, 'word_options': []}
+
+        eos_scores = all_scores[flat_idx]
+        best_eos_idx = max(range(len(eos_candidates)), key=lambda i: eos_scores[i])
+        best_eos_score = eos_scores[best_eos_idx]
+        best_eos_punct = eos_candidates[best_eos_idx]
+
+        if scoring_type == 'eos_only':
+            results_by_beam[info_idx]['eos_only'] = (best_eos_score, best_eos_punct)
+        else:
+            # For word_then_eos, we need word score + eos score
+            # But we only scored eos here. We need to also get word score.
+            # Actually, let's restructure: score word first, then eos
+            b, k, text, candidate_words = beam_info[info_idx]
+            word = candidate_words[word_idx]
+            results_by_beam[info_idx]['word_options'].append((word, best_eos_score, best_eos_punct))
+
+    # Now we need word scores too - let's do another batch call for words
+    word_contexts = []
+    word_candidates = []
+    word_mapping = []  # (info_idx, word)
+
+    for info_idx, (b, k, text, candidate_words) in enumerate(beam_info):
+        if candidate_words:
+            word_contexts.append(text)
+            word_candidates.append(candidate_words)
+            word_mapping.append(info_idx)
+
+    word_scores_by_beam = {}
+    if word_contexts:
+        all_word_scores = lm_fusion.score_continuations(word_contexts, word_candidates)
+        for map_idx, info_idx in enumerate(word_mapping):
+            b, k, text, candidate_words = beam_info[info_idx]
+            word_scores_by_beam[info_idx] = dict(zip(candidate_words, all_word_scores[map_idx]))
+
+    # --- Update beams ---
+    for info_idx, (b, k, text, candidate_words) in enumerate(beam_info):
+        result = results_by_beam[info_idx]
+        eos_only_score, eos_only_punct = result['eos_only']
+
+        # Option A: just EOS
+        option_a_score = eos_only_score
+        option_a_text = text + eos_only_punct
+
+        # Option B: best word + EOS
+        option_b_score = float('-inf')
+        option_b_text = None
+        option_b_word = None
+
+        if candidate_words and info_idx in word_scores_by_beam:
+            for word, eos_score, eos_punct in result['word_options']:
+                word_score = word_scores_by_beam[info_idx].get(word, float('-inf'))
+                total = word_score + eos_score
+                if total > option_b_score:
+                    option_b_score = total
+                    option_b_text = f"{text} {word}".strip() + eos_punct
+                    option_b_word = word
+
+        # Take the max
+        if option_b_score > option_a_score:
+            best_score = option_b_score
+            best_text = option_b_text
+        else:
+            best_score = option_a_score
+            best_text = option_a_text
+
+        # Update context_texts
+        context_tuples = beam_hyps.context_texts[b][k]
+        updated_tuples = []
+        for lm_score, old_text in context_tuples:
+            # Use the best text for the first tuple, append punct for others
+            if not updated_tuples:
+                updated_tuples.append((lm_score + best_score, best_text))
+            else:
+                # For other homophones, just add EOS
+                updated_tuples.append((lm_score + eos_only_score, old_text + eos_only_punct))
+        beam_hyps.context_texts[b][k] = updated_tuples
+
+        # Update beam score
+        beam_hyps.scores[b, k] += best_score
+
+        # Update hash
         beam_hyps.context_texts_hash[b][k] = hash(updated_tuples[0][1])
 
 
