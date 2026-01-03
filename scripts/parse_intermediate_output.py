@@ -50,7 +50,7 @@ def parse_intermediate_file(input_path: Path) -> list[dict]:
 
     trial_pattern = re.compile(
         r'Trial\s+(\d+)\s*\|.*?\n'  # Trial line with ID
-        r'\s+GT:\s+.*?\n'           # GT line (skip)
+        r'(?:\s+GT:\s+.*?\n)?'      # GT line (optional, skip)
         r'\s+Best:\s+(.*?)\n',      # Best line (capture)
         re.MULTILINE
     )

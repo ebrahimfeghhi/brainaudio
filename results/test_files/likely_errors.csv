@@ -1,0 +1,15 @@
+id,text,issues
+134,it's a,"truncated 2-word; ends with ""a"""
+135,they have the,"ends with ""the"""
+155,then you have to make a,"ends with ""a"""
+164,so i got under there and messed with the,"ends with ""the"""
+270,i would love to,"short + ends with ""to"""
+331,he tried to hide in the back of the room room,"repeated: ""room room"""
+478,pc invaded council stalls fantastically,garbled phrase
+491,intelligent simpler c persists at still,"single char: ""c""; garbled phrase"
+602,the cliff lake deep along the st,"odd 2-char: ""st""; garbled phrase"
+604,a pound of sugar costs more than x,"single char: ""x"""
+664,i love to to work on hard problems,"repeated: ""to to"""
+856,we got a of free stuff from the store,broken article pattern
+858,somebody must have called a in the evening,broken article pattern
+1123,you don't want to,"short + ends with ""to"""

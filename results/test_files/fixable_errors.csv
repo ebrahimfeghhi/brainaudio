@@ -1,0 +1,11 @@
+id,text,issue,fix
+331,he tried to hide in the back of the room room,repeated word,he tried to hide in the back of the room
+664,i love to to work on hard problems,repeated word,i love to work on hard problems
+856,we got a of free stuff from the store,"missing word after ""a""",we got a lot of free stuff from the store (?)
+858,somebody must have called a in the evening,"missing word after ""a""",unknown - could be taxi/cab/etc
+491,intelligent simpler c persists at still,nonsense/garbled,unclear
+604,a pound of sugar costs more than x,"single char ""x""",unclear
+134,it's a,truncated sentence,unclear
+135,they have the,truncated sentence,unclear
+220,don't lie there and of,garbled ending,unclear
+602,the cliff lake deep along the street,"truncated ""st"" (street?)",unclear
