@@ -197,8 +197,8 @@ def main():
         # Standard loading: load then move to device
         model = AutoModelForCausalLM.from_pretrained(
             args.model,
-            dtype=torch.float32,
-            token=args.hf_token,
+            dtype=torch.float16,
+            token=args.hf_token
         ).to(device)
         print(f"[INFO] Loaded {args.model} (full precision) on {device}")
 

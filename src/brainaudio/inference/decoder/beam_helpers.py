@@ -42,6 +42,59 @@ def materialize_beam_transcript(
     return torch.tensor(tokens, device=batched_hyps.transcript_wb.device, dtype=torch.long)
 
 
+def materialize_beam_transcripts_batched(
+    batched_hyps: BatchedBeamHyps,
+    batch_indices: List[int],
+    beam_indices: List[int],
+) -> List[torch.Tensor]:
+    """Rebuild token paths for multiple beams at once.
+
+    More efficient than calling materialize_beam_transcript repeatedly
+    due to batched length lookup and reduced function call overhead.
+
+    Args:
+        batched_hyps: The beam hypotheses structure.
+        batch_indices: List of batch indices to process.
+        beam_indices: List of beam indices to process (parallel to batch_indices).
+
+    Returns:
+        List of token tensors, one per (batch_idx, beam_idx) pair.
+    """
+    if not batch_indices:
+        return []
+
+    device = batched_hyps.current_lengths_wb.device
+
+    # Batch lookup of all sequence lengths at once
+    b_idx = torch.tensor(batch_indices, device=device)
+    k_idx = torch.tensor(beam_indices, device=device)
+    seq_lengths = batched_hyps.current_lengths_wb[b_idx, k_idx].tolist()
+
+    results = []
+    for b, k, seq_len in zip(batch_indices, beam_indices, seq_lengths):
+        seq_len = int(seq_len)
+        if seq_len <= 0:
+            results.append(batched_hyps.transcript_wb.new_empty((0,), dtype=torch.long))
+            continue
+
+        tokens = []
+        ptr_beam = k
+        for idx in range(seq_len - 1, -1, -1):
+            token = int(batched_hyps.transcript_wb[b, ptr_beam, idx].item())
+            if token == NON_EXISTENT_LABEL_VALUE:
+                break
+            tokens.append(token)
+            parent_ptr = int(batched_hyps.transcript_wb_prev_ptr[b, ptr_beam, idx].item())
+            if parent_ptr < 0:
+                break
+            ptr_beam = parent_ptr
+
+        tokens.reverse()
+        results.append(torch.tensor(tokens, device=device, dtype=torch.long))
+
+    return results
+
+
 def format_beam_phonemes(
     batched_hyps: BatchedBeamHyps,
     batch_idx: int,

@@ -695,8 +695,6 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                 blank_index=self._blank_index,
             )
             
-
-
         return batched_beam_hyps
     
     @torch.no_grad()

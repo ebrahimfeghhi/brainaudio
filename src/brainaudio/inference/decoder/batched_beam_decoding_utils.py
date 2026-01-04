@@ -147,7 +147,18 @@ class BatchedBeamHyps:
         self.context_texts = [[[(0.0, "")] for _ in range(self.beam_size)] for _ in range(self.batch_size)]
         # Hash is computed from only the best text (index 0) for beam recombination
         self.context_texts_hash = [[0 for _ in range(self.beam_size)] for _ in range(self.batch_size)]
-        
+
+        # LM KV caches for incremental decoding - parallel to context_texts
+        # lm_kv_caches[b][k] = [cache_0, cache_1, ...] one per homophone interpretation
+        # Each cache is a HuggingFace DynamicCache or None (if not yet initialized)
+        # Caches are immutable between word boundaries - only replaced during LM scoring
+        self.lm_kv_caches = [[[None] for _ in range(self.beam_size)] for _ in range(self.batch_size)]
+
+        # Last token log probabilities for O(1) first-token scoring - parallel to context_texts
+        # lm_last_logprobs[b][k] = [logprobs_0, logprobs_1, ...] one per homophone
+        # Each logprobs is a [vocab_size] tensor or None (if not yet initialized)
+        self.lm_last_logprobs = [[[None] for _ in range(self.beam_size)] for _ in range(self.batch_size)]
+
         # Initializing tree structure for hypothesis storing
         self.transcript_wb = torch.full(
             (batch_size, self.beam_size, self._max_length),
@@ -216,6 +227,17 @@ class BatchedBeamHyps:
         # Reset context texts to initial state (single empty tuple per beam)
         self.context_texts = [[[(0.0, "")] for _ in range(self.beam_size)] for _ in range(self.batch_size)]
         self.context_texts_hash = [[0 for _ in range(self.beam_size)] for _ in range(self.batch_size)]
+
+        # Reset LM caches to initial state (single None per beam)
+        # Explicitly delete old caches to free GPU memory
+        for b in range(self.batch_size):
+            for k in range(self.beam_size):
+                for cache in self.lm_kv_caches[b][k]:
+                    del cache
+                for logprobs in self.lm_last_logprobs[b][k]:
+                    del logprobs
+        self.lm_kv_caches = [[[None] for _ in range(self.beam_size)] for _ in range(self.batch_size)]
+        self.lm_last_logprobs = [[[None] for _ in range(self.beam_size)] for _ in range(self.batch_size)]
 
         # model specific parameters
         if self.model_type == ASRModelTypeEnum.CTC:
@@ -306,8 +328,12 @@ class BatchedBeamHyps:
         # We use the existing reference because we will build a completely new list structure below
         old_context_texts = self.context_texts
         old_context_texts_hash = self.context_texts_hash
+        old_lm_kv_caches = self.lm_kv_caches
+        old_lm_last_logprobs = self.lm_last_logprobs
         new_context_texts = []
         new_context_texts_hash = []
+        new_lm_kv_caches = []
+        new_lm_last_logprobs = []
 
         # 3. Reorder using Python List Comprehensions (Runs entirely in CPU RAM)
         for b in range(self.batch_size):
@@ -318,12 +344,19 @@ class BatchedBeamHyps:
             # Each element is a list of tuples [(score, text), ...], so we need a shallow copy
             new_beam_list = [list(old_context_texts[b][p_idx]) for p_idx in batch_parent_indices]
             new_beam_hash_list = [old_context_texts_hash[b][p_idx] for p_idx in batch_parent_indices]
+            # LM caches use reference copy (not shallow copy) - caches are immutable between word boundaries
+            new_kv_list = [old_lm_kv_caches[b][p_idx] for p_idx in batch_parent_indices]
+            new_logprobs_list = [old_lm_last_logprobs[b][p_idx] for p_idx in batch_parent_indices]
             new_context_texts.append(new_beam_list)
             new_context_texts_hash.append(new_beam_hash_list)
+            new_lm_kv_caches.append(new_kv_list)
+            new_lm_last_logprobs.append(new_logprobs_list)
 
         # 4. Update the class reference
         self.context_texts = new_context_texts
         self.context_texts_hash = new_context_texts_hash
+        self.lm_kv_caches = new_lm_kv_caches
+        self.lm_last_logprobs = new_lm_last_logprobs
         
         is_extended = next_labels >= 0
         extended_with_blank = next_labels == self.blank_index
