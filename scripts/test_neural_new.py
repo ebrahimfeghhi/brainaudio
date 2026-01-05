@@ -194,12 +194,11 @@ def main():
         )
         print(f"[INFO] Loaded {args.model} in 4-bit quantization on {device}")
     else:
-        print("STANDARD MODEL LOADING")
         # Standard loading: load then move to device
         model = AutoModelForCausalLM.from_pretrained(
             args.model,
             dtype=torch.float16,
-            token=args.hf_token,
+            token=args.hf_token
         ).to(device)
         print(f"[INFO] Loaded {args.model} (full precision) on {device}")
 

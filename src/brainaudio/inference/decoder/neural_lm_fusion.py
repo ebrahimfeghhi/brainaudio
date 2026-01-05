@@ -453,63 +453,73 @@ def apply_lm_fusion_post_selection(
     frame_idx: Optional[int] = None
 ) -> None:
     
+   
     from .beam_helpers import (
-        materialize_beam_transcript,
+        materialize_beam_transcripts_batched,
         collapse_ctc_sequence
     )
-    
+
     if lm_fusion is None:
         return
 
     batch_size, beam_size = beam_hyps.scores.shape
     to_score = []  # List to store: (b, k, context_text, candidate_words)
-    
+
     # --- PHASE 1: Identify beams that need LM Scoring ---
-    for b in range(batch_size):
-        for k in range(beam_size):
-            
-            # Skip empty or pruning beams
-            if beam_hyps.scores[b, k] == float('-inf'):
-                continue
-            
-            # Check if we just crossed a word boundary
-            last_label = int(next_labels[b, k].item())
-            prev_last_label = int(prev_last_labels[b, k].item())
-            
-            if last_label != boundary_token:
-                continue
-            if prev_last_label == boundary_token:
-                continue
-            
-            # Get the sequence to find valid words
-            seq_raw = materialize_beam_transcript(beam_hyps, b, k)
-            seq_ctc = collapse_ctc_sequence(seq_raw.tolist(), blank_index)
-            
-            # Note: Assuming lexicon handles suffix extraction automatically as discussed
-            _, at_boundary, word_indices = lexicon.get_valid_next_tokens_with_word_info(seq_ctc)
-            
-            if not at_boundary or not word_indices:
-                continue
-            
-            # Get the list of text interpretations for this beam
-            # context_text_tuples: List[Tuple[float, str]] where each tuple is (lm_score, text)
-            # Currently this list has 1 element (will grow up to K when homophones are encountered)
-            context_text_tuples = beam_hyps.context_texts[b][k]
+    # Vectorized boundary detection - check all beams at once
+    valid_mask = beam_hyps.scores != float('-inf')
+    at_boundary = (next_labels == boundary_token)
+    was_not_boundary = (prev_last_labels != boundary_token)
 
-            # Get base homophones from lexicon
-            base_words = [lexicon.word_list[idx] for idx in word_indices]
+    # Combined mask: beams that crossed a word boundary and need LM scoring
+    needs_scoring_mask = valid_mask & at_boundary & was_not_boundary
 
-            # Expand with capitalization variants (e.g., "their" -> ["their", "Their"])
-            candidate_words = []
-            for word in base_words:
-                #if word == 'profession':
-                #    breakpoint()
-                candidate_words.extend(get_capitalization_variants(word))
+    # Get indices of beams that need scoring (sparse iteration)
+    batch_indices, beam_indices = torch.where(needs_scoring_mask)
 
-            # Remove duplicates while preserving order
-            candidate_words = list(dict.fromkeys(candidate_words))
+    # Batch fetch all transcripts at once
+    batch_indices_list = batch_indices.tolist()
+    beam_indices_list = beam_indices.tolist()
+    all_transcripts = materialize_beam_transcripts_batched(
+        beam_hyps, batch_indices_list, beam_indices_list
+    )
 
-            to_score.append((b, k, context_text_tuples, candidate_words))
+    # Cache for lexicon lookups to avoid redundant trie traversals
+    lexicon_cache = {}
+
+    for i, (b, k) in enumerate(zip(batch_indices_list, beam_indices_list)):
+        # Get the sequence to find valid words
+        seq_raw = all_transcripts[i]
+        seq_ctc = collapse_ctc_sequence(seq_raw.tolist(), blank_index)
+
+        # Use cache to avoid redundant lexicon lookups
+        seq_key = tuple(seq_ctc)
+        if seq_key in lexicon_cache:
+            at_boundary_flag, word_indices = lexicon_cache[seq_key]
+        else:
+            _, at_boundary_flag, word_indices = lexicon.get_valid_next_tokens_with_word_info(seq_ctc)
+            lexicon_cache[seq_key] = (at_boundary_flag, word_indices)
+
+        if not at_boundary_flag or not word_indices:
+            continue
+
+        # Get the list of text interpretations for this beam
+        # context_text_tuples: List[Tuple[float, str]] where each tuple is (lm_score, text)
+        # and the number of tuples = num_homophone_beams
+        context_text_tuples = beam_hyps.context_texts[b][k]
+
+        # Get base homophones from lexicon
+        base_words = [lexicon.word_list[idx] for idx in word_indices]
+
+        # Expand with capitalization variants (e.g., "their" -> ["their", "Their"])
+        candidate_words = []
+        for word in base_words:
+            candidate_words.extend(get_capitalization_variants(word))
+
+        # Remove duplicates while preserving order
+        candidate_words = list(dict.fromkeys(candidate_words))
+
+        to_score.append((b, k, context_text_tuples, candidate_words))
 
     if not to_score:
         return
@@ -602,79 +612,6 @@ def apply_lm_fusion_post_selection(
         beam_hyps.context_texts_hash[b][k] = hash(new_tuples[0][1])
 
 
-def apply_lm_end_of_sentence_scoring(
-    lm_fusion: NeuralLanguageModelFusion | None,
-    beam_hyps: 'BatchedBeamHyps',
-) -> None:
-    """
-    Add end-of-sentence probability to beam scores.
-
-    For each beam, scores the probability of ".", "?", or "!" following the
-    current context text. Uses the best scoring punctuation to update the
-    beam score and appends it to the text.
-
-    Args:
-        lm_fusion: The neural LM fusion module (or None to skip).
-        beam_hyps: The beam hypotheses to update in-place.
-    """
-    if lm_fusion is None:
-        return
-
-    batch_size, beam_size = beam_hyps.scores.shape
-    eos_candidates = [".", "?", "!"]
-
-    # Collect all contexts that need EOS scoring
-    contexts = []
-    beam_indices = []  # Track (batch_idx, beam_idx) for each context
-
-    for b in range(batch_size):
-        for k in range(beam_size):
-            # Skip pruned beams
-            if beam_hyps.scores[b, k] == float('-inf'):
-                continue
-
-            # Get the best text interpretation for this beam
-            context_tuples = beam_hyps.context_texts[b][k]
-            if not context_tuples:
-                continue
-
-            # Use the best (first) text interpretation
-            _, text = context_tuples[0]
-
-            # Skip if text already ends with sentence-ending punctuation
-            if text.rstrip() and text.rstrip()[-1] in '.?!':
-                continue
-
-            contexts.append(text)
-            beam_indices.append((b, k))
-
-    if not contexts:
-        return
-
-    # Score ".", "?", "!" for all contexts in one batched call
-    candidate_words = [eos_candidates] * len(contexts)
-    all_eos_scores = lm_fusion.score_continuations(contexts, candidate_words)
-
-    # For each beam, pick the best punctuation and update scores/text
-    for (b, k), eos_scores in zip(beam_indices, all_eos_scores):
-        # Find best punctuation
-        best_idx = max(range(len(eos_candidates)), key=lambda i: eos_scores[i])
-        best_punct = eos_candidates[best_idx]
-        best_score = eos_scores[best_idx]
-
-        # Update lm_score in context_texts tuples and append punctuation to text
-        context_tuples = beam_hyps.context_texts[b][k]
-        updated_tuples = []
-        for lm_score, text in context_tuples:
-            updated_tuples.append((lm_score + best_score, text + best_punct))
-        beam_hyps.context_texts[b][k] = updated_tuples
-
-        # Update beam score: acoustic_score stays the same, lm_score increases
-        beam_hyps.scores[b, k] += best_score
-
-        # Update hash based on new best text
-        beam_hyps.context_texts_hash[b][k] = hash(updated_tuples[0][1])
-
 
 def apply_lm_end_of_sentence_with_incomplete_word(
     lm_fusion: NeuralLanguageModelFusion | None,
@@ -699,7 +636,7 @@ def apply_lm_end_of_sentence_with_incomplete_word(
         blank_index: Index of the CTC blank token.
     """
     from .beam_helpers import (
-        materialize_beam_transcript,
+        materialize_beam_transcripts_batched,
         collapse_ctc_sequence
     )
 
@@ -713,46 +650,74 @@ def apply_lm_end_of_sentence_with_incomplete_word(
     # Collect info for all beams
     beam_info = []  # List of (b, k, text, has_incomplete_word, candidate_words)
 
-    for b in range(batch_size):
-        for k in range(beam_size):
-            # Skip pruned beams
-            if beam_hyps.scores[b, k] == float('-inf'):
-                continue
+    # Vectorized: get indices of valid (non-pruned) beams
+    valid_mask = beam_hyps.scores != float('-inf')
+    batch_indices, beam_indices = torch.where(valid_mask)
 
-            # Get the best text interpretation for this beam
-            context_tuples = beam_hyps.context_texts[b][k]
-            if not context_tuples:
-                continue
+    # First pass: collect beams that pass text-based filters
+    filtered_beams = []  # List of (b, k, text)
+    for b, k in zip(batch_indices.tolist(), beam_indices.tolist()):
+        # Get the best text interpretation for this beam
+        context_tuples = beam_hyps.context_texts[b][k]
+        if not context_tuples:
+            continue
 
-            _, text = context_tuples[0]
+        _, text = context_tuples[0]
 
-            # Skip if text already ends with sentence-ending punctuation
-            if text.rstrip() and text.rstrip()[-1] in '.?!':
-                continue
+        # Skip if text already ends with sentence-ending punctuation
+        if text.rstrip() and text.rstrip()[-1] in '.?!':
+            continue
 
-            # Get phoneme sequence and check for incomplete word
-            seq_raw = materialize_beam_transcript(beam_hyps, b, k)
-            seq_ctc = collapse_ctc_sequence(seq_raw.tolist(), blank_index)
+        filtered_beams.append((b, k, text))
 
-            # Check if adding a boundary token would complete a valid word
-            # We do this by checking what valid tokens can follow, and if boundary is among them
+    if not filtered_beams:
+        return
+
+    # Batch fetch transcripts for filtered beams only
+    filtered_batch_indices = [b for b, k, text in filtered_beams]
+    filtered_beam_indices = [k for b, k, text in filtered_beams]
+    all_transcripts = materialize_beam_transcripts_batched(
+        beam_hyps, filtered_batch_indices, filtered_beam_indices
+    )
+
+    # Cache for lexicon lookups to avoid redundant trie traversals
+    lexicon_cache = {}
+
+    # Second pass: process with transcripts
+    for i, (b, k, text) in enumerate(filtered_beams):
+        seq_raw = all_transcripts[i]
+        seq_ctc = collapse_ctc_sequence(seq_raw.tolist(), blank_index)
+
+        # Check if adding a boundary token would complete a valid word
+        # We do this by checking what valid tokens can follow, and if boundary is among them
+        seq_key = tuple(seq_ctc)
+        if seq_key in lexicon_cache:
+            valid_tokens, at_boundary, word_indices = lexicon_cache[seq_key]
+        else:
             valid_tokens, at_boundary, word_indices = lexicon.get_valid_next_tokens_with_word_info(seq_ctc)
+            lexicon_cache[seq_key] = (valid_tokens, at_boundary, word_indices)
 
-            candidate_words = []
-            # If boundary token is valid AND we're not already at a boundary (i.e., we have an incomplete word)
-            if boundary_token in valid_tokens and not at_boundary:
-                # Simulate adding boundary token to get the word indices
+        candidate_words = []
+        # If boundary token is valid AND we're not already at a boundary (i.e., we have an incomplete word)
+        if boundary_token in valid_tokens and not at_boundary:
+            # Simulate adding boundary token to get the word indices
+            seq_with_boundary_key = seq_key + (boundary_token,)
+            if seq_with_boundary_key in lexicon_cache:
+                _, _, word_indices = lexicon_cache[seq_with_boundary_key]
+            else:
                 seq_with_boundary = seq_ctc + [boundary_token]
-                _, _, word_indices = lexicon.get_valid_next_tokens_with_word_info(seq_with_boundary)
-                # Get the words that would be formed
-                for idx in word_indices:
-                    word = lexicon.word_list[idx]
-                    # Add capitalization variants
-                    candidate_words.extend(get_capitalization_variants(word))
-                # Remove duplicates
-                candidate_words = list(dict.fromkeys(candidate_words))
+                result = lexicon.get_valid_next_tokens_with_word_info(seq_with_boundary)
+                lexicon_cache[seq_with_boundary_key] = result
+                _, _, word_indices = result
+            # Get the words that would be formed
+            for idx in word_indices:
+                word = lexicon.word_list[idx]
+                # Add capitalization variants
+                candidate_words.extend(get_capitalization_variants(word))
+            # Remove duplicates
+            candidate_words = list(dict.fromkeys(candidate_words))
 
-            beam_info.append((b, k, text, candidate_words))
+        beam_info.append((b, k, text, candidate_words))
 
     if not beam_info:
         return
@@ -872,7 +837,6 @@ def apply_lm_end_of_sentence_with_incomplete_word(
 
         # Update hash
         beam_hyps.context_texts_hash[b][k] = hash(updated_tuples[0][1])
-
 
 def apply_ngram_lm_fusion_pre_selection(
     ngram_lm: NeuralLanguageModelFusion | None,
