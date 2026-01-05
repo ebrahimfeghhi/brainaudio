@@ -25,6 +25,282 @@ if TYPE_CHECKING:
     from .lexicon_constraint import LexiconConstraint
 
 
+class BatchedKVCacheManager:
+    """
+    Manages batched KV cache storage for efficient cross-beam LM scoring.
+
+    This class enables scoring hundreds of (cache, word) pairs in a single
+    forward pass by storing all KV caches in a unified tensor format.
+
+    Storage layout:
+        - Caches are stored in a flat array indexed by:
+          flat_idx = b * (beam_size * num_homophones) + k * num_homophones + h
+        - Each layer's cache: [2, total_slots, num_heads, max_cache_len, head_dim]
+          where the "2" dimension is for keys (0) and values (1)
+    """
+
+    def __init__(
+        self,
+        batch_size: int,
+        beam_size: int,
+        num_homophones: int,
+        max_cache_len: int = 256,
+        device: torch.device = None,
+    ):
+        self.batch_size = batch_size
+        self.beam_size = beam_size
+        self.num_homophones = num_homophones
+        self.max_cache_len = max_cache_len
+        self.device = device
+
+        self.total_slots = batch_size * beam_size * num_homophones
+
+        # Lazily allocated storage (we don't know model dims until first use)
+        self.kv_storage = None  # List of [2, total_slots, num_heads, max_len, head_dim] per layer
+        self.last_logprobs = None  # [total_slots, vocab_size]
+
+        # Cache lengths: [batch_size, beam_size, num_homophones]
+        self.lengths = torch.zeros(
+            (batch_size, beam_size, num_homophones),
+            device=device,
+            dtype=torch.long
+        )
+
+        # Model dimensions (set on first allocation)
+        self.num_layers = None
+        self.num_heads = None
+        self.head_dim = None
+        self.vocab_size = None
+
+    def is_allocated(self) -> bool:
+        return self.kv_storage is not None
+
+    def flat_index(self, b: int, k: int, h: int) -> int:
+        """Convert (batch, beam, homophone) to flat storage index."""
+        return b * (self.beam_size * self.num_homophones) + k * self.num_homophones + h
+
+    def flat_indices_tensor(
+        self,
+        b_indices: torch.Tensor,
+        k_indices: torch.Tensor,
+        h_indices: torch.Tensor
+    ) -> torch.Tensor:
+        """Convert batched indices to flat storage indices."""
+        return (
+            b_indices * (self.beam_size * self.num_homophones)
+            + k_indices * self.num_homophones
+            + h_indices
+        )
+
+    def allocate(self, num_layers: int, num_heads: int, head_dim: int, vocab_size: int):
+        """Allocate storage tensors. Called lazily on first cache write."""
+        self.num_layers = num_layers
+        self.num_heads = num_heads
+        self.head_dim = head_dim
+        self.vocab_size = vocab_size
+
+        # Allocate KV storage: one tensor per layer
+        self.kv_storage = [
+            torch.zeros(
+                (2, self.total_slots, num_heads, self.max_cache_len, head_dim),
+                device=self.device,
+                dtype=torch.float16,
+            )
+            for _ in range(num_layers)
+        ]
+
+        # Allocate logprobs storage
+        self.last_logprobs = torch.zeros(
+            (self.total_slots, vocab_size),
+            device=self.device,
+            dtype=torch.float32,
+        )
+
+    def clear(self):
+        """Reset all caches to empty (zero length)."""
+        self.lengths.zero_()
+        if self.kv_storage is not None:
+            for layer_cache in self.kv_storage:
+                layer_cache.zero_()
+        if self.last_logprobs is not None:
+            self.last_logprobs.zero_()
+
+    def get_lengths_for_slots(self, flat_indices: torch.Tensor) -> torch.Tensor:
+        """Get cache lengths for given flat indices."""
+        b = flat_indices // (self.beam_size * self.num_homophones)
+        rem = flat_indices % (self.beam_size * self.num_homophones)
+        k = rem // self.num_homophones
+        h = rem % self.num_homophones
+        return self.lengths[b, k, h]
+
+    def get_caches_for_scoring(
+        self,
+        flat_indices: torch.Tensor,
+    ) -> Tuple[Optional[List[Tuple[torch.Tensor, torch.Tensor]]], Optional[torch.Tensor], torch.Tensor]:
+        """
+        Extract KV caches for given flat indices, ready for batched forward pass.
+
+        Args:
+            flat_indices: [N] flat slot indices to extract
+
+        Returns:
+            past_key_values: List of (keys, values) per layer, each [N, heads, max_len, dim]
+            cache_attention_mask: [N, max_len] mask for valid cache positions
+            actual_lengths: [N] actual sequence lengths
+        """
+        if not self.is_allocated():
+            return None, None, torch.zeros(len(flat_indices), device=self.device, dtype=torch.long)
+
+        actual_lengths = self.get_lengths_for_slots(flat_indices)
+        max_len = actual_lengths.max().item()
+
+        if max_len == 0:
+            return None, None, actual_lengths
+
+        n_slots = flat_indices.shape[0]
+
+        # Extract caches: [N, heads, max_len, dim]
+        past_key_values = []
+        for layer_cache in self.kv_storage:
+            keys = layer_cache[0, flat_indices, :, :max_len, :]
+            values = layer_cache[1, flat_indices, :, :max_len, :]
+            past_key_values.append((keys.clone(), values.clone()))
+
+        # Build attention mask: [N, max_len]
+        positions = torch.arange(max_len, device=self.device).unsqueeze(0)
+        cache_attention_mask = (positions < actual_lengths.unsqueeze(1)).to(torch.long)
+
+        return past_key_values, cache_attention_mask, actual_lengths
+
+    def get_logprobs_for_slots(self, flat_indices: torch.Tensor) -> Optional[torch.Tensor]:
+        """Get last logprobs for given flat indices. Returns [N, vocab_size]."""
+        if self.last_logprobs is None:
+            return None
+        return self.last_logprobs[flat_indices]
+
+    def set_cache_single(
+        self,
+        flat_index: int,
+        past_key_values: List[Tuple[torch.Tensor, torch.Tensor]],
+        seq_len: int,
+        last_logprobs: Optional[torch.Tensor] = None,
+    ):
+        """Write a single cache to storage."""
+        if past_key_values is None:
+            return
+
+        # Lazy allocation
+        if not self.is_allocated():
+            num_layers = len(past_key_values)
+            _, num_heads, _, head_dim = past_key_values[0][0].shape
+            vocab_size = last_logprobs.shape[-1] if last_logprobs is not None else 32000
+            self.allocate(num_layers, num_heads, head_dim, vocab_size)
+
+        write_len = min(seq_len, self.max_cache_len)
+
+        # Write KV data
+        for layer_idx, (key, value) in enumerate(past_key_values):
+            # Handle both [1, heads, seq, dim] and [heads, seq, dim] shapes
+            if key.dim() == 4:
+                key = key.squeeze(0)
+                value = value.squeeze(0)
+            self.kv_storage[layer_idx][0, flat_index, :, :write_len, :] = key[:, :write_len, :]
+            self.kv_storage[layer_idx][1, flat_index, :, :write_len, :] = value[:, :write_len, :]
+
+        # Update length
+        b = flat_index // (self.beam_size * self.num_homophones)
+        rem = flat_index % (self.beam_size * self.num_homophones)
+        k = rem // self.num_homophones
+        h = rem % self.num_homophones
+        self.lengths[b, k, h] = write_len
+
+        # Write logprobs
+        if last_logprobs is not None:
+            if last_logprobs.dim() > 1:
+                last_logprobs = last_logprobs.squeeze(0)
+            self.last_logprobs[flat_index] = last_logprobs
+
+    def set_caches_batched(
+        self,
+        flat_indices: torch.Tensor,
+        past_key_values: List[Tuple[torch.Tensor, torch.Tensor]],
+        seq_lens: torch.Tensor,
+        last_logprobs: Optional[torch.Tensor] = None,
+    ):
+        """
+        Write multiple caches to storage in a batched operation.
+
+        Args:
+            flat_indices: [N] flat slot indices
+            past_key_values: List of (keys, values) per layer, each [N, heads, seq_len, dim]
+            seq_lens: [N] sequence lengths
+            last_logprobs: [N, vocab_size] last position logprobs
+        """
+        if past_key_values is None:
+            return
+
+        # Lazy allocation
+        if not self.is_allocated():
+            num_layers = len(past_key_values)
+            _, num_heads, _, head_dim = past_key_values[0][0].shape
+            vocab_size = last_logprobs.shape[-1] if last_logprobs is not None else 32000
+            self.allocate(num_layers, num_heads, head_dim, vocab_size)
+
+        max_len = min(seq_lens.max().item(), self.max_cache_len)
+
+        # Write KV data for all slots
+        for layer_idx, (keys, values) in enumerate(past_key_values):
+            self.kv_storage[layer_idx][0, flat_indices, :, :max_len, :] = keys[:, :, :max_len, :]
+            self.kv_storage[layer_idx][1, flat_indices, :, :max_len, :] = values[:, :, :max_len, :]
+
+        # Update lengths
+        b = flat_indices // (self.beam_size * self.num_homophones)
+        rem = flat_indices % (self.beam_size * self.num_homophones)
+        k = rem // self.num_homophones
+        h = rem % self.num_homophones
+        self.lengths[b, k, h] = torch.clamp(seq_lens, max=self.max_cache_len)
+
+        # Write logprobs
+        if last_logprobs is not None:
+            self.last_logprobs[flat_indices] = last_logprobs
+
+    def reorder_for_beam_selection(self, next_indices: torch.Tensor):
+        """
+        Reorder caches when beams are selected during beam search.
+
+        Args:
+            next_indices: [batch_size, beam_size] where next_indices[b, k] is the
+                         source beam index for the new beam k in batch b
+        """
+        if not self.is_allocated():
+            return
+
+        # Build source flat indices: for each (b, k, h), source is (b, next_indices[b,k], h)
+        b_idx = torch.arange(self.batch_size, device=self.device)[:, None, None]
+        h_idx = torch.arange(self.num_homophones, device=self.device)[None, None, :]
+        src_k = next_indices[:, :, None].expand(-1, -1, self.num_homophones)
+
+        src_flat = (
+            b_idx * (self.beam_size * self.num_homophones)
+            + src_k * self.num_homophones
+            + h_idx
+        ).reshape(-1)
+
+        # Reorder KV storage
+        for layer_idx in range(self.num_layers):
+            old_cache = self.kv_storage[layer_idx].clone()
+            self.kv_storage[layer_idx] = old_cache[:, src_flat, :, :, :]
+
+        # Reorder logprobs
+        old_logprobs = self.last_logprobs.clone()
+        self.last_logprobs = old_logprobs[src_flat]
+
+        # Reorder lengths
+        old_lengths = self.lengths.clone()
+        src_k_expanded = next_indices[:, :, None].expand(-1, -1, self.num_homophones)
+        self.lengths = torch.gather(old_lengths, dim=1, index=src_k_expanded)
+
+
 def get_capitalization_variants(word: str) -> List[str]:
     """
     Generate capitalization variants of a word.
@@ -226,6 +502,40 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
                 self.model.to(self.device)
         self.model.eval()
 
+        # Batched KV cache manager (initialized per decoding session)
+        self.cache_manager: Optional[BatchedKVCacheManager] = None
+
+    def init_cache_manager(
+        self,
+        batch_size: int,
+        beam_size: int,
+        num_homophones: int,
+        max_cache_len: int = 256,
+    ):
+        """
+        Initialize the batched KV cache manager for a decoding session.
+
+        Call this at the start of each decoding batch to set up cache storage.
+
+        Args:
+            batch_size: Number of utterances in the batch
+            beam_size: Beam width for beam search
+            num_homophones: Number of homophone hypotheses to track per beam
+            max_cache_len: Maximum cache sequence length (default 256)
+        """
+        self.cache_manager = BatchedKVCacheManager(
+            batch_size=batch_size,
+            beam_size=beam_size,
+            num_homophones=num_homophones,
+            max_cache_len=max_cache_len,
+            device=self.device,
+        )
+
+    def reset_cache_manager(self):
+        """Clear all cached states for a new decoding session."""
+        if self.cache_manager is not None:
+            self.cache_manager.clear()
+
     def reset_call_count(self):
         """Reset the LLM call counter to 0."""
         self.llm_call_count = 0
@@ -233,6 +543,470 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
     def get_call_count(self) -> int:
         """Get the current LLM call count."""
         return self.llm_call_count
+
+    @torch.no_grad()
+    def score_batch_with_cache(
+        self,
+        flat_indices: torch.Tensor,
+        words: List[str],
+        context_texts: List[str],
+        batch_size: int = 512,
+        update_caches: bool = False,
+    ) -> torch.Tensor:
+        """
+        Score multiple (cache_slot, word) pairs in batched forward passes.
+
+        This is the key method for fast cross-beam scoring. It:
+        1. Extracts KV caches for all specified slots from the cache manager
+        2. Tokenizes all words
+        3. Runs batched forward passes (up to batch_size at a time)
+        4. Returns scores (does NOT update caches by default)
+
+        Args:
+            flat_indices: [N] tensor of flat cache slot indices to READ from
+            words: [N] list of words to score (one per slot)
+            context_texts: [N] list of context texts (for space handling)
+            batch_size: Maximum items per forward pass (default 512)
+            update_caches: If True, update caches after scoring (default False)
+
+        Returns:
+            scores: [N] tensor of LM scores (weighted log-probs + bonus)
+        """
+        if self.cache_manager is None:
+            raise RuntimeError("Cache manager not initialized. Call init_cache_manager first.")
+
+        n_items = len(words)
+        if n_items == 0:
+            return torch.tensor([], device=self.device)
+
+        all_scores = []
+
+        # Process in batches
+        for batch_start in range(0, n_items, batch_size):
+            batch_end = min(batch_start + batch_size, n_items)
+            batch_indices = flat_indices[batch_start:batch_end]
+            batch_words = words[batch_start:batch_end]
+            batch_contexts = context_texts[batch_start:batch_end]
+
+            scores = self._score_batch_read_only(
+                batch_indices, batch_words, batch_contexts
+            )
+            all_scores.append(scores)
+
+        return torch.cat(all_scores)
+
+    @torch.no_grad()
+    def update_caches_for_selected(
+        self,
+        src_flat_indices: torch.Tensor,
+        dst_flat_indices: torch.Tensor,
+        words: List[str],
+        context_texts: List[str],
+        batch_size: int = 512,
+    ):
+        """
+        Update caches for selected (slot, word) pairs after top-K selection.
+
+        This runs forward passes to compute new caches for the selected items
+        and writes them to the destination slots.
+
+        Args:
+            src_flat_indices: [N] source slot indices (where to read cache from)
+            dst_flat_indices: [N] destination slot indices (where to write new cache)
+            words: [N] list of selected words
+            context_texts: [N] list of context texts
+            batch_size: Maximum items per forward pass
+        """
+        if self.cache_manager is None:
+            return
+
+        n_items = len(words)
+        if n_items == 0:
+            return
+
+        for batch_start in range(0, n_items, batch_size):
+            batch_end = min(batch_start + batch_size, n_items)
+            src_indices = src_flat_indices[batch_start:batch_end]
+            dst_indices = dst_flat_indices[batch_start:batch_end]
+            batch_words = words[batch_start:batch_end]
+            batch_contexts = context_texts[batch_start:batch_end]
+
+            self._update_caches_batch(
+                src_indices, dst_indices, batch_words, batch_contexts
+            )
+
+    @torch.no_grad()
+    def _score_batch_read_only(
+        self,
+        flat_indices: torch.Tensor,
+        words: List[str],
+        context_texts: List[str],
+    ) -> torch.Tensor:
+        """
+        Score a batch of (slot, word) pairs WITHOUT updating caches.
+
+        This is read-only - it reads from cache manager but doesn't write back.
+        Used during the scoring phase before top-K selection.
+        """
+        n_items = len(words)
+        device = self.device
+
+        # Get cached states from manager (read-only)
+        past_kv, cache_attn_mask, cache_lengths = self.cache_manager.get_caches_for_scoring(flat_indices)
+        cached_logprobs = self.cache_manager.get_logprobs_for_slots(flat_indices)
+
+        # Tokenize all words (with proper spacing)
+        word_token_lists = []
+        for word, context in zip(words, context_texts):
+            if context and not context.endswith(" ") and not word.startswith(" "):
+                full_word = " " + word
+            else:
+                full_word = word
+            tokens = self.tokenizer.encode(full_word, add_special_tokens=False)
+            word_token_lists.append(tokens if tokens else [self.tokenizer.eos_token_id])
+
+        # Handle case where we have no cached state (bootstrapping)
+        if past_kv is None or cache_lengths.max().item() == 0:
+            # No cache - score with full context (read-only)
+            return self._bootstrap_score_only(words, context_texts, word_token_lists)
+
+        # Pad word tokens to same length
+        max_word_len = max(len(t) for t in word_token_lists)
+        padded_word_ids = []
+        word_attention_masks = []
+        for tokens in word_token_lists:
+            pad_len = max_word_len - len(tokens)
+            padded_word_ids.append(tokens + [self.tokenizer.pad_token_id] * pad_len)
+            word_attention_masks.append([1] * len(tokens) + [0] * pad_len)
+
+        word_input_ids = torch.tensor(padded_word_ids, device=device)
+        word_attn_mask = torch.tensor(word_attention_masks, device=device)
+
+        # Build position IDs for new tokens
+        position_ids = cache_lengths.unsqueeze(1) + torch.arange(max_word_len, device=device).unsqueeze(0)
+
+        # Build full attention mask
+        full_attn_mask = torch.cat([cache_attn_mask, word_attn_mask], dim=1)
+
+        # Forward pass (don't need use_cache=True since we're not using the output cache)
+        self.llm_call_count += 1
+        outputs = self.model(
+            input_ids=word_input_ids,
+            attention_mask=full_attn_mask,
+            past_key_values=past_kv,
+            position_ids=position_ids,
+            use_cache=False,  # Don't compute output cache for scoring only
+        )
+
+        # Compute scores
+        logits = outputs.logits
+        log_probs = F.log_softmax(logits, dim=-1)
+
+        scores = torch.zeros(n_items, device=device)
+        for i, tokens in enumerate(word_token_lists):
+            word_len = len(tokens)
+
+            # First token: use cached logprobs (O(1) lookup)
+            if cached_logprobs is not None and cache_lengths[i] > 0:
+                first_token_score = cached_logprobs[i, tokens[0]].item()
+            else:
+                first_token_score = 0.0
+
+            # Remaining tokens: from forward pass output
+            remaining_score = 0.0
+            for j in range(word_len - 1):
+                next_token_id = tokens[j + 1]
+                remaining_score += log_probs[i, j, next_token_id].item()
+
+            total_score = first_token_score + remaining_score
+            scores[i] = total_score * self.weight + self.word_insertion_bonus
+
+        del outputs, logits, log_probs
+        torch.cuda.empty_cache()
+
+        return scores
+
+    @torch.no_grad()
+    def _bootstrap_score_only(
+        self,
+        words: List[str],
+        context_texts: List[str],
+        word_token_lists: List[List[int]],
+    ) -> torch.Tensor:
+        """Score words without cache (bootstrap case), read-only."""
+        n_items = len(words)
+        device = self.device
+
+        # Build full texts: context + word
+        full_texts = []
+        word_start_indices = []
+        for word, context in zip(words, context_texts):
+            if context and not context.endswith(" ") and not word.startswith(" "):
+                full_text = context + " " + word
+            else:
+                full_text = (context or "") + word
+            full_texts.append(full_text)
+
+            if context:
+                context_tokens = self.tokenizer.encode(context, add_special_tokens=True)
+                word_start_indices.append(len(context_tokens) - 1)
+            else:
+                word_start_indices.append(0)
+
+        # Tokenize with padding
+        inputs = self.tokenizer(
+            full_texts, return_tensors="pt", padding=True, add_special_tokens=True
+        ).to(device)
+
+        # Forward pass
+        self.llm_call_count += 1
+        outputs = self.model(inputs.input_ids, attention_mask=inputs.attention_mask, use_cache=False)
+
+        logits = outputs.logits
+        log_probs = F.log_softmax(logits, dim=-1)
+
+        scores = torch.zeros(n_items, device=device)
+        for i, (start_idx, attn) in enumerate(zip(word_start_indices, inputs.attention_mask)):
+            seq_len = attn.sum().item()
+            word_tokens = inputs.input_ids[i, :int(seq_len)].tolist()
+
+            total_score = 0.0
+            for j in range(start_idx, int(seq_len) - 1):
+                next_token_id = word_tokens[j + 1]
+                total_score += log_probs[i, j, next_token_id].item()
+
+            scores[i] = total_score * self.weight + self.word_insertion_bonus
+
+        del outputs, logits, log_probs, inputs
+        torch.cuda.empty_cache()
+
+        return scores
+
+    @torch.no_grad()
+    def _update_caches_batch(
+        self,
+        src_flat_indices: torch.Tensor,
+        dst_flat_indices: torch.Tensor,
+        words: List[str],
+        context_texts: List[str],
+    ):
+        """
+        Update caches for selected items by running forward passes.
+
+        Reads cache from src_flat_indices, computes new cache with word,
+        writes to dst_flat_indices.
+        """
+        n_items = len(words)
+        device = self.device
+
+        # Get source caches
+        past_kv, cache_attn_mask, cache_lengths = self.cache_manager.get_caches_for_scoring(src_flat_indices)
+
+        # Tokenize words
+        word_token_lists = []
+        for word, context in zip(words, context_texts):
+            if context and not context.endswith(" ") and not word.startswith(" "):
+                full_word = " " + word
+            else:
+                full_word = word
+            tokens = self.tokenizer.encode(full_word, add_special_tokens=False)
+            word_token_lists.append(tokens if tokens else [self.tokenizer.eos_token_id])
+
+        # Handle bootstrap case
+        if past_kv is None or cache_lengths.max().item() == 0:
+            self._bootstrap_and_update_caches(dst_flat_indices, words, context_texts)
+            return
+
+        # Pad word tokens
+        max_word_len = max(len(t) for t in word_token_lists)
+        padded_word_ids = []
+        word_attention_masks = []
+        for tokens in word_token_lists:
+            pad_len = max_word_len - len(tokens)
+            padded_word_ids.append(tokens + [self.tokenizer.pad_token_id] * pad_len)
+            word_attention_masks.append([1] * len(tokens) + [0] * pad_len)
+
+        word_input_ids = torch.tensor(padded_word_ids, device=device)
+        word_attn_mask = torch.tensor(word_attention_masks, device=device)
+
+        # Position IDs and attention mask
+        position_ids = cache_lengths.unsqueeze(1) + torch.arange(max_word_len, device=device).unsqueeze(0)
+        full_attn_mask = torch.cat([cache_attn_mask, word_attn_mask], dim=1)
+
+        # Forward pass WITH cache output
+        self.llm_call_count += 1
+        outputs = self.model(
+            input_ids=word_input_ids,
+            attention_mask=full_attn_mask,
+            past_key_values=past_kv,
+            position_ids=position_ids,
+            use_cache=True,
+        )
+
+        # Compute new cache lengths and logprobs
+        new_cache_lengths = torch.zeros(n_items, device=device, dtype=torch.long)
+        log_probs = F.log_softmax(outputs.logits, dim=-1)
+        new_logprobs = torch.zeros(n_items, log_probs.shape[-1], device=device)
+
+        for i, tokens in enumerate(word_token_lists):
+            word_len = len(tokens)
+            new_cache_lengths[i] = cache_lengths[i] + word_len
+            new_logprobs[i] = log_probs[i, word_len - 1]
+
+        # Write to destination slots
+        self.cache_manager.set_caches_batched(
+            dst_flat_indices,
+            outputs.past_key_values,
+            new_cache_lengths,
+            new_logprobs,
+        )
+
+        del outputs, log_probs
+        torch.cuda.empty_cache()
+
+    @torch.no_grad()
+    def _bootstrap_and_update_caches(
+        self,
+        dst_flat_indices: torch.Tensor,
+        words: List[str],
+        context_texts: List[str],
+    ):
+        """Bootstrap and update caches when no prior cache exists."""
+        n_items = len(words)
+        device = self.device
+
+        # Build full texts
+        full_texts = []
+        word_start_indices = []
+        for word, context in zip(words, context_texts):
+            if context and not context.endswith(" ") and not word.startswith(" "):
+                full_text = context + " " + word
+            else:
+                full_text = (context or "") + word
+            full_texts.append(full_text)
+
+            if context:
+                context_tokens = self.tokenizer.encode(context, add_special_tokens=True)
+                word_start_indices.append(len(context_tokens) - 1)
+            else:
+                word_start_indices.append(0)
+
+        # Tokenize
+        inputs = self.tokenizer(
+            full_texts, return_tensors="pt", padding=True, add_special_tokens=True
+        ).to(device)
+
+        # Forward pass
+        self.llm_call_count += 1
+        outputs = self.model(inputs.input_ids, attention_mask=inputs.attention_mask, use_cache=True)
+
+        log_probs = F.log_softmax(outputs.logits, dim=-1)
+
+        new_cache_lengths = torch.zeros(n_items, device=device, dtype=torch.long)
+        new_logprobs = torch.zeros(n_items, log_probs.shape[-1], device=device)
+
+        for i, attn in enumerate(inputs.attention_mask):
+            seq_len = int(attn.sum().item())
+            new_cache_lengths[i] = seq_len
+            new_logprobs[i] = log_probs[i, seq_len - 1]
+
+        # Write caches
+        self.cache_manager.set_caches_batched(
+            dst_flat_indices,
+            outputs.past_key_values,
+            new_cache_lengths,
+            new_logprobs,
+        )
+
+        del outputs, log_probs, inputs
+        torch.cuda.empty_cache()
+
+    @torch.no_grad()
+    def _bootstrap_and_score_batch(
+        self,
+        flat_indices: torch.Tensor,
+        words: List[str],
+        context_texts: List[str],
+        word_token_lists: List[List[int]],
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Bootstrap caches and score words when no prior cache exists.
+
+        This handles the first word of each beam, running a full forward pass
+        on context + word and initializing the cache.
+        """
+        n_items = len(words)
+        device = self.device
+
+        # Build full texts: context + word
+        full_texts = []
+        word_start_indices = []
+        for word, context in zip(words, context_texts):
+            if context and not context.endswith(" ") and not word.startswith(" "):
+                full_text = context + " " + word
+            else:
+                full_text = (context or "") + word
+
+            full_texts.append(full_text)
+
+            # Find where word starts in token space
+            if context:
+                context_tokens = self.tokenizer.encode(context, add_special_tokens=True)
+                word_start_indices.append(len(context_tokens) - 1)
+            else:
+                word_start_indices.append(0)
+
+        # Tokenize all full texts with padding
+        inputs = self.tokenizer(
+            full_texts,
+            return_tensors="pt",
+            padding=True,
+            add_special_tokens=True,
+        ).to(device)
+
+        input_ids = inputs.input_ids
+        attention_mask = inputs.attention_mask
+
+        # Forward pass
+        self.llm_call_count += 1
+        outputs = self.model(input_ids, attention_mask=attention_mask, use_cache=True)
+
+        # Get logprobs
+        logits = outputs.logits
+        log_probs = F.log_softmax(logits, dim=-1)
+
+        # Compute scores and extract cache info
+        scores = torch.zeros(n_items, device=device)
+        new_cache_lengths = torch.zeros(n_items, device=device, dtype=torch.long)
+        new_logprobs = torch.zeros(n_items, log_probs.shape[-1], device=device)
+
+        for i, (start_idx, attn) in enumerate(zip(word_start_indices, attention_mask)):
+            seq_len = attn.sum().item()
+            word_tokens = input_ids[i, :seq_len].tolist()
+
+            # Score the word tokens
+            total_score = 0.0
+            for j in range(start_idx, seq_len - 1):
+                next_token_id = word_tokens[j + 1]
+                total_score += log_probs[i, j, next_token_id].item()
+
+            scores[i] = total_score * self.weight + self.word_insertion_bonus
+            new_cache_lengths[i] = seq_len
+            new_logprobs[i] = log_probs[i, seq_len - 1]
+
+        # Update caches in manager
+        self.cache_manager.set_caches_batched(
+            flat_indices,
+            outputs.past_key_values,
+            new_cache_lengths,
+            new_logprobs,
+        )
+
+        # Cleanup
+        del outputs, logits, log_probs, inputs
+        torch.cuda.empty_cache()
+
+        return scores, new_cache_lengths
 
     @torch.no_grad()
     def score_continuations(self, contexts: List[str], candidate_words: List[List[str]]) -> List[List[float]]:
@@ -465,6 +1239,262 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
 
         return total_score * self.weight + self.word_insertion_bonus, new_cache, new_last_logprobs
 
+    @torch.no_grad()
+    def score_words_with_cache(
+        self,
+        kv_cache: Optional[Any],
+        last_logprobs: Optional[torch.Tensor],
+        context_text: str,
+        words: List[str],
+        batch_size: int = 512,
+    ) -> Tuple[List[float], List[Any], List[torch.Tensor]]:
+        """
+        Score multiple words using cached KV state with batched processing.
+
+        This method batches the forward passes for efficiency while still
+        leveraging the KV cache. Words are processed in batches of `batch_size`.
+
+        Args:
+            kv_cache: KV cache from previous words (DynamicCache), or None for first word
+            last_logprobs: Log probs [vocab_size] from previous forward pass, or None
+            context_text: Text context (only used if cache is None for bootstrapping)
+            words: List of words to score
+            batch_size: Maximum number of words to process in a single forward pass
+
+        Returns:
+            Tuple of (scores, new_kv_caches, new_last_logprobs) where each is a list
+            with one entry per word
+        """
+        if not words:
+            return [], [], []
+
+        # Case 1: No cache - need to bootstrap
+        if kv_cache is None or last_logprobs is None:
+            return self._bootstrap_cache_and_score_batch(context_text, words, batch_size)
+
+        # Case 2: Have cache - use batched scoring
+        all_scores = []
+        all_caches = []
+        all_logprobs = []
+
+        # Process words in batches
+        for batch_start in range(0, len(words), batch_size):
+            batch_end = min(batch_start + batch_size, len(words))
+            batch_words = words[batch_start:batch_end]
+
+            scores, caches, logprobs = self._score_batch_with_cache(
+                kv_cache, last_logprobs, context_text, batch_words
+            )
+            all_scores.extend(scores)
+            all_caches.extend(caches)
+            all_logprobs.extend(logprobs)
+
+        return all_scores, all_caches, all_logprobs
+
+    @torch.no_grad()
+    def _score_batch_with_cache(
+        self,
+        kv_cache: Any,
+        last_logprobs: torch.Tensor,
+        context_text: str,
+        words: List[str],
+    ) -> Tuple[List[float], List[Any], List[torch.Tensor]]:
+        """
+        Score a batch of words against the same KV cache state.
+
+        Expands the cache to batch size, runs a single forward pass, then
+        extracts per-word results.
+        """
+        # Tokenize all words (with space prepending for word boundaries)
+        word_token_lists = []
+        for word in words:
+            if context_text and not context_text.endswith(" ") and not word.startswith(" "):
+                full_word = " " + word
+            else:
+                full_word = word
+            tokens = self.tokenizer.encode(full_word, add_special_tokens=False)
+            word_token_lists.append(tokens if tokens else [self.tokenizer.eos_token_id])
+
+        num_words = len(words)
+        max_len = max(len(t) for t in word_token_lists)
+
+        # Pad token lists to max length
+        padded_input_ids = []
+        attention_masks = []
+        for tokens in word_token_lists:
+            pad_len = max_len - len(tokens)
+            padded_input_ids.append(tokens + [self.tokenizer.pad_token_id] * pad_len)
+            attention_masks.append([1] * len(tokens) + [0] * pad_len)
+
+        input_ids = torch.tensor(padded_input_ids, device=self.device)
+        attention_mask = torch.tensor(attention_masks, device=self.device)
+
+        # Expand KV cache to batch size
+        expanded_cache = self._expand_cache(kv_cache, num_words)
+
+        # Build position_ids for the new tokens (continuing from cache length)
+        cache_seq_len = kv_cache[0][0].shape[2] if kv_cache else 0
+        position_ids = torch.arange(
+            cache_seq_len, cache_seq_len + max_len, device=self.device
+        ).unsqueeze(0).expand(num_words, -1)
+
+        # Build cache attention mask (all 1s for cached positions + new attention mask)
+        if cache_seq_len > 0:
+            cache_attn = torch.ones(num_words, cache_seq_len, device=self.device, dtype=attention_mask.dtype)
+            full_attention_mask = torch.cat([cache_attn, attention_mask], dim=1)
+        else:
+            full_attention_mask = attention_mask
+
+        # Forward pass
+        self.llm_call_count += 1
+        outputs = self.model(
+            input_ids,
+            attention_mask=full_attention_mask,
+            past_key_values=expanded_cache,
+            position_ids=position_ids,
+            use_cache=True,
+        )
+        new_cache_batched = outputs.past_key_values
+        all_logits = outputs.logits  # [num_words, max_len, vocab_size]
+        all_logprobs_out = F.log_softmax(all_logits, dim=-1)
+
+        # Compute scores and extract per-word results
+        scores = []
+        new_caches = []
+        new_last_logprobs = []
+
+        for i, tokens in enumerate(word_token_lists):
+            seq_len = len(tokens)
+
+            # First token score from cached logprobs (O(1) lookup)
+            first_token_score = last_logprobs[tokens[0]].item()
+
+            # Remaining token scores from forward pass output
+            remaining_score = 0.0
+            for j in range(seq_len - 1):
+                next_token_id = tokens[j + 1]
+                remaining_score += all_logprobs_out[i, j, next_token_id].item()
+
+            total_score = first_token_score + remaining_score
+            scores.append(total_score * self.weight + self.word_insertion_bonus)
+
+            # Extract per-word cache (slice to actual sequence length)
+            word_cache = self._slice_cache(new_cache_batched, i, cache_seq_len + seq_len)
+            new_caches.append(word_cache)
+
+            # Last logprobs for this word (at position seq_len-1)
+            new_last_logprobs.append(all_logprobs_out[i, seq_len - 1].clone())
+
+        # Free memory
+        del outputs, all_logits, all_logprobs_out, expanded_cache
+        torch.cuda.empty_cache()
+
+        return scores, new_caches, new_last_logprobs
+
+    def _expand_cache(self, kv_cache: Any, batch_size: int) -> Any:
+        """Expand a batch-1 KV cache to the given batch size."""
+        if kv_cache is None:
+            return None
+        expanded = tuple(
+            (k.expand(batch_size, -1, -1, -1), v.expand(batch_size, -1, -1, -1))
+            for k, v in kv_cache
+        )
+        return expanded
+
+    def _slice_cache(self, batched_cache: Any, batch_idx: int, seq_len: int) -> Any:
+        """Extract a single-sequence cache from a batched cache."""
+        if batched_cache is None:
+            return None
+        sliced = tuple(
+            (k[batch_idx:batch_idx+1, :, :seq_len, :].clone(),
+             v[batch_idx:batch_idx+1, :, :seq_len, :].clone())
+            for k, v in batched_cache
+        )
+        return sliced
+
+    @torch.no_grad()
+    def _bootstrap_cache_and_score_batch(
+        self,
+        context_text: str,
+        words: List[str],
+        batch_size: int = 512,
+    ) -> Tuple[List[float], List[Any], List[torch.Tensor]]:
+        """
+        Bootstrap KV cache and score multiple words when no cache exists.
+
+        Processes words in batches for efficiency.
+        """
+        all_scores = []
+        all_caches = []
+        all_logprobs = []
+
+        for batch_start in range(0, len(words), batch_size):
+            batch_end = min(batch_start + batch_size, len(words))
+            batch_words = words[batch_start:batch_end]
+
+            # Build full texts for each word
+            full_texts = []
+            word_start_indices = []
+            for word in batch_words:
+                if context_text and not context_text.endswith(" ") and not word.startswith(" "):
+                    full_text = context_text + " " + word
+                else:
+                    full_text = context_text + word
+
+                full_texts.append(full_text)
+
+                # Compute where the word starts in token space
+                if context_text:
+                    context_tokens = self.tokenizer.encode(context_text, add_special_tokens=True)
+                    word_start_indices.append(len(context_tokens) - 1)
+                else:
+                    word_start_indices.append(0)
+
+            # Tokenize all texts with padding
+            inputs = self.tokenizer(
+                full_texts,
+                return_tensors="pt",
+                padding=True,
+                add_special_tokens=True
+            ).to(self.device)
+
+            input_ids = inputs.input_ids
+            attention_mask = inputs.attention_mask
+
+            # Forward pass
+            self.llm_call_count += 1
+            outputs = self.model(input_ids, attention_mask=attention_mask, use_cache=True)
+            batched_cache = outputs.past_key_values
+            all_logits = outputs.logits
+            all_logprobs_out = F.log_softmax(all_logits, dim=-1)
+
+            # Extract scores and caches for each word
+            for i, (word, start_idx) in enumerate(zip(batch_words, word_start_indices)):
+                seq_len = attention_mask[i].sum().item()
+                word_tokens = input_ids[i, :int(seq_len)].tolist()
+
+                # Score the word tokens
+                total_score = 0.0
+                for j in range(start_idx, int(seq_len) - 1):
+                    next_token_id = word_tokens[j + 1]
+                    total_score += all_logprobs_out[i, j, next_token_id].item()
+
+                all_scores.append(total_score * self.weight + self.word_insertion_bonus)
+
+                # Extract cache for this sequence
+                word_cache = self._slice_cache(batched_cache, i, int(seq_len))
+                all_caches.append(word_cache)
+
+                # Last logprobs
+                all_logprobs.append(all_logprobs_out[i, int(seq_len) - 1].clone())
+
+            # Free memory
+            del outputs, all_logits, all_logprobs_out, batched_cache
+            del inputs, input_ids, attention_mask
+            torch.cuda.empty_cache()
+
+        return all_scores, all_caches, all_logprobs
+
     def to(self, device: torch.device):
         """Move model to specified device."""
         self.device = device
@@ -553,125 +1583,262 @@ def apply_lm_fusion_post_selection(
     if not to_score:
         return
 
-    # Check if we can use KV caching (HuggingFaceLMFusion with score_word_with_cache)
-    use_kv_cache = hasattr(lm_fusion, 'score_word_with_cache')
-
-    # --- PHASE 2 & 3: Score and Update Beams ---
-    # With KV caching: score each (homophone, word) pair individually using cached state
-    # Without KV caching: fall back to batched scoring (original behavior)
-
     num_homophone_beams = beam_hyps.num_homophone_beams
 
-    # Collect all updates for batched assignment
+    # Check if we can use the new batched cache manager
+    use_cache_manager = (
+        hasattr(lm_fusion, 'cache_manager') and
+        lm_fusion.cache_manager is not None
+    )
+
+    if use_cache_manager:
+        # === FAST PATH: Batched scoring across all beams using cache manager ===
+        _apply_lm_fusion_with_cache_manager(
+            lm_fusion, beam_hyps, to_score, num_homophone_beams, homophone_prune_threshold
+        )
+    else:
+        # === FALLBACK PATH: Original per-beam scoring ===
+        _apply_lm_fusion_legacy(
+            lm_fusion, beam_hyps, to_score, num_homophone_beams, homophone_prune_threshold
+        )
+
+
+def _apply_lm_fusion_with_cache_manager(
+    lm_fusion: 'HuggingFaceLMFusion',
+    beam_hyps: 'BatchedBeamHyps',
+    to_score: list,
+    num_homophone_beams: int,
+    homophone_prune_threshold: float | None,
+) -> None:
+    """
+    Fast path: Score all beams using batched cache manager.
+
+    Collects ALL (slot, word) pairs across all beams and scores them
+    in batched forward passes for maximum efficiency.
+
+    Two phases:
+    1. Score all candidates (read-only from cache)
+    2. After selection, update caches only for selected items
+    """
+    cache_mgr = lm_fusion.cache_manager
+    device = lm_fusion.device
+
+    # --- PHASE 2a: Collect ALL scoring requests across all beams ---
+    all_flat_indices = []
+    all_words = []
+    all_contexts = []
+    all_metadata = []  # (to_score_idx, tuple_idx, prev_lm_score, word, prev_text)
+
+    for to_score_idx, (b, k, context_text_tuples, candidate_words) in enumerate(to_score):
+        for tuple_idx, (prev_lm_score, prev_text) in enumerate(context_text_tuples):
+            flat_idx = cache_mgr.flat_index(b, k, tuple_idx)
+            for word in candidate_words:
+                all_flat_indices.append(flat_idx)
+                all_words.append(word)
+                all_contexts.append(prev_text)
+                all_metadata.append((to_score_idx, tuple_idx, prev_lm_score, word, prev_text))
+
+    if not all_flat_indices:
+        return
+
+    # --- PHASE 2b: Batch score everything (READ-ONLY, no cache updates) ---
+    flat_indices_tensor = torch.tensor(all_flat_indices, device=device, dtype=torch.long)
+    scores_tensor = lm_fusion.score_batch_with_cache(
+        flat_indices_tensor, all_words, all_contexts, batch_size=512
+    )
+
+    # --- PHASE 3: Organize results by beam and select top candidates ---
+    scores_by_beam = {}  # to_score_idx -> list of (total_score, text, tuple_idx, word, prev_text)
+    for i, (to_score_idx, tuple_idx, prev_lm_score, word, prev_text) in enumerate(all_metadata):
+        word_score = scores_tensor[i].item()
+        total_score = prev_lm_score + word_score
+
+        b, k, context_text_tuples, _ = to_score[to_score_idx]
+        new_text = f"{prev_text} {word}".strip()
+
+        if to_score_idx not in scores_by_beam:
+            scores_by_beam[to_score_idx] = []
+        scores_by_beam[to_score_idx].append((total_score, new_text, tuple_idx, word, prev_text))
+
+    # Collect updates and selected items for cache update
     update_batch_indices = []
     update_beam_indices = []
     update_scores = []
-    update_context_texts = []  # List of (b, k, new_tuples)
-    update_hashes = []  # List of (b, k, hash_value)
-    update_kv_caches = []  # List of (b, k, new_caches)
-    update_last_logprobs = []  # List of (b, k, new_logprobs)
+    update_context_texts = []
+    update_hashes = []
 
-    for (b, k, context_text_tuples, candidate_words) in to_score:
+    # For cache updates: src_idx -> dst_idx mapping
+    all_cache_updates = []  # (b, k, new_h, src_tuple_idx, word, prev_text)
+
+    for to_score_idx, (b, k, context_text_tuples, candidate_words) in enumerate(to_score):
         base_score = beam_hyps.scores[b, k].item()
+        candidates = scores_by_beam.get(to_score_idx, [])
 
-        # Get existing caches for this beam (parallel to context_text_tuples)
-        existing_kv_caches = beam_hyps.lm_kv_caches[b][k]
-        existing_last_logprobs = beam_hyps.lm_last_logprobs[b][k]
-
-        # Collect all candidates: (lm_score, text, kv_cache, last_logprobs)
-        all_candidates = []
-
-        for tuple_idx, (prev_lm_score, prev_text) in enumerate(context_text_tuples):
-            # Get cached state for this homophone interpretation
-            prev_cache = existing_kv_caches[tuple_idx] if tuple_idx < len(existing_kv_caches) else None
-            prev_logprobs = existing_last_logprobs[tuple_idx] if tuple_idx < len(existing_last_logprobs) else None
-
-            for word in candidate_words:
-                if use_kv_cache:
-                    # Fast path: use KV cache for O(1) first token + incremental forward
-                    word_score, new_cache, new_logprobs = lm_fusion.score_word_with_cache(
-                        prev_cache, prev_logprobs, prev_text, word
-                    )
-                else:
-                    # Fallback: full forward pass (original behavior)
-                    scores = lm_fusion.score_continuations([prev_text], [[word]])
-                    word_score = scores[0][0] if scores and scores[0] else 0.0
-                    new_cache, new_logprobs = None, None
-
-                # Accumulate: new score = previous accumulated LM + this word's LM score
-                new_lm_score = prev_lm_score + word_score
-                new_text = f"{prev_text} {word}".strip()
-                all_candidates.append((new_lm_score, new_text, new_cache, new_logprobs))
-
-        # Deduplicate by lowercase text, keeping the best-scoring capitalization variant
-        # This prevents redundant entries like "Get arrested" vs "get arrested" vs "Get Arrested"
-        # Also tracks the cache/logprobs for the best variant
-        lowercase_to_best = {}  # lowercase_text -> (best_score, best_text, cache, logprobs)
-        for lm_score, text, cache, logprobs in all_candidates:
+        # Deduplicate by lowercase text
+        lowercase_to_best = {}
+        for total_score, text, tuple_idx, word, prev_text in candidates:
             text_lower = text.lower()
-            if text_lower not in lowercase_to_best or lm_score > lowercase_to_best[text_lower][0]:
-                lowercase_to_best[text_lower] = (lm_score, text, cache, logprobs)
-        all_candidates = list(lowercase_to_best.values())
+            if text_lower not in lowercase_to_best or total_score > lowercase_to_best[text_lower][0]:
+                lowercase_to_best[text_lower] = (total_score, text, tuple_idx, word, prev_text)
+        candidates = list(lowercase_to_best.values())
 
-        # Sort by accumulated LM score (descending)
-        all_candidates.sort(key=lambda x: x[0], reverse=True)
+        # Sort by score descending
+        candidates.sort(key=lambda x: x[0], reverse=True)
 
-        # Prune candidates that are too far below the best
-        # This saves memory/compute by not tracking very unlikely homophones
-        if homophone_prune_threshold is not None and all_candidates:
-            best_score = all_candidates[0][0]
-            all_candidates = [c for c in all_candidates if best_score - c[0] <= homophone_prune_threshold]
+        # Prune
+        if homophone_prune_threshold is not None and candidates:
+            best = candidates[0][0]
+            candidates = [c for c in candidates if best - c[0] <= homophone_prune_threshold]
 
-        # Keep top K (after pruning)
-        top_k_candidates = all_candidates[:num_homophone_beams]
+        # Keep top K
+        top_k = candidates[:num_homophone_beams]
 
-        # Extract parallel lists for context_texts and caches
-        new_tuples = [(score, text) for score, text, cache, logprobs in top_k_candidates]
-        new_caches = [cache for score, text, cache, logprobs in top_k_candidates]
-        new_logprobs_list = [logprobs for score, text, cache, logprobs in top_k_candidates]
+        if not top_k:
+            continue
 
-        # Compute new score: score = acoustic_score + lm_score
-        # Extract acoustic component by subtracting old LM, then add new LM
+        # Build new tuples (score, text)
+        new_tuples = [(score, text) for score, text, _, _, _ in top_k]
+
+        # Track which items were selected for cache update
+        for new_h, (_, _, src_tuple_idx, word, prev_text) in enumerate(top_k):
+            all_cache_updates.append((b, k, new_h, src_tuple_idx, word, prev_text))
+
+        # Compute updated beam score
         old_best_lm_score = context_text_tuples[0][0] if context_text_tuples else 0.0
         new_best_lm_score = new_tuples[0][0]
         acoustic_score = base_score - old_best_lm_score
         new_score = acoustic_score + new_best_lm_score
 
-        # Collect updates for batched assignment
         update_batch_indices.append(b)
         update_beam_indices.append(k)
         update_scores.append(new_score)
         update_context_texts.append((b, k, new_tuples))
         update_hashes.append((b, k, hash(new_tuples[0][1])))
-        update_kv_caches.append((b, k, new_caches))
-        update_last_logprobs.append((b, k, new_logprobs_list))
 
-    # Batched score update using tensor indexing
+    # --- PHASE 4: Update caches for selected items only ---
+    if all_cache_updates:
+        src_indices = []
+        dst_indices = []
+        words = []
+        contexts = []
+
+        for b, k, new_h, src_tuple_idx, word, prev_text in all_cache_updates:
+            src_indices.append(cache_mgr.flat_index(b, k, src_tuple_idx))
+            dst_indices.append(cache_mgr.flat_index(b, k, new_h))
+            words.append(word)
+            contexts.append(prev_text)
+
+        src_tensor = torch.tensor(src_indices, device=device, dtype=torch.long)
+        dst_tensor = torch.tensor(dst_indices, device=device, dtype=torch.long)
+        lm_fusion.update_caches_for_selected(src_tensor, dst_tensor, words, contexts, batch_size=512)
+
+    # Apply updates to beam_hyps
     if update_batch_indices:
         beam_hyps.scores[update_batch_indices, update_beam_indices] = torch.tensor(
             update_scores, device=beam_hyps.scores.device, dtype=beam_hyps.scores.dtype
         )
 
-    # Apply context_texts, hash, and cache updates
     for b, k, new_tuples in update_context_texts:
         beam_hyps.context_texts[b][k] = new_tuples
 
     for b, k, hash_value in update_hashes:
         beam_hyps.context_texts_hash[b][k] = hash_value
 
-    for b, k, new_caches in update_kv_caches:
-        # Delete old caches to free GPU memory
-        old_caches = beam_hyps.lm_kv_caches[b][k]
-        for old_cache in old_caches:
-            del old_cache
-        beam_hyps.lm_kv_caches[b][k] = new_caches
 
-    for b, k, new_logprobs_list in update_last_logprobs:
-        # Delete old logprobs to free GPU memory
-        old_logprobs = beam_hyps.lm_last_logprobs[b][k]
-        for old_lp in old_logprobs:
-            del old_lp
-        beam_hyps.lm_last_logprobs[b][k] = new_logprobs_list
+def _apply_lm_fusion_legacy(
+    lm_fusion: NeuralLanguageModelFusion,
+    beam_hyps: 'BatchedBeamHyps',
+    to_score: list,
+    num_homophone_beams: int,
+    homophone_prune_threshold: float | None,
+) -> None:
+    """
+    Legacy path: Per-beam scoring without cache manager.
+
+    Falls back to score_continuations for simple batched scoring.
+    """
+    # Collect all (context, candidates) across all beams for batched scoring
+    flat_contexts = []
+    flat_candidates = []
+    flat_mapping = []  # (to_score_idx, tuple_idx, prev_lm_score)
+
+    for to_score_idx, (b, k, context_text_tuples, candidate_words) in enumerate(to_score):
+        for tuple_idx, (prev_lm_score, prev_text) in enumerate(context_text_tuples):
+            flat_contexts.append(prev_text)
+            flat_candidates.append(candidate_words)
+            flat_mapping.append((to_score_idx, tuple_idx, prev_lm_score))
+
+    # Single batched LM call
+    all_scores = lm_fusion.score_continuations(flat_contexts, flat_candidates)
+
+    # Organize results by beam
+    scores_by_beam = {}
+    for flat_idx, (to_score_idx, tuple_idx, prev_lm_score) in enumerate(flat_mapping):
+        b, k, context_text_tuples, candidate_words = to_score[to_score_idx]
+        prev_text = context_text_tuples[tuple_idx][1]
+        word_scores = all_scores[flat_idx]
+
+        if to_score_idx not in scores_by_beam:
+            scores_by_beam[to_score_idx] = []
+
+        for word, word_score in zip(candidate_words, word_scores):
+            total_score = prev_lm_score + word_score
+            new_text = f"{prev_text} {word}".strip()
+            scores_by_beam[to_score_idx].append((total_score, new_text))
+
+    # Collect updates
+    update_batch_indices = []
+    update_beam_indices = []
+    update_scores = []
+    update_context_texts = []
+    update_hashes = []
+
+    for to_score_idx, (b, k, context_text_tuples, candidate_words) in enumerate(to_score):
+        base_score = beam_hyps.scores[b, k].item()
+        candidates = scores_by_beam.get(to_score_idx, [])
+
+        # Deduplicate
+        lowercase_to_best = {}
+        for total_score, text in candidates:
+            text_lower = text.lower()
+            if text_lower not in lowercase_to_best or total_score > lowercase_to_best[text_lower][0]:
+                lowercase_to_best[text_lower] = (total_score, text)
+        candidates = list(lowercase_to_best.values())
+
+        # Sort and prune
+        candidates.sort(key=lambda x: x[0], reverse=True)
+        if homophone_prune_threshold is not None and candidates:
+            best = candidates[0][0]
+            candidates = [c for c in candidates if best - c[0] <= homophone_prune_threshold]
+
+        top_k = candidates[:num_homophone_beams]
+        if not top_k:
+            continue
+
+        new_tuples = [(score, text) for score, text in top_k]
+
+        old_best_lm_score = context_text_tuples[0][0] if context_text_tuples else 0.0
+        new_best_lm_score = new_tuples[0][0]
+        acoustic_score = base_score - old_best_lm_score
+        new_score = acoustic_score + new_best_lm_score
+
+        update_batch_indices.append(b)
+        update_beam_indices.append(k)
+        update_scores.append(new_score)
+        update_context_texts.append((b, k, new_tuples))
+        update_hashes.append((b, k, hash(new_tuples[0][1])))
+
+    # Apply updates
+    if update_batch_indices:
+        beam_hyps.scores[update_batch_indices, update_beam_indices] = torch.tensor(
+            update_scores, device=beam_hyps.scores.device, dtype=beam_hyps.scores.dtype
+        )
+
+    for b, k, new_tuples in update_context_texts:
+        beam_hyps.context_texts[b][k] = new_tuples
+
+    for b, k, hash_value in update_hashes:
+        beam_hyps.context_texts_hash[b][k] = hash_value
 
 
 def apply_lm_end_of_sentence_with_incomplete_word(

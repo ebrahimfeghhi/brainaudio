@@ -148,16 +148,34 @@ class BatchedBeamHyps:
         # Hash is computed from only the best text (index 0) for beam recombination
         self.context_texts_hash = [[0 for _ in range(self.beam_size)] for _ in range(self.batch_size)]
 
-        # LM KV caches for incremental decoding - parallel to context_texts
-        # lm_kv_caches[b][k] = [cache_0, cache_1, ...] one per homophone interpretation
-        # Each cache is a HuggingFace DynamicCache or None (if not yet initialized)
-        # Caches are immutable between word boundaries - only replaced during LM scoring
-        self.lm_kv_caches = [[[None] for _ in range(self.beam_size)] for _ in range(self.batch_size)]
+        # === Batched LM KV Cache Storage ===
+        # Designed for efficient batched scoring across all beams
+        #
+        # Cache storage: List of tensors, one per layer (allocated lazily)
+        # Each tensor shape: [2, total_slots, num_heads, max_cache_len, head_dim]
+        # where total_slots = batch_size * beam_size * num_homophone_beams
+        # The "2" dimension is for key (0) and value (1)
+        self.lm_kv_cache_storage = None  # Allocated on first use
 
-        # Last token log probabilities for O(1) first-token scoring - parallel to context_texts
-        # lm_last_logprobs[b][k] = [logprobs_0, logprobs_1, ...] one per homophone
-        # Each logprobs is a [vocab_size] tensor or None (if not yet initialized)
-        self.lm_last_logprobs = [[[None] for _ in range(self.beam_size)] for _ in range(self.batch_size)]
+        # Last logprobs storage (allocated lazily)
+        # Shape: [total_slots, vocab_size]
+        self.lm_last_logprobs_storage = None
+
+        # Cache sequence lengths for each slot
+        # Shape: [batch_size, beam_size, num_homophone_beams]
+        self.lm_cache_lengths = torch.zeros(
+            (batch_size, beam_size, num_homophone_beams), device=device, dtype=torch.long
+        )
+
+        # Configuration for cache storage
+        self.max_cache_len = 256
+        self.lm_num_layers = None  # Set on first cache write
+        self.lm_num_heads = None
+        self.lm_head_dim = None
+        self.lm_vocab_size = None
+
+        # Precompute total slots for indexing
+        self.total_cache_slots = batch_size * beam_size * num_homophone_beams
 
         # Initializing tree structure for hypothesis storing
         self.transcript_wb = torch.full(
