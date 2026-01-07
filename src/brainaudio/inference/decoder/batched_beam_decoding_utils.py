@@ -334,21 +334,38 @@ class BatchedBeamHyps:
         self.context_texts_hash = new_context_texts_hash
 
         if getattr(self, "kv_cache", None) is not None:
-            # 1. Calculate Global Indices
-            # DynamicCache operates on the flattened Batch dimension (Dim 0).
-            # We must convert local beam indices (0..K-1) to global indices (0..B*K-1).
+            # 1. Calculate Base Indices for the "Best" Homophones (Slab 0)
             B, K = next_indices.shape
             
-            # offsets: [[0], [K], [2K]...]
-            offsets = (torch.arange(B, device=next_indices.device) * K).view(-1, 1)
+            # Create offsets to handle batching: [[0], [K], [2K]...]
+            batch_offsets = (torch.arange(B, device=next_indices.device) * K).view(-1, 1)
             
-            # global_indices: [Batch * Beam]
-            global_indices = (next_indices + offsets).view(-1)
+            # Flatten to [Batch * Beam] (e.g. indices 0 to 39)
+            base_indices = (next_indices + batch_offsets).view(-1)
 
-            # 2. Reorder
-            # This calls the optimized method inside the Llama 3.2 object
+            # 2. Create Global Indices for ALL Homophone Slabs
+            # We apply the same shuffle permutation to every "Slab" of the cache.
+            # Slab 0 = Best Homophone, Slab 1 = 2nd Best, etc.
+            all_indices_list = []
+            beam_capacity = B * K  # The size of one slab
+            
+            for h in range(self.num_homophone_beams):
+                # Calculate the start index for this slab (e.g., 0, 40, 80)
+                slab_offset = h * beam_capacity
+                
+                # Apply the base shuffle + the slab offset
+                # If Beam 5 moves to Beam 0, then Beam 5+40 moves to Beam 0+40
+                slab_indices = base_indices + slab_offset
+                all_indices_list.append(slab_indices)
+            
+            # 3. Concatenate into one massive index list
+            # Shape: [B * K * Num_Homophones]
+            global_indices = torch.cat(all_indices_list)
+
+            # 4. Reorder the Cache
+            # Calls TensorKVCache.reorder_cache (which moves data to the top without shrinking)
             self.kv_cache.reorder_cache(global_indices)
-        
+            
         is_extended = next_labels >= 0
         extended_with_blank = next_labels == self.blank_index
         extended_with_label = (is_extended) & (~extended_with_blank)

@@ -1,11 +1,12 @@
 import time
 import torch
-from transformers import AutoModelForCausalLM
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 # --- Configuration ---
-# The base (non-instruct) version of Llama 3.2 3B
-MODEL_ID = "meta-llama/Llama-3.2-1B"
-BATCH_SIZE = 1000
+# COMPARISON: Using Mamba2-2.7B (closest size to Llama 3.2 3B)
+# You could also use "mistralai/Mamba-Codestral-7B-v0.1"
+MODEL_ID ="state-spaces/mamba-2.8b-hf" 
+BATCH_SIZE = 500
 SEQ_LENGTH = 100
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -21,16 +22,16 @@ def run_benchmark():
     print(f"--- Loading Model: {MODEL_ID} ---")
     
     # 1. Load Model
+    # Mamba 2 loads via AutoModelForCausalLM just like Llama
     try:
         model = AutoModelForCausalLM.from_pretrained(
             MODEL_ID, 
             torch_dtype=torch.float16,
             device_map=DEVICE,
-            attn_implementation="sdpa" # Use Scaled Dot Product Attention (Fastest)
+            trust_remote_code=True # Often needed for newer Mamba2 implementations
         )
-    except OSError:
-        print(f"Error: Could not load {MODEL_ID}.")
-        print("Please ensure you have accepted the license on Hugging Face and ran 'huggingface-cli login'.")
+    except Exception as e:
+        print(f"Error loading {MODEL_ID}: {e}")
         return
 
     model.eval()
@@ -44,40 +45,35 @@ def run_benchmark():
     input_ids = torch.randint(0, vocab_size, (BATCH_SIZE, SEQ_LENGTH)).to(DEVICE)
 
     # Warmup
-    # We run a tiny forward pass to wake up the CUDA kernels
     print("Warming up CUDA kernels...")
     with torch.no_grad():
         _ = model(input_ids[:, 0:1], use_cache=True)
     torch.cuda.synchronize()
     
-    # Reset peak stats to capture only the INFERENCE/SCORING phase
     torch.cuda.reset_peak_memory_stats()
     
-    print("Starting Sequential Scoring (KV Cache enabled)...")
+    print("Starting Sequential Scoring (SSM State enabled)...")
     start_time = time.time()
     
-    # 'past_key_values' is the Transformer equivalent of an RNN state
-    # However, unlike RWKV, this 'state' GROWS with every token.
+    # In Mamba, 'past_key_values' holds the RNN-like state (SSM state).
+    # CRITICAL DIFFERENCE: This object does NOT grow. It stays fixed size.
     past_key_values = None
     
     with torch.no_grad():
         for t in range(SEQ_LENGTH):
-            # Select current token for all 500 sentences [Batch, 1]
+            # Select current token
             current_input = input_ids[:, t].unsqueeze(1)
             
-            # Forward Pass
+            # Forward Pass - API is identical to Transformer
             outputs = model(
                 input_ids=current_input, 
                 past_key_values=past_key_values, 
                 use_cache=True
             )
             
-            # Update the KV Cache for the next step
+            # Pass the state to the next step
             past_key_values = outputs.past_key_values
             
-            # (Optional) access logits to ensure computation happens
-            _ = outputs.logits
-
     torch.cuda.synchronize()
     end_time = time.time()
     
@@ -92,7 +88,8 @@ def run_benchmark():
     print(f"-----------------------------")
     print(f"Static Model VRAM: {static_mem:.2f} GB")
     print(f"Peak VRAM Usage:   {peak_mem:.2f} GB")
-    print(f"Memory Growth:     {peak_mem - static_mem:.2f} GB (Weights vs Peak)")
+    print(f"Memory Growth:     {peak_mem - static_mem:.2f} GB") 
+    print(f"                   (Expect ~0.00 GB growth for Mamba)")
 
 if __name__ == "__main__":
     run_benchmark()

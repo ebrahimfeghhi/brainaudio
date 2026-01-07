@@ -32,11 +32,22 @@ class TensorKVCache:
         self.max_len = data.shape[4] 
 
     def reorder_cache(self, global_indices: torch.Tensor):
-        """Standard reordering for beam selection step."""
+        """
+        Moves the survivors to the top of the buffer, preserving total capacity.
+        """
         if global_indices.device != self.data.device:
             global_indices = global_indices.to(self.data.device)
-        self.data = self.data.index_select(0, global_indices)
-
+            
+        # 1. Select survivors (Shape: [K, Layers, ...])
+        survivors = self.data.index_select(0, global_indices)
+        
+        # 2. Write them to the START of the static buffer
+        # We overwrite slots 0..K with the survivors.
+        # The rest of the buffer (K..Total) becomes "scratch space" for the next step.
+        num_survivors = survivors.shape[0]
+        self.data[:num_survivors] = survivors
+        
+        # Note: We do NOT do self.data = survivors, because that would shrink the tensor.
     # --- NEW METHOD 1: EXTRACT ---
     def get_subset_for_model(self, global_indices: torch.Tensor, current_seq_len: int):
         """
@@ -653,8 +664,6 @@ def apply_lm_fusion_post_selection(
 
         # Update hash based on best text (index 0)
         beam_hyps.context_texts_hash[b][k] = hash(new_tuples[0][1])
-
-
 
 def apply_lm_end_of_sentence_with_incomplete_word(
     lm_fusion: NeuralLanguageModelFusion | None,

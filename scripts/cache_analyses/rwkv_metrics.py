@@ -3,8 +3,8 @@ import torch
 from transformers import AutoModelForCausalLM
 
 # --- Configuration ---
-MODEL_ID = "fla-hub/rwkv7-2.9B-g1"
-BATCH_SIZE = 1000
+MODEL_ID = "fla-hub/rwkv7-0.1B-g1"
+BATCH_SIZE = 500
 SEQ_LENGTH = 100
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -23,7 +23,7 @@ def run_benchmark():
     model = AutoModelForCausalLM.from_pretrained(
         MODEL_ID, 
         trust_remote_code=True, 
-        torch_dtype=torch.float16,
+        dtype=torch.float16,
         low_cpu_mem_usage=True
     ).to(DEVICE)
     model.eval()

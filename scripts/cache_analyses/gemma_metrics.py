@@ -4,8 +4,8 @@ from transformers import AutoModelForCausalLM
 
 # --- Configuration ---
 # The base (non-instruct) version of Llama 3.2 3B
-MODEL_ID = "meta-llama/Llama-3.2-1B"
-BATCH_SIZE = 1000
+MODEL_ID = "google/gemma-3-270m"
+BATCH_SIZE = 500
 SEQ_LENGTH = 100
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
