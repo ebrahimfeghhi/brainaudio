@@ -92,6 +92,7 @@ class BatchedBeamHyps:
         model_type: Optional[ASRModelTypeEnum | str] = ASRModelTypeEnum.RNNT,
         score_combination: str = "max",
         num_homophone_beams: int = 1,
+        kv_cache: Optional[torch.Tensor] = None
     ):
         """
         Initializes the batched beam hypotheses utility for Transducer decoding (RNN-T and TDT models).
@@ -193,6 +194,11 @@ class BatchedBeamHyps:
             self.next_timestamp = torch.zeros((batch_size, self.beam_size), device=device, dtype=torch.long)
             self.last_timestamp_lasts = torch.zeros((batch_size, self.beam_size), device=device, dtype=torch.long)
 
+
+        # init KV cache
+        self.kv_cache = kv_cache
+
+
     def clear_(self):
         """
         Clears and resets the internal state of the object.
@@ -292,6 +298,8 @@ class BatchedBeamHyps:
         if self.model_type == ASRModelTypeEnum.TDT and next_label_durations is None:
             raise ValueError("`next_label_durations` is required when model type is TDT.")
 
+
+
         last_labels = torch.gather(self.last_label, dim=-1, index=next_indices)
         self.transcript_wb.scatter_(dim=-1, index=self.current_lengths_wb.unsqueeze(-1), src=next_labels.unsqueeze(-1))
         self.transcript_wb_prev_ptr.scatter_(
@@ -324,6 +332,22 @@ class BatchedBeamHyps:
         # 4. Update the class reference
         self.context_texts = new_context_texts
         self.context_texts_hash = new_context_texts_hash
+
+        if getattr(self, "kv_cache", None) is not None:
+            # 1. Calculate Global Indices
+            # DynamicCache operates on the flattened Batch dimension (Dim 0).
+            # We must convert local beam indices (0..K-1) to global indices (0..B*K-1).
+            B, K = next_indices.shape
+            
+            # offsets: [[0], [K], [2K]...]
+            offsets = (torch.arange(B, device=next_indices.device) * K).view(-1, 1)
+            
+            # global_indices: [Batch * Beam]
+            global_indices = (next_indices + offsets).view(-1)
+
+            # 2. Reorder
+            # This calls the optimized method inside the Llama 3.2 object
+            self.kv_cache.reorder_cache(global_indices)
         
         is_extended = next_labels >= 0
         extended_with_blank = next_labels == self.blank_index
@@ -410,14 +434,6 @@ class BatchedBeamHyps:
         # for the last step, only compare transcript hashes. 
         
         hashed_tensor = torch.tensor(self.context_texts_hash, device=self.device)
-        
-        #if is_last_step:
-        #   
-        #    hyps_equal = (
-        #       hashed_tensor[:, :, None] == hashed_tensor[:, None, :]
-        #   )
-        
-        #else: 
                 
         hyps_equal = (
             (self.transcript_hash[:, :, None] == self.transcript_hash[:, None, :])

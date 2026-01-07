@@ -14,6 +14,7 @@
 
 from dataclasses import dataclass, field
 from typing import List, Optional, Union
+from typing import Any
 
 import numpy as np
 import torch
@@ -196,7 +197,8 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         num_homophone_beams: int = 1,
         homophone_prune_threshold: Optional[float] = 10.0,
         fusion_models: Optional[List] = None,
-        fusion_models_alpha: Optional[List[float]] = None,
+        fusion_models_alpha: Optional[List[float]] = None, 
+        kv_cache: Optional[Any] = None
     ):
         """
         Init method.
@@ -253,6 +255,8 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         # Frame-level fusion models (e.g., phoneme n-gram LM)
         self.fusion_models = fusion_models or []
         self.fusion_models_alpha = fusion_models_alpha or [1.0] * len(self.fusion_models)
+
+        self.kv_cache = kv_cache
 
     def force_cuda_graphs_mode(self, mode: Optional[Union[str, CudaGraphsMode]]):
         """
@@ -352,7 +356,8 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             float_dtype=decoder_outputs.dtype,
             model_type='ctc',
             num_homophone_beams=self.num_homophone_beams,
-            score_combination='max'
+            score_combination='max', 
+            kv_cache=self.kv_cache
         )
         
          # init fusion models
@@ -696,140 +701,8 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             )
             
 
-
         return batched_beam_hyps
-    
-    @torch.no_grad()
-    def batched_beam_search_torch_original(
-        self, decoder_outputs: torch.Tensor, decoder_output_lengths: torch.Tensor
-    ) -> BatchedBeamHyps:
-        """
-        Pure PyTorch implementation of the batched beam search algorithm.
-
-        Args:
-            decoder_outputs (torch.Tensor): Tensor of shape [B, T, V+1], where B is the batch size,
-                T is the maximum sequence length, and V is the vocabulary size. The tensor contains log-probabilities.
-            decoder_output_lengths (torch.Tensor): Tensor of shape [B], contains lengths of each sequence in the batch.
-        Returns:
-            A list of NBestHypotheses objects, one for each sequence in the batch.
-        """
-
-        curr_batch_size, curr_max_time, vocab_size = decoder_outputs.shape
-
-        vocab = torch.arange(vocab_size, device=decoder_outputs.device, dtype=torch.long)
-        vocab_blank_mask = vocab == self._blank_index
-
-        batched_beam_hyps = BatchedBeamHyps(
-            batch_size=curr_batch_size,
-            beam_size=self.beam_size,
-            blank_index=self._blank_index,
-            init_length=curr_max_time + 1,
-            device=decoder_outputs.device,
-            float_dtype=decoder_outputs.dtype,
-            model_type='ctc',
-        )
-
-        # init fusion models
-        if self.fusion_models is not None:
-            fusion_states_list = []
-            fusion_states_candidates_list = []
-            for fusion_model in self.fusion_models:
-                fusion_model.to(decoder_outputs.device)
-                fusion_states_list.append(
-                    fusion_model.get_init_states(batch_size=curr_batch_size * self.beam_size, bos=True)
-                )
-                fusion_states_candidates_list.append(None)
-
-        for frame_idx in range(curr_max_time):
-            active_mask = frame_idx < decoder_output_lengths.unsqueeze(1)
-            repeated_mask = batched_beam_hyps.last_label[:, :, None] == vocab[None, None, :]
-            repeated_or_blank_mask = repeated_mask | vocab_blank_mask[None, None, :]
-
-            # step 2.1: getting the log probs and updating with fusion scores
-            log_probs = decoder_outputs[:, frame_idx, :].unsqueeze(1).repeat(1, self.beam_size, 1)
-            log_probs += batched_beam_hyps.scores.unsqueeze(-1)
-
-        
-            log_probs = torch.where(repeated_or_blank_mask, log_probs, log_probs + self.beam_beta)
-
-            if self.fusion_models is not None:
-                for fusion_idx, fusion_model in enumerate(self.fusion_models):
-                    fusion_scores, fusion_states_candidates = fusion_model.advance(
-                        states=fusion_states_list[fusion_idx].view(-1)
-                    )
-                    fusion_scores = torch.where(
-                        repeated_mask[..., :-1], 0, fusion_scores.view(curr_batch_size, self.beam_size, -1)
-                    )
-                    log_probs[..., :-1] += self.fusion_models_alpha[fusion_idx] * fusion_scores.view(
-                        curr_batch_size, self.beam_size, -1
-                    )
-                    fusion_states_candidates_list[fusion_idx] = fusion_states_candidates
-
-            # step 2.3: getting `beam_size` best candidates
-            next_scores, next_candidates_indices = torch.topk(
-                log_probs.view(curr_batch_size, -1), k=self.beam_size, largest=True, sorted=True
-            )
-            next_indices = next_candidates_indices // vocab_size
-            next_labels = next_candidates_indices % vocab_size
-
-            # step 2.3: pruning candidates with threshold `beam_threshold`
-            batch_next_scores = next_scores.view(curr_batch_size, -1)
-            max_next_score = batch_next_scores.max(dim=-1, keepdim=True).values
-            batch_next_scores.masked_fill_(batch_next_scores <= max_next_score - self.beam_threshold, INACTIVE_SCORE)
-            next_scores.view(curr_batch_size, self.beam_size, -1)
-
-            # step 2.4: preserving updated fusion states
-            if self.fusion_models is not None:
-                last_labels = torch.gather(batched_beam_hyps.last_label, dim=-1, index=next_indices)
-                blank_mask = next_labels == self._blank_index
-                repeating_mask = next_labels == last_labels
-                preserve_state_mask = repeating_mask | blank_mask | ~active_mask
-
-                # step 2.4.1: masking blanks and inactive labels to pass to fusion models, as fusion models do not support blanks
-                next_labels_masked = torch.where(blank_mask, 0, next_labels)
-
-                # step 2.4.2: gathering fusion states of extended hypotheses
-                # batch_fusion_states: [(BxBeam)]
-                # batch_fusion_states_candidates: [(BxBeam) x V (without blank)]
-
-                for fusion_idx, fusion_model in enumerate(self.fusion_models):
-                    next_indices_extended = next_indices[:, :, None].expand(
-                        curr_batch_size, self.beam_size, fusion_states_candidates_list[fusion_idx].shape[-1]
-                    )
-                    fusion_states_candidates = fusion_states_candidates_list[fusion_idx].view(
-                        curr_batch_size, self.beam_size, -1
-                    )
-                    fusion_states_candidates = torch.gather(
-                        fusion_states_candidates, dim=1, index=next_indices_extended
-                    )
-                    fusion_states_prev = torch.gather(
-                        fusion_states_list[fusion_idx].view(curr_batch_size, self.beam_size), dim=1, index=next_indices
-                    )
-                    fusion_states = torch.gather(
-                        fusion_states_candidates, dim=-1, index=next_labels_masked.unsqueeze(-1)
-                    ).squeeze(-1)
-
-                    fusion_states_list[fusion_idx] = torch.where(
-                        preserve_state_mask, fusion_states_prev, fusion_states
-                    ).view(-1)
-
-            # step 2.5: masking inactive hypotheses, updating + recombining batched beam hypoteses
-            next_labels = torch.where(active_mask, next_labels, NON_EXISTENT_LABEL_VALUE)
-            batched_beam_hyps.add_results_(next_indices, next_labels, next_scores)
-            batched_beam_hyps.recombine_hyps_()
-
-        # step 3: updating fusoin scores with eos scores
-        if self.fusion_models is not None:
-            for fusion_idx, fusion_model in enumerate(self.fusion_models):
-                # only GPUBoostingTreeModel does not support eos scores for CTC models by default
-                if not isinstance(fusion_model, GPUBoostingTreeModel):
-                    eos_score = fusion_model.get_final(fusion_states_list[fusion_idx]).view(
-                        batched_beam_hyps.scores.shape
-                    )
-                    batched_beam_hyps.scores += eos_score * self.fusion_models_alpha[fusion_idx]
-
-        return batched_beam_hyps
-    
+   
     
     def batched_beam_search_cuda_graphs(
         self,

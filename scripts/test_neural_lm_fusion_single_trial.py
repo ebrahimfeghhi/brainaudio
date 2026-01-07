@@ -57,7 +57,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--hf-token", default=None, help="Optional HF token")
     parser.add_argument("--lm-weight", type=float, default=0.8, help="Neural LM fusion weight")
     parser.add_argument("--word-insertion-bonus", type=float, default=1.5, help="Bonus at boundaries")
-    parser.add_argument("--max-context-length", type=int, default=512, help="Token budget")
+    parser.add_argument("--max-context-length", type=int, default=50, help="Token budget")
     parser.add_argument("--device", default="cuda:0", help="Torch device")
     parser.add_argument("--logits", type=Path, default=None, help="NPZ logits file (default: derived from encoder-model-name)")
     parser.add_argument("--tokens", type=Path, default=Path(DEFAULT_TOKENS), help="units file")
@@ -87,9 +87,9 @@ def parse_args() -> argparse.Namespace:
         help="Load model in 4-bit quantization (requires bitsandbytes)"
     )
     parser.add_argument(
-        "--no-phoneme-lm",
+        "--use-phoneme-lm",
         action="store_true",
-        help="Disable phoneme-level n-gram LM for frame-level scoring (default: enabled with dummy unigram LM)"
+        help="Enable phoneme-level n-gram LM for frame-level scoring (default: disabled)"
     )
     parser.add_argument(
         "--phoneme-lm-path",
@@ -213,10 +213,17 @@ def main():
         word_insertion_bonus=args.word_insertion_bonus,
     )
 
-    # Create phoneme-level n-gram LM if enabled (default: enabled with 6-gram LM)
+    kv_cache = lm_fusion.create_empty_kv_cache(
+        batch_size=1, 
+        beam_size=args.beam_size, 
+        num_homophone_beams=args.num_homophone_beams,
+        max_length=args.max_context_length
+    )
+
+    # Create phoneme-level n-gram LM if enabled (default: disabled)
     fusion_models = []
     fusion_models_alpha = []
-    if not args.no_phoneme_lm:
+    if args.use_phoneme_lm:
         # Phoneme LM vocab size = 40 (39 phonemes + SIL, no blank)
         # CTC decoder handles mapping: CTC index i -> LM index i-1
         PHONEME_LM_VOCAB_SIZE = 40
@@ -252,7 +259,8 @@ def main():
         beam_beta=args.beam_beta,
         beam_blank_penalty=args.beam_blank_penalty,
         fusion_models=fusion_models if fusion_models else None,
-        fusion_models_alpha=fusion_models_alpha if fusion_models_alpha else None,
+        fusion_models_alpha=fusion_models_alpha if fusion_models_alpha else None, 
+        kv_cache=kv_cache
     )
 
     transcripts = None
