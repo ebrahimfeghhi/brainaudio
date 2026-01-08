@@ -52,8 +52,8 @@ def parse_args() -> argparse.Namespace:
                         help="Start index (inclusive). Use with --end-trial-idx for a range.")
     parser.add_argument("--end-trial-idx", type=int, default=None,
                         help="End index (exclusive). Use with --start-trial-idx for a range.")
-    parser.add_argument("--beam-size", type=int, default=40, help="CTC beam size")
-    parser.add_argument("--model", default="meta-llama/Llama-3.2-1B", help="HF causal LM checkpoint")
+    parser.add_argument("--beam-size", type=int, default=400, help="CTC beam size")
+    parser.add_argument("--model", default="HuggingFaceTB/SmolLM2-135M", help="HF causal LM checkpoint") # meta-llama/Llama-3.2-1B
     parser.add_argument("--hf-token", default=None, help="Optional HF token")
     parser.add_argument("--lm-weight", type=float, default=0.8, help="Neural LM fusion weight")
     parser.add_argument("--word-insertion-bonus", type=float, default=1.5, help="Bonus at boundaries")
@@ -175,7 +175,7 @@ def main():
         device=device,
     )
     
-    tokenizer = AutoTokenizer.from_pretrained(args.model, token=args.hf_token)
+    tokenizer = AutoTokenizer.from_pretrained(args.model, token=args.hf_token, trust_remote_code=True)
 
     if args.load_in_4bit:
         # 4-bit quantization: device must be set via device_map at load time
@@ -198,8 +198,9 @@ def main():
         # Standard loading: load then move to device
         model = AutoModelForCausalLM.from_pretrained(
             args.model,
-            dtype=torch.float16,
+            dtype=torch.bfloat16,
             token=args.hf_token,
+            trust_remote_code=True
         ).to(device)
         print(f"[INFO] Loaded {args.model} (full precision) on {device}")
 

@@ -421,6 +421,7 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
 
                 flat_texts.append(full_text)
                 candidate_start_indices.append(start_idx)
+                
 
         if not flat_texts:
             return []
@@ -450,7 +451,7 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
 
             # Forward pass for this chunk
             self.llm_call_count += 1
-            outputs = self.model(input_ids, attention_mask=attention_mask)
+            outputs = self.model(input_ids, attention_mask=attention_mask, use_cache=True)
 
             # Shift and Gather
             shift_logits = outputs.logits[..., :-1, :].contiguous()
@@ -507,6 +508,10 @@ def apply_lm_fusion_post_selection(
     frame_idx: Optional[int] = None
 ) -> None:
     
+    def gather_cache_indices(cache, indices):
+        # Implementation depends on cache structure (e.g. tuple of tensors)
+        # This is a placeholder for the logic: new_cache = cache[indices]
+        return lm_fusion.gather_cache(cache, indices)
    
     from .beam_helpers import (
         materialize_beam_transcripts_batched,
@@ -559,7 +564,6 @@ def apply_lm_fusion_post_selection(
 
         # Get the list of text interpretations for this beam
         # context_text_tuples: List[Tuple[float, str]] where each tuple is (lm_score, text)
-        # and the number of tuples = num_homophone_beams
         context_text_tuples = beam_hyps.context_texts[b][k]
 
         # Get base homophones from lexicon
@@ -574,6 +578,7 @@ def apply_lm_fusion_post_selection(
         candidate_words = list(dict.fromkeys(candidate_words))
 
         to_score.append((b, k, context_text_tuples, candidate_words))
+
 
     if not to_score:
         return
@@ -590,15 +595,36 @@ def apply_lm_fusion_post_selection(
     flat_contexts = []
     flat_candidates = []
     beam_mapping = []  # Maps flat index -> (batch_idx, beam_idx, tuple_idx)
+    cache_gather_indices = []
 
     for (b, k, context_text_tuples, candidate_words) in to_score:
+        # loop through available homophone texts for a given beam
         for tuple_idx, (lm_score, text) in enumerate(context_text_tuples):
             flat_contexts.append(text)
             flat_candidates.append(candidate_words)
             beam_mapping.append((b, k, tuple_idx))
+            
+            # --- INDEX CALCULATION ---
+            # 1. Batch Offset: Jump over previous batches
+            b_offset = b * batch_size
+            
+            # 2. Homophone Rank Offset: Jump 'beam_size' for every rank (tuple_idx)
+            #    Rank 0 = +0
+            #    Rank 1 = +Beam_Size
+            h_offset = tuple_idx * beam_size
+            
+            # 3. Beam Offset: The specific beam index
+            k_offset = k
+            
+            flat_idx = b_offset + h_offset + k_offset
+            cache_gather_indices.append(flat_idx)
+
+
+    expanded_cache = gather_cache_indices(beam_hyps.kv_cache, cache_gather_indices)
 
     # Single batched LM call - scores all contexts against their candidate words
     all_lm_scores = lm_fusion.score_continuations(flat_contexts, flat_candidates)
+
 
     # Reorganize results back by (b, k) for easy lookup
     # scores_by_beam[(b, k)][tuple_idx] = list of scores for each candidate word
