@@ -197,8 +197,9 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         num_homophone_beams: int = 1,
         homophone_prune_threshold: Optional[float] = 10.0,
         fusion_models: Optional[List] = None,
-        fusion_models_alpha: Optional[List[float]] = None, 
-        kv_cache: Optional[Any] = None
+        fusion_models_alpha: Optional[List[float]] = None,
+        cached_state: Optional[List] = None,
+        cached_logits: Optional[torch.Tensor] = None,
     ):
         """
         Init method.
@@ -218,6 +219,10 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             num_homophone_beams: number of text interpretations (homophones) to track per beam. Defaults to 1.
             homophone_prune_threshold: if set, prune homophone candidates whose LM score is more than this
                 many log-prob points below the best candidate. Defaults to 10.0. Set to None to disable.
+            cached_state: optional pre-computed LM state (e.g., RWKV state after BOS token).
+                Should be expanded for batch_size * beam_size * num_homophone_beams.
+            cached_logits: optional pre-computed LM logits (e.g., logits after BOS token).
+                Shape: [batch_size * beam_size * num_homophone_beams, vocab_size].
         """
 
         super().__init__()
@@ -256,7 +261,9 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         self.fusion_models = fusion_models or []
         self.fusion_models_alpha = fusion_models_alpha or [1.0] * len(self.fusion_models)
 
-        self.kv_cache = kv_cache
+        # Pre-computed LM state and logits (e.g., from RWKV after BOS token)
+        self.cached_state = cached_state
+        self.cached_logits = cached_logits
 
     def force_cuda_graphs_mode(self, mode: Optional[Union[str, CudaGraphsMode]]):
         """
@@ -356,8 +363,9 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             float_dtype=decoder_outputs.dtype,
             model_type='ctc',
             num_homophone_beams=self.num_homophone_beams,
-            score_combination='max', 
-            kv_cache=self.kv_cache
+            score_combination='max',
+            cached_state=self.cached_state,
+            cached_logits=self.cached_logits,
         )
         
          # init fusion models
@@ -662,7 +670,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             # Apply LM fusion post-selection (after pruning and recombination)
             if self.lm_fusion is not None and self.lexicon is not None:
 
-                from .neural_lm_fusion import apply_lm_fusion_post_selection
+                from .neural_lm_fusion_kv import apply_lm_fusion_post_selection
 
                 boundary_token = getattr(self.lexicon, "word_boundary_token", None)
 

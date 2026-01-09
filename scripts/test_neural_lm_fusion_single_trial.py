@@ -18,13 +18,14 @@ from brainaudio.inference.decoder import (
     VectorizedLexiconConstraint,
     HuggingFaceLMFusion,
 )
+from brainaudio.inference.decoder.neural_lm_fusion_kv import get_initial_rwkv_state
 from brainaudio.inference.decoder.ngram_lm import NGramGPULanguageModel
 from brainaudio.inference.decoder.beam_helpers import (
     decode_beam_texts,
     load_log_probs,
     load_phoneme_to_word_mapping,
     load_token_to_phoneme_mapping,
-    pick_device,
+    pick_device
 )
 
 """
@@ -53,7 +54,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--end-trial-idx", type=int, default=None,
                         help="End index (exclusive). Use with --start-trial-idx for a range.")
     parser.add_argument("--beam-size", type=int, default=400, help="CTC beam size")
-    parser.add_argument("--model", default="HuggingFaceTB/SmolLM2-135M", help="HF causal LM checkpoint") # meta-llama/Llama-3.2-1B
+    parser.add_argument("--model", default="fla-hub/rwkv7-0.1B-g1", help="HF causal LM checkpoint") # meta-llama/Llama-3.2-1B
     parser.add_argument("--hf-token", default=None, help="Optional HF token")
     parser.add_argument("--lm-weight", type=float, default=0.8, help="Neural LM fusion weight")
     parser.add_argument("--word-insertion-bonus", type=float, default=1.5, help="Bonus at boundaries")
@@ -204,6 +205,21 @@ def main():
         ).to(device)
         print(f"[INFO] Loaded {args.model} (full precision) on {device}")
 
+
+
+    # Get initial RWKV state and logits after BOS token (expanded for beam search)
+    initial_state, initial_logits = get_initial_rwkv_state(
+        model, tokenizer,
+        batch_size=1,
+        beam_size=args.beam_size,
+        num_homophones=args.num_homophone_beams,
+        device=device
+    )
+    print(f"Initial logits shape: {initial_logits.shape}")
+    print(f"Initial state: {len(initial_state)} layers")
+
+    breakpoint()
+
     lm_fusion = HuggingFaceLMFusion(
         model=model,
         tokenizer=tokenizer,
@@ -214,13 +230,7 @@ def main():
         word_insertion_bonus=args.word_insertion_bonus,
     )
 
-    kv_cache = lm_fusion.create_empty_kv_cache(
-        batch_size=1, 
-        beam_size=args.beam_size, 
-        num_homophone_beams=args.num_homophone_beams,
-        max_length=args.max_context_length
-    )
-
+ 
     # Create phoneme-level n-gram LM if enabled (default: disabled)
     fusion_models = []
     fusion_models_alpha = []
@@ -260,8 +270,9 @@ def main():
         beam_beta=args.beam_beta,
         beam_blank_penalty=args.beam_blank_penalty,
         fusion_models=fusion_models if fusion_models else None,
-        fusion_models_alpha=fusion_models_alpha if fusion_models_alpha else None, 
-        kv_cache=kv_cache
+        fusion_models_alpha=fusion_models_alpha if fusion_models_alpha else None,
+        cached_state=initial_state,
+        cached_logits=initial_logits,
     )
 
     transcripts = None

@@ -338,3 +338,5 @@ def log_lm_watchlist_scores(
             pretty = lowered[watch_word]
             ctx = f" context='{context}'" if context else ""
             print(f"[LM watch] word='{pretty}' score={combined_score:.4f}{ctx}")
+
+

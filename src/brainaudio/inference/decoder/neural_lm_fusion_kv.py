@@ -24,6 +24,72 @@ if TYPE_CHECKING:
     from .batched_beam_decoding_utils import BatchedBeamHyps
     from .lexicon_constraint import LexiconConstraint
 
+import torch
+
+
+def get_initial_rwkv_state(
+    model,
+    tokenizer,
+    batch_size: int = 1,
+    beam_size: int = 1,
+    num_homophones: int = 1,
+    device: str = "cuda"
+):
+    """
+    Run a forward pass with BOS token and return the initial RWKV state and logits,
+    expanded for batched beam search.
+
+    Args:
+        model: HuggingFace RWKV model
+        tokenizer: Corresponding tokenizer
+        batch_size: Number of utterances being decoded in parallel
+        beam_size: Number of beams per utterance
+        num_homophones: Number of text interpretations tracked per beam
+        device: Device for tensors
+
+    Returns:
+        Tuple of (state, logits):
+            - state: List of layer state dicts, each tensor expanded to
+                     [total_beams, ...] where total_beams = batch_size * beam_size * num_homophones
+            - logits: Tensor of shape [total_beams, vocab_size] - logits after BOS token
+    """
+    total_beams = batch_size * beam_size * num_homophones
+
+    bos_id = tokenizer.bos_token_id if tokenizer.bos_token_id is not None else tokenizer.eos_token_id
+    bos_tensor = torch.tensor([[bos_id]], device=device)
+
+    with torch.no_grad():
+        outputs = model(bos_tensor, use_cache=True)
+
+    seed_state = outputs.past_key_values
+    seed_logits = outputs.logits[:, -1, :]  # Shape: [1, vocab_size]
+
+    # Expand logits for all beams
+    expanded_logits = seed_logits.expand(total_beams, -1).contiguous()
+
+    # Expand state for all beams
+    # State is a list of layer dicts (or tensors for older RWKV)
+    seed_layers = list(seed_state)
+    expanded_layers = []
+
+    for layer in seed_layers:
+        if isinstance(layer, dict):
+            expanded_layer = {}
+            for key, tensor in layer.items():
+                if tensor is not None:
+                    # Tensor shape is typically [batch, ...], expand batch dim
+                    expanded_layer[key] = tensor.expand(total_beams, *tensor.shape[1:]).contiguous()
+                else:
+                    expanded_layer[key] = None
+            expanded_layers.append(expanded_layer)
+        else:
+            # Tensor mode (older RWKV)
+            if layer is not None:
+                expanded_layers.append(layer.expand(total_beams, *layer.shape[1:]).contiguous())
+            else:
+                expanded_layers.append(None)
+
+    return expanded_layers, expanded_logits
 
 def get_capitalization_variants(word: str) -> List[str]:
     """
@@ -225,6 +291,51 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
         self.model.eval()
 
 
+    def create_empty_kv_cache(
+        self, 
+        batch_size: int, 
+        beam_size: int, 
+        num_homophone_beams: int, 
+        max_length: int = 50
+    ):
+
+        """
+        Creates a pre-allocated KV cache wrapper.
+        """
+        config = self.model.config
+        
+        # Architecture params
+        if hasattr(config, "num_key_value_heads"):
+            num_heads = config.num_key_value_heads
+        else:
+            num_heads = config.num_attention_heads
+            
+        head_dim = config.hidden_size // config.num_attention_heads
+        
+        # Allocating maximum possible capacity
+        total_slots = batch_size * beam_size * num_homophone_beams
+        
+        cache_shape = (
+            total_slots,
+            config.num_hidden_layers,
+            2, # K and V stacked
+            num_heads,
+            max_length,
+            head_dim
+        )
+        
+        print(f"[HuggingFaceLMFusion] Initializing TensorKVCache: {cache_shape} ({self.model.dtype})")
+        
+        # Create raw tensor
+        raw_tensor = torch.zeros(
+            cache_shape, 
+            dtype=self.model.dtype, 
+            device=self.device
+        )
+        
+        # Return the wrapper object
+        return TensorKVCache(raw_tensor)
+
     def reset_call_count(self):
         """Reset the LLM call counter to 0."""
         self.llm_call_count = 0
@@ -270,6 +381,7 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
 
                 flat_texts.append(full_text)
                 candidate_start_indices.append(start_idx)
+                
 
         if not flat_texts:
             return []
@@ -299,7 +411,7 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
 
             # Forward pass for this chunk
             self.llm_call_count += 1
-            outputs = self.model(input_ids, attention_mask=attention_mask)
+            outputs = self.model(input_ids, attention_mask=attention_mask, use_cache=True)
 
             # Shift and Gather
             shift_logits = outputs.logits[..., :-1, :].contiguous()
@@ -356,6 +468,10 @@ def apply_lm_fusion_post_selection(
     frame_idx: Optional[int] = None
 ) -> None:
     
+    def gather_cache_indices(cache, indices):
+        # Implementation depends on cache structure (e.g. tuple of tensors)
+        # This is a placeholder for the logic: new_cache = cache[indices]
+        return lm_fusion.gather_cache(cache, indices)
    
     from .beam_helpers import (
         materialize_beam_transcripts_batched,
@@ -408,7 +524,6 @@ def apply_lm_fusion_post_selection(
 
         # Get the list of text interpretations for this beam
         # context_text_tuples: List[Tuple[float, str]] where each tuple is (lm_score, text)
-        # and the number of tuples = num_homophone_beams
         context_text_tuples = beam_hyps.context_texts[b][k]
 
         # Get base homophones from lexicon
@@ -423,6 +538,7 @@ def apply_lm_fusion_post_selection(
         candidate_words = list(dict.fromkeys(candidate_words))
 
         to_score.append((b, k, context_text_tuples, candidate_words))
+
 
     if not to_score:
         return
@@ -439,15 +555,36 @@ def apply_lm_fusion_post_selection(
     flat_contexts = []
     flat_candidates = []
     beam_mapping = []  # Maps flat index -> (batch_idx, beam_idx, tuple_idx)
+    cache_gather_indices = []
 
     for (b, k, context_text_tuples, candidate_words) in to_score:
+        # loop through available homophone texts for a given beam
         for tuple_idx, (lm_score, text) in enumerate(context_text_tuples):
             flat_contexts.append(text)
             flat_candidates.append(candidate_words)
             beam_mapping.append((b, k, tuple_idx))
+            
+            # --- INDEX CALCULATION ---
+            # 1. Batch Offset: Jump over previous batches
+            b_offset = b * batch_size
+            
+            # 2. Homophone Rank Offset: Jump 'beam_size' for every rank (tuple_idx)
+            #    Rank 0 = +0
+            #    Rank 1 = +Beam_Size
+            h_offset = tuple_idx * beam_size
+            
+            # 3. Beam Offset: The specific beam index
+            k_offset = k
+            
+            flat_idx = b_offset + h_offset + k_offset
+            cache_gather_indices.append(flat_idx)
+
+
+    expanded_cache = gather_cache_indices(beam_hyps.kv_cache, cache_gather_indices)
 
     # Single batched LM call - scores all contexts against their candidate words
     all_lm_scores = lm_fusion.score_continuations(flat_contexts, flat_candidates)
+
 
     # Reorganize results back by (b, k) for easy lookup
     # scores_by_beam[(b, k)][tuple_idx] = list of scores for each candidate word
@@ -513,8 +650,6 @@ def apply_lm_fusion_post_selection(
 
         # Update hash based on best text (index 0)
         beam_hyps.context_texts_hash[b][k] = hash(new_tuples[0][1])
-
-
 
 def apply_lm_end_of_sentence_with_incomplete_word(
     lm_fusion: NeuralLanguageModelFusion | None,

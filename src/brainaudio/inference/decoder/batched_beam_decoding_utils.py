@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Optional
+from typing import List, Optional
 
 import torch
 
@@ -92,7 +92,8 @@ class BatchedBeamHyps:
         model_type: Optional[ASRModelTypeEnum | str] = ASRModelTypeEnum.RNNT,
         score_combination: str = "max",
         num_homophone_beams: int = 1,
-        kv_cache: Optional[torch.Tensor] = None
+        cached_state: Optional[List] = None,
+        cached_logits: Optional[torch.Tensor] = None,
     ):
         """
         Initializes the batched beam hypotheses utility for Transducer decoding (RNN-T and TDT models).
@@ -111,6 +112,10 @@ class BatchedBeamHyps:
             num_homophone_beams (int, optional): Number of text interpretations (homophones) to track per beam.
                 Each beam can maintain K different text sequences to handle homophone ambiguity.
                 Defaults to 1 (single text per beam, original behavior).
+            cached_state (List, optional): Pre-computed LM state (e.g., RWKV state after BOS token).
+                Should be expanded for batch_size * beam_size * num_homophone_beams.
+            cached_logits (torch.Tensor, optional): Pre-computed LM logits (e.g., logits after BOS token).
+                Shape: [batch_size * beam_size * num_homophone_beams, vocab_size].
         """
 
         if beam_size <= 0:
@@ -134,6 +139,11 @@ class BatchedBeamHyps:
         self.blank_index = blank_index
         self.batch_size = batch_size
         self.num_homophone_beams = num_homophone_beams
+
+        # Pre-computed LM state and logits (e.g., from RWKV after BOS token)
+        self.cached_state = cached_state
+        self.cached_logits = cached_logits
+
         self.batch_indices = torch.arange(self.batch_size, device=device)
         self.beam_indices = torch.arange(self.beam_size, device=device)
 
