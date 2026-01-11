@@ -24,112 +24,7 @@ if TYPE_CHECKING:
     from .batched_beam_decoding_utils import BatchedBeamHyps
     from .lexicon_constraint import LexiconConstraint
 
-class TensorKVCache:
 
-    def __init__(self, data: torch.Tensor):
-        # Shape: [Total_Slots, Layers, 2, Heads, Max_Len, Head_Dim]
-        self.data = data
-        self.max_len = data.shape[4] 
-
-    def reorder_cache(self, global_indices: torch.Tensor):
-        """
-        Moves the survivors to the top of the buffer, preserving total capacity.
-        """
-        if global_indices.device != self.data.device:
-            global_indices = global_indices.to(self.data.device)
-            
-        # 1. Select survivors (Shape: [K, Layers, ...])
-        survivors = self.data.index_select(0, global_indices)
-        
-        # 2. Write them to the START of the static buffer
-        # We overwrite slots 0..K with the survivors.
-        # The rest of the buffer (K..Total) becomes "scratch space" for the next step.
-        num_survivors = survivors.shape[0]
-        self.data[:num_survivors] = survivors
-        
-        # Note: We do NOT do self.data = survivors, because that would shrink the tensor.
-    # --- NEW METHOD 1: EXTRACT ---
-    def get_subset_for_model(self, global_indices: torch.Tensor, current_seq_len: int):
-        """
-        Extracts specific beams and converts them to the format Llama expects.
-        
-        Args:
-            global_indices: The indices of the beams (homophones) we want to score.
-            current_seq_len: How many tokens of history to grab.
-        
-        Returns:
-            Tuple[Tuple[K, V]]: The standard input for model(..., past_key_values=...)
-        """
-        if global_indices.device != self.data.device:
-            global_indices = global_indices.to(self.data.device)
-
-        # 1. Select the rows (Beams)
-        # Shape: [Subset_Size, Layers, 2, Heads, Max_Len, Dim]
-        subset_tensor = self.data.index_select(0, global_indices)
-
-        # 2. Slice the Sequence Length (Optimization)
-        # We don't want to feed 50 zeros (padding) to the model.
-        # We only take the valid history.
-        subset_tensor = subset_tensor[..., :current_seq_len, :]
-
-        # 3. Convert to Tuple-of-Tuples for Llama
-        # This is zero-copy in PyTorch (just view slicing)
-        num_layers = subset_tensor.shape[1]
-        layers = []
-        for i in range(num_layers):
-            # subset_tensor[:, i] -> [Subset, 2, Heads, Seq, Dim]
-            k = subset_tensor[:, i, 0] # [Subset, Heads, Seq, Dim]
-            v = subset_tensor[:, i, 1]
-            layers.append((k, v))
-            
-        return tuple(layers)
-
-    # --- NEW METHOD 2: UPDATE ---
-    def update_subset(self, global_indices: torch.Tensor, new_llm_output):
-        """
-        Takes the NEW cache output from the model and splices it back into the global storage.
-        
-        Args:
-            global_indices: The indices where these updated beams belong.
-            new_llm_output: The 'past_key_values' returned by model.forward().
-                            Can be DynamicCache or Tuple[Tuple[Tensor]].
-        """
-        if global_indices.device != self.data.device:
-            global_indices = global_indices.to(self.data.device)
-
-        # We assume new_llm_output is consistent across layers.
-        # We process layer by layer to avoid massive memory copies.
-        
-        # Determine format (DynamicCache vs Tuple)
-        if hasattr(new_llm_output, "key_cache"): # DynamicCache
-            new_layers = zip(new_llm_output.key_cache, new_llm_output.value_cache)
-        else: # Tuple
-            new_layers = new_llm_output
-
-        for layer_idx, (k_new, v_new) in enumerate(new_layers):
-            # k_new shape: [Subset, Heads, New_Seq_Len, Dim]
-            
-            # 1. Get dimensions
-            new_seq_len = k_new.shape[2]
-            
-            # Safety Check: Don't overflow the buffer
-            if new_seq_len > self.max_len:
-                # If we exceed buffer, we truncate the oldest history (rolling buffer)
-                # or just clamp. For ASR, usually we stop decoding before this.
-                k_new = k_new[:, :, -self.max_len:, :]
-                v_new = v_new[:, :, -self.max_len:, :]
-                new_seq_len = self.max_len
-
-            # 2. Stack K and V for insertion
-            # Stack dim 1 -> [Subset, 2, Heads, New_Seq_Len, Dim]
-            combined = torch.stack([k_new, v_new], dim=1)
-
-            # 3. Splice back into global storage
-            # self.data shape: [Total_Slots, Layers, 2, Heads, Max_Len, Dim]
-            # We assign to: [Indices, Layer, :, :, :New_Len, :]
-            
-            # Note: We must explicitly handle the sequence slice assignment
-            self.data[global_indices, layer_idx, :, :, :new_seq_len, :] = combined
 
 def get_capitalization_variants(word: str) -> List[str]:
     """
@@ -328,53 +223,7 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
             current_device = next(self.model.parameters()).device
             if current_device != self.device:
                 self.model.to(self.device)
-        self.model.eval()
-
-
-    def create_empty_kv_cache(
-        self, 
-        batch_size: int, 
-        beam_size: int, 
-        num_homophone_beams: int, 
-        max_length: int = 50
-    ):
-
-        """
-        Creates a pre-allocated KV cache wrapper.
-        """
-        config = self.model.config
-        
-        # Architecture params
-        if hasattr(config, "num_key_value_heads"):
-            num_heads = config.num_key_value_heads
-        else:
-            num_heads = config.num_attention_heads
-            
-        head_dim = config.hidden_size // config.num_attention_heads
-        
-        # Allocating maximum possible capacity
-        total_slots = batch_size * beam_size * num_homophone_beams
-        
-        cache_shape = (
-            total_slots,
-            config.num_hidden_layers,
-            2, # K and V stacked
-            num_heads,
-            max_length,
-            head_dim
-        )
-        
-        print(f"[HuggingFaceLMFusion] Initializing TensorKVCache: {cache_shape} ({self.model.dtype})")
-        
-        # Create raw tensor
-        raw_tensor = torch.zeros(
-            cache_shape, 
-            dtype=self.model.dtype, 
-            device=self.device
-        )
-        
-        # Return the wrapper object
-        return TensorKVCache(raw_tensor)
+        self.model.eval() 
 
     def reset_call_count(self):
         """Reset the LLM call counter to 0."""
@@ -620,7 +469,6 @@ def apply_lm_fusion_post_selection(
             cache_gather_indices.append(flat_idx)
 
 
-    expanded_cache = gather_cache_indices(beam_hyps.kv_cache, cache_gather_indices)
 
     # Single batched LM call - scores all contexts against their candidate words
     all_lm_scores = lm_fusion.score_continuations(flat_contexts, flat_candidates)

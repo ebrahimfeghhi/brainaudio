@@ -15,6 +15,7 @@
 
 """Neural Language Model fusion for CTC beam search decoding."""
 
+import copy
 from abc import ABC, abstractmethod
 from typing import List, Optional, TYPE_CHECKING
 import torch
@@ -111,7 +112,7 @@ def get_capitalization_variants(word: str) -> List[str]:
     return list(variants)
 
 
-class NeuralLanguageModelFusion(ABC):
+class NeuralLanguageModelFusionKV(ABC):
     
     """
     Base class for neural language model fusion during beam search.
@@ -151,35 +152,7 @@ class NeuralLanguageModelFusion(ABC):
         if homophone_aggregation not in ['max', 'logsumexp']:
             raise ValueError(f"homophone_aggregation must be 'max' or 'logsumexp', got {homophone_aggregation}")
     
-    @abstractmethod
-    def score_continuations(
-        self,
-        contexts: List[str],
-        candidate_words: List[List[str]]
-    ) -> List[List[float]]:
-        """
-        Score candidate words given context.
-
-        This is the main method that subclasses must implement. It queries the
-        neural LM to get log-probabilities for each candidate word continuation.
-
-        Args:
-            contexts: List of text contexts (one per beam).
-                     Example: ["I saw my", "picnic with"]
-            candidate_words: List of candidate word lists (one list per beam).
-                           Example: [["aunt", "ant"], ["aunt", "ant"]]
-
-        Returns:
-            scores: List of score lists matching structure of candidate_words.
-                   Each score is a log-probability (negative values, higher is better).
-                   Example: [[-0.3, -4.6], [-1.2, -0.5]] for the inputs above.
-
-        Notes:
-            - Return scores in the same order as candidate_words
-            - Use log-probabilities (not raw probs)
-            - Can return approximate scores (e.g., from sampling) if exact scoring is slow
-        """
-        raise NotImplementedError("Subclasses must implement score_continuations()")
+  
 
     def aggregate_homophone_scores(self, scores: List[float]) -> float:
         """
@@ -216,7 +189,7 @@ class NeuralLanguageModelFusion(ABC):
         self.device = device
         return self
 
-class HuggingFaceLMFusion(NeuralLanguageModelFusion):
+class HuggingFaceLMFusionKV(NeuralLanguageModelFusionKV):
     """
     Neural LM fusion using HuggingFace transformers (GPT-2, LLaMA, etc).
     
@@ -290,52 +263,6 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
                 self.model.to(self.device)
         self.model.eval()
 
-
-    def create_empty_kv_cache(
-        self, 
-        batch_size: int, 
-        beam_size: int, 
-        num_homophone_beams: int, 
-        max_length: int = 50
-    ):
-
-        """
-        Creates a pre-allocated KV cache wrapper.
-        """
-        config = self.model.config
-        
-        # Architecture params
-        if hasattr(config, "num_key_value_heads"):
-            num_heads = config.num_key_value_heads
-        else:
-            num_heads = config.num_attention_heads
-            
-        head_dim = config.hidden_size // config.num_attention_heads
-        
-        # Allocating maximum possible capacity
-        total_slots = batch_size * beam_size * num_homophone_beams
-        
-        cache_shape = (
-            total_slots,
-            config.num_hidden_layers,
-            2, # K and V stacked
-            num_heads,
-            max_length,
-            head_dim
-        )
-        
-        print(f"[HuggingFaceLMFusion] Initializing TensorKVCache: {cache_shape} ({self.model.dtype})")
-        
-        # Create raw tensor
-        raw_tensor = torch.zeros(
-            cache_shape, 
-            dtype=self.model.dtype, 
-            device=self.device
-        )
-        
-        # Return the wrapper object
-        return TensorKVCache(raw_tensor)
-
     def reset_call_count(self):
         """Reset the LLM call counter to 0."""
         self.llm_call_count = 0
@@ -344,120 +271,179 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
         """Get the current LLM call count."""
         return self.llm_call_count
 
-    @torch.no_grad()
-    def score_continuations(self, contexts: List[str], candidate_words: List[List[str]]) -> List[List[float]]:
-
+    def score_and_step_words(self, current_states, prev_logits, words_batch, return_states=True):
         """
-        Score candidate words given contexts using chunked processing to limit memory usage.
+        Score a batch of words using cached state, with PAD masking for RWKV.
 
-        Processes sequences in chunks of size `self.scoring_chunk_size` to prevent
-        OOM errors when scoring many sequences at once.
+        Args:
+            current_states: List of state dicts/tensors
+            prev_logits: Tensor [Batch, Vocab] (Logits from the end of the PREVIOUS word)
+            words_batch: List of strings e.g. [" cat", " a", " to"] (with leading space)
+            return_states: If True, return updated states. If False, return None for states
+                          to save memory when only scores are needed.
+
+        Returns:
+            total_word_scores: [Batch] (Sum of log-probs for the whole word)
+            new_states: Updated states (or None if return_states=False)
+            last_token_logits: [Batch, Vocab] (Logits for the LAST token of this word)
         """
+        batch_size = len(words_batch)
+        device = self.device
+        pad_id = self.tokenizer.pad_token_id
+
+        # 1. Tokenize and Pad
+        # Shape: [Batch, Max_Len]
+        encoded = self.tokenizer(words_batch, padding=True, return_tensors="pt").to(device)
+        input_ids = encoded.input_ids
+        # Mask where 1=Valid, 0=Pad
+        attention_mask = encoded.attention_mask
+        max_len = input_ids.shape[1]
+
+        # Initialize Scores
+        # We will accumulate log_probs here
+        total_word_scores = torch.zeros(batch_size, device=device)
+
+        # We need to track the "active" logits for the NEXT token prediction.
+        # For the first token (t=0), the active logits are 'prev_logits' passed in.
+        active_logits = prev_logits
+
+        # We also need to capture the logits from the *very last* valid token of each word
+        final_next_token_logits = torch.zeros_like(prev_logits)
+
+        # 2. Iterate Token-by-Token
+        for t in range(max_len):
+            # Current token IDs: [Batch, 1]
+            curr_tokens = input_ids[:, t].unsqueeze(1)
+
+            # Check which beams are still processing valid words
+            # Shape: [Batch]
+            is_valid_step = (curr_tokens.squeeze() != pad_id)
+
+            # --- A. SCORING (Business Logic) ---
+            # We calculate P(token | history) using 'active_logits'
+            # active_logits are from step t-1 (or the previous word if t=0)
+            log_probs = torch.log_softmax(active_logits, dim=-1)
+
+            # Gather the log_prob of the specific token we are looking at
+            # torch.gather needs indices of shape [Batch, 1]
+            token_log_probs = torch.gather(log_probs, 1, curr_tokens).squeeze()
+
+            # Only add to the score if this is a valid token (not padding)
+            # We multiply by the mask (0 or 1) to zero out padding scores
+            total_word_scores += (token_log_probs * is_valid_step.float())
+
+            # --- B. PHYSICS (State Update) ---
+            # We use the masking function we wrote earlier
+            # It returns the logits for step t+1
+            if return_states:
+                new_logits, current_states = self.rwkv7_step_with_masking(
+                    curr_tokens, current_states, pad_id
+                )
+            else:
+                # Lightweight forward without state preservation
+                new_logits, _ = self.rwkv7_step_with_masking(
+                    curr_tokens, current_states, pad_id
+                )
+
+            # --- C. SAVE OUTPUTS ---
+            # If this token is the LAST valid token for a beam, we must save 'new_logits'
+            # because those will be the 'prev_logits' for the NEXT word in the beam search.
+
+            # A token is the "last" if:
+            # 1. It is valid AND
+            # 2. (It is the end of the loop OR The next token is a pad)
+            if t == max_len - 1:
+                next_is_pad = torch.ones(batch_size, device=device, dtype=torch.bool) # effectively true
+            else:
+                next_is_pad = (input_ids[:, t+1] == pad_id)
+
+            is_last_token = is_valid_step & next_is_pad
+
+            if is_last_token.any():
+                final_next_token_logits[is_last_token] = new_logits[is_last_token]
+
+            # Update active_logits for the next loop iteration
+            active_logits = new_logits
+
+        return total_word_scores, current_states if return_states else None, final_next_token_logits
+
+
+    def rwkv7_step_with_masking(self, input_ids, current_states, pad_token_id):
+        """
+        Performs one step of inference for a batch, masking out updates for PAD tokens.
+
+        Args:
+            input_ids: Tensor [Batch, 1] of current tokens.
+            current_states: The state from the previous step.
+            pad_token_id: int
+
+        Returns:
+            logits: [Batch, Vocab]
+            next_states: The updated state (safe for next step).
+        """
+        batch_size = input_ids.shape[0]
         
-        flat_texts = []
-        # Store where the candidate word starts for each entry
-        candidate_start_indices = []
-
-        # 1. Prepare Texts
-        for context, candidates in zip(contexts, candidate_words):
-            for word in candidates:
-                # Construct full text
-                # Don't add space before punctuation
-                if not context:
-                    full_text = word
-                elif context.endswith(" ") or word.startswith(" "):
-                    full_text = f"{context}{word}"
-                elif word and word[0] in '.,!?;:\'\"':
-                    full_text = f"{context}{word}"
+        # 1. Create Mask
+        # Shape: [Batch, 1] -> True if valid, False if PAD
+        is_valid = (input_ids != pad_token_id)
+        
+        # 2. CRITICAL: Deep Clone the 'current_states' to preserve them as 'old_states'
+        # We need the OLD state untouched to roll back to it.
+        # Since 'fla' modifies in-place, we must save a clean copy of the BEFORE state.
+        old_states = []
+        for layer in current_states:
+            old_layer = {}
+            for k, v in layer.items():
+                if isinstance(v, torch.Tensor):
+                    old_layer[k] = v.clone()
                 else:
-                    full_text = f"{context} {word}"
+                    old_layer[k] = copy.deepcopy(v)
+            old_states.append(old_layer)
 
-                # Compute start_idx from the context
-                if context:
-                    prefix_ids = self.tokenizer.encode(context, add_special_tokens=True)
-                    start_idx = len(prefix_ids) - 1
-                else:
-                    start_idx = 0
+        # 3. Forward Pass (Corrupts 'current_states' in-place or returns new ones)
+        with torch.no_grad():
+            outputs = self.model(input_ids, past_key_values=current_states, use_cache=True)
+            logits = outputs.logits[:, -1, :]  # [Batch, Vocab] - last position
+            # The model might return a new object or modify 'current_states'.
+            # We'll treat 'candidate_states' as the potentially corrupted new state.
+            candidate_states = outputs.past_key_values 
 
-                flat_texts.append(full_text)
-                candidate_start_indices.append(start_idx)
+        # 4. Apply Mask (Rollback)
+        # Logic: Final = (Candidate * Mask) + (Old * (1-Mask))
+        final_states = []
+        
+        for old_layer, cand_layer in zip(old_states, candidate_states):
+            final_layer = {}
+            # Iterate over keys (e.g., 'v', 'a', 'b' in RWKV7)
+            for key in old_layer.keys():
+                old_t = old_layer[key]
+                cand_t = cand_layer[key]
                 
+                if isinstance(old_t, torch.Tensor):
+                    # Reshape mask for broadcasting
+                    # Mask is [Batch, 1], Tensor might be [Batch, Heads, Dim]
+                    ndim_diff = old_t.ndim - is_valid.ndim
+                    mask_broadcast = is_valid
+                    for _ in range(ndim_diff):
+                        mask_broadcast = mask_broadcast.unsqueeze(-1)
+                    
+                    # Ensure types match
+                    mask_broadcast = mask_broadcast.to(dtype=old_t.dtype, device=old_t.device)
+                    
+                    # Soft Rollback
+                    # If Valid (1) -> Returns cand_t
+                    # If Pad (0)   -> Returns old_t
+                    final_layer[key] = (cand_t * mask_broadcast) + (old_t * (1.0 - mask_broadcast))
+                else:
+                    # Pass through non-tensor metadata (if any)
+                    final_layer[key] = cand_t
+                    
+            final_states.append(final_layer)
+            
+        return logits, final_states
 
-        if not flat_texts:
-            return []
-
-        # 2. Collect scores for each flat text (will be filled in by chunks)
-        flat_scores = [0.0] * len(flat_texts)
-
-        # 3. Process in chunks to limit memory usage
-        chunk_size = self.scoring_chunk_size
-        num_sequences = len(flat_texts)
-
-        for chunk_start in range(0, num_sequences, chunk_size):
-            chunk_end = min(chunk_start + chunk_size, num_sequences)
-            chunk_texts = flat_texts[chunk_start:chunk_end]
-            chunk_start_indices = candidate_start_indices[chunk_start:chunk_end]
-
-            # Tokenize this chunk
-            inputs = self.tokenizer(
-                chunk_texts,
-                return_tensors="pt",
-                padding=True,
-                add_special_tokens=True
-            ).to(self.device)
-
-            input_ids = inputs.input_ids
-            attention_mask = inputs.attention_mask
-
-            # Forward pass for this chunk
-            self.llm_call_count += 1
-            outputs = self.model(input_ids, attention_mask=attention_mask, use_cache=True)
-
-            # Shift and Gather
-            shift_logits = outputs.logits[..., :-1, :].contiguous()
-            shift_labels = input_ids[..., 1:].contiguous()
-
-            log_probs = F.log_softmax(shift_logits, dim=-1)
-
-            gathered_probs = torch.gather(
-                log_probs,
-                dim=2,
-                index=shift_labels.unsqueeze(-1)
-            ).squeeze(-1)
-
-            # Extract scores for this chunk
-            for i, (start_idx, attn) in enumerate(zip(chunk_start_indices, attention_mask)):
-                valid_seq_len = attn.sum().item() - 1
-                safe_start = min(start_idx, valid_seq_len)
-                word_log_probs = gathered_probs[i, safe_start:valid_seq_len]
-                score = word_log_probs.sum().item()
-                flat_scores[chunk_start + i] = self.weight * score + self.word_insertion_bonus
-
-            # Free memory immediately after processing each chunk
-            del outputs, log_probs, gathered_probs, shift_logits, shift_labels
-            del inputs, input_ids, attention_mask
-            torch.cuda.empty_cache()
-
-        # 4. Reshape flat_scores back to match candidate_words structure
-        final_scores = []
-        flat_idx = 0
-        for candidates in candidate_words:
-            beam_scores = []
-            for _ in candidates:
-                beam_scores.append(flat_scores[flat_idx])
-                flat_idx += 1
-            final_scores.append(beam_scores)
-
-        return final_scores
-    
-    def to(self, device: torch.device):
-        """Move model to specified device."""
-        self.device = device
-        self.model.to(device)
-        return self
-    
 def apply_lm_fusion_post_selection(
-    lm_fusion: NeuralLanguageModelFusion | None,
+    lm_fusion: NeuralLanguageModelFusionKV | None,
     lexicon: 'LexiconConstraint',
     beam_hyps: 'BatchedBeamHyps',
     blank_index: int,
@@ -468,11 +454,7 @@ def apply_lm_fusion_post_selection(
     frame_idx: Optional[int] = None
 ) -> None:
     
-    def gather_cache_indices(cache, indices):
-        # Implementation depends on cache structure (e.g. tuple of tensors)
-        # This is a placeholder for the logic: new_cache = cache[indices]
-        return lm_fusion.gather_cache(cache, indices)
-   
+
     from .beam_helpers import (
         materialize_beam_transcripts_batched,
         collapse_ctc_sequence
@@ -554,37 +536,81 @@ def apply_lm_fusion_post_selection(
     # - beam_mapping[i] = (b, k, tuple_idx) to know where to put the results back
     flat_contexts = []
     flat_candidates = []
+    all_words = []
     beam_mapping = []  # Maps flat index -> (batch_idx, beam_idx, tuple_idx)
     cache_gather_indices = []
+    word_start_by_beam = {}  # (b, k, tuple_idx) -> starting index in all_words
 
     for (b, k, context_text_tuples, candidate_words) in to_score:
         # loop through available homophone texts for a given beam
         for tuple_idx, (lm_score, text) in enumerate(context_text_tuples):
+            # Track starting index in all_words for this (b, k, tuple_idx)
+            word_start_by_beam[(b, k, tuple_idx)] = len(all_words)
+
             flat_contexts.append(text)
+            if text == "":
+                prefix = ""
+            else:
+                prefix = " "
             flat_candidates.append(candidate_words)
+            all_words.extend(prefix + word.lstrip() for word in candidate_words)
+
             beam_mapping.append((b, k, tuple_idx))
-            
+
             # --- INDEX CALCULATION ---
-            # 1. Batch Offset: Jump over previous batches
-            b_offset = b * batch_size
-            
-            # 2. Homophone Rank Offset: Jump 'beam_size' for every rank (tuple_idx)
-            #    Rank 0 = +0
-            #    Rank 1 = +Beam_Size
-            h_offset = tuple_idx * beam_size
-            
-            # 3. Beam Offset: The specific beam index
-            k_offset = k
-            
-            flat_idx = b_offset + h_offset + k_offset
-            cache_gather_indices.append(flat_idx)
+            # Layout: homophones are contiguous for each beam
+            # [B0K0H0, B0K0H1, B0K0H2, B0K1H0, B0K1H1, B0K1H2, ...]
+            num_homophones = beam_hyps.num_homophone_beams
+            b_offset = b * beam_size * num_homophones
+            k_offset = k * num_homophones
+            h_offset = tuple_idx
+
+            flat_idx = b_offset + k_offset + h_offset
+            # Repeat for each candidate word (all share the same cached context)
+            cache_gather_indices.extend([flat_idx] * len(candidate_words))
+
+    # --- Gather cached state and logits for scoring ---
+    # Get device from cached_state tensors (more reliable for multi-GPU)
+    state_device = beam_hyps.cached_state[0]['recurrent_state'].device
+    indices = torch.tensor(cache_gather_indices, device=state_device)
+
+    # Index cached_logits: [total_beams, vocab_size] -> [num_pairs, vocab_size]
+    gathered_logits = beam_hyps.cached_logits[indices]
+
+    # Index cached_state: list of layer dicts, each tensor [total_beams, ...] -> [num_pairs, ...]
+    gathered_state = []
+    for layer in beam_hyps.cached_state:
+        if isinstance(layer, dict):
+            gathered_layer = {
+                key: tensor[indices] if tensor is not None else None
+                for key, tensor in layer.items()
+            }
+            gathered_state.append(gathered_layer)
+        else:
+            gathered_state.append(layer[indices] if layer is not None else None)
 
 
-    expanded_cache = gather_cache_indices(beam_hyps.kv_cache, cache_gather_indices)
+    # Phase 1: Score all words without storing states (memory efficient)
+    # We only need scores here; states and logits will be recomputed for selected candidates
+    total_word_scores, _, _ = lm_fusion.score_and_step_words(
+        current_states=gathered_state,
+        prev_logits=gathered_logits,
+        words_batch=all_words,
+        return_states=False
+    )
 
-    # Single batched LM call - scores all contexts against their candidate words
-    all_lm_scores = lm_fusion.score_continuations(flat_contexts, flat_candidates)
+    # Apply LM weight and word insertion bonus
+    weighted_scores = lm_fusion.weight * total_word_scores + lm_fusion.word_insertion_bonus
 
+    # --- Unflatten scores back to per-context structure ---
+    # word_counts tells us how many words per context
+    word_counts = [len(cands) for cands in flat_candidates]
+    all_lm_scores = []
+    score_idx = 0
+    for count in word_counts:
+        context_scores = weighted_scores[score_idx:score_idx + count].tolist()
+        all_lm_scores.append(context_scores)
+        score_idx += count
 
     # Reorganize results back by (b, k) for easy lookup
     # scores_by_beam[(b, k)][tuple_idx] = list of scores for each candidate word
@@ -601,28 +627,35 @@ def apply_lm_fusion_post_selection(
     # Update beam's acoustic score by adding the best candidate's LM score.
     num_homophone_beams = beam_hyps.num_homophone_beams
 
+    # Collect selected candidates for state recomputation
+    # Each entry: (source_cache_idx, word_string, target_cache_idx)
+    selected_for_state_update = []
+
     for (b, k, context_text_tuples, candidate_words) in to_score:
         base_score = beam_hyps.scores[b, k].item()
         lm_scores_dict = scores_by_beam[(b, k)]
 
-        # Collect all (lm_score, text) candidates by combining each text with each homophone
+        # Collect all (lm_score, text, all_words_idx) candidates by combining each text with each homophone
         # Accumulate LM scores so we track full sequence probability
+        # all_words_idx tracks which entry in new_states/last_token_logits corresponds to this candidate
         all_candidates = []
         for tuple_idx, (prev_lm_score, prev_text) in enumerate(context_text_tuples):
             lm_scores_for_tuple = lm_scores_dict[tuple_idx]
-            for word, word_lm_score in zip(candidate_words, lm_scores_for_tuple):
+            word_start_idx = word_start_by_beam[(b, k, tuple_idx)]
+            for word_idx, (word, word_lm_score) in enumerate(zip(candidate_words, lm_scores_for_tuple)):
                 # Accumulate: new score = previous accumulated LM + this word's LM score
                 new_lm_score = prev_lm_score + word_lm_score
                 new_text = f"{prev_text} {word}".strip()
-                all_candidates.append((new_lm_score, new_text))
+                all_words_idx = word_start_idx + word_idx
+                all_candidates.append((new_lm_score, new_text, all_words_idx))
 
         # Deduplicate by lowercase text, keeping the best-scoring capitalization variant
         # This prevents redundant entries like "Get arrested" vs "get arrested" vs "Get Arrested"
-        lowercase_to_best = {}  # lowercase_text -> (best_score, best_text)
-        for lm_score, text in all_candidates:
+        lowercase_to_best = {}  # lowercase_text -> (best_score, best_text, all_words_idx)
+        for lm_score, text, all_words_idx in all_candidates:
             text_lower = text.lower()
             if text_lower not in lowercase_to_best or lm_score > lowercase_to_best[text_lower][0]:
-                lowercase_to_best[text_lower] = (lm_score, text)
+                lowercase_to_best[text_lower] = (lm_score, text, all_words_idx)
         all_candidates = list(lowercase_to_best.values())
 
         # Sort by accumulated LM score (descending)
@@ -635,7 +668,10 @@ def apply_lm_fusion_post_selection(
             all_candidates = [c for c in all_candidates if best_score - c[0] <= homophone_prune_threshold]
 
         # Keep top K (after pruning)
-        new_tuples = all_candidates[:num_homophone_beams]
+        selected_candidates = all_candidates[:num_homophone_beams]
+
+        # Extract (score, text) tuples for context_texts (without the all_words_idx)
+        new_tuples = [(score, text) for score, text, _ in selected_candidates]
 
         # Update beam score using formula: score = acoustic_score + lm_score
         # Extract acoustic component by subtracting old LM, then add new LM
@@ -644,15 +680,68 @@ def apply_lm_fusion_post_selection(
         acoustic_score = base_score - old_best_lm_score
         beam_hyps.scores[b, k] = acoustic_score + new_best_lm_score
 
-
         # Update context_texts with new tuples
         beam_hyps.context_texts[b][k] = new_tuples
 
         # Update hash based on best text (index 0)
         beam_hyps.context_texts_hash[b][k] = hash(new_tuples[0][1])
 
+        # Collect info for state recomputation
+        # We need: (source_cache_idx, word_string, target_cache_idx)
+        num_homophones = beam_hyps.num_homophone_beams
+        for h, (_, _, all_words_idx) in enumerate(selected_candidates):
+            source_cache_idx = cache_gather_indices[all_words_idx]
+            word_string = all_words[all_words_idx]
+            target_cache_idx = b * beam_size * num_homophones + k * num_homophones + h
+            selected_for_state_update.append((source_cache_idx, word_string, target_cache_idx))
+
+    # --- PHASE 4: Recompute states for selected candidates only ---
+    # This is a much smaller batch than all_words, so memory efficient
+    if selected_for_state_update:
+        # Unpack selected candidates
+        source_indices = [s[0] for s in selected_for_state_update]
+        selected_words = [s[1] for s in selected_for_state_update]
+        target_indices = [s[2] for s in selected_for_state_update]
+
+        # Gather source states for selected words
+        source_indices_tensor = torch.tensor(source_indices, device=state_device)
+
+        selected_logits = beam_hyps.cached_logits[source_indices_tensor]
+        selected_state = []
+        for layer in beam_hyps.cached_state:
+            if isinstance(layer, dict):
+                selected_layer = {
+                    key: tensor[source_indices_tensor] if tensor is not None else None
+                    for key, tensor in layer.items()
+                }
+                selected_state.append(selected_layer)
+            else:
+                selected_state.append(layer[source_indices_tensor] if layer is not None else None)
+
+        # Re-run selected words with state tracking
+        _, new_states, new_logits = lm_fusion.score_and_step_words(
+            current_states=selected_state,
+            prev_logits=selected_logits,
+            words_batch=selected_words,
+            return_states=True
+        )
+
+        # Scatter new states back to target cache positions
+        for i, target_idx in enumerate(target_indices):
+            # Update cached_logits
+            beam_hyps.cached_logits[target_idx] = new_logits[i]
+            # Update cached_state
+            for layer_idx, layer in enumerate(new_states):
+                if isinstance(layer, dict):
+                    for key, tensor in layer.items():
+                        if tensor is not None:
+                            beam_hyps.cached_state[layer_idx][key][target_idx] = tensor[i]
+                elif layer is not None:
+                    beam_hyps.cached_state[layer_idx][target_idx] = layer[i]
+
+
 def apply_lm_end_of_sentence_with_incomplete_word(
-    lm_fusion: NeuralLanguageModelFusion | None,
+    lm_fusion: NeuralLanguageModelFusionKV | None,
     lexicon: 'LexiconConstraint',
     beam_hyps: 'BatchedBeamHyps',
     blank_index: int,

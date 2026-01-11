@@ -18,7 +18,7 @@ from brainaudio.inference.decoder import (
     VectorizedLexiconConstraint,
     HuggingFaceLMFusion,
 )
-from brainaudio.inference.decoder.neural_lm_fusion_kv import get_initial_rwkv_state
+#from brainaudio.inference.decoder.neural_lm_fusion_kv import get_initial_rwkv_state
 from brainaudio.inference.decoder.ngram_lm import NGramGPULanguageModel
 from brainaudio.inference.decoder.beam_helpers import (
     decode_beam_texts,
@@ -37,8 +37,8 @@ Loops through a range of trials, decodes them, tracks performance,
 and computes final WER/CER metrics.
 """
 DEFAULT_ENCODER_MODEL_NAME = "pretrained_RNN"
-DEFAULT_TOKENS = "/data2/brain2text/lm/units_pytorch.txt"
-DEFAULT_LEXICON = "/data2/brain2text/lm/lexicon_phonemes.txt"
+DEFAULT_TOKENS = "/data2/brain2text/lm/char_lm/units_pytorch_character.txt"
+DEFAULT_LEXICON = "/data2/brain2text/lm/char_lm/lexicon_char_cleaned.txt"
 TRANSCRIPTS_PKL = Path("/data2/brain2text/b2t_25/transcripts_val_cleaned.pkl")
 
 
@@ -53,10 +53,10 @@ def parse_args() -> argparse.Namespace:
                         help="Start index (inclusive). Use with --end-trial-idx for a range.")
     parser.add_argument("--end-trial-idx", type=int, default=None,
                         help="End index (exclusive). Use with --start-trial-idx for a range.")
-    parser.add_argument("--beam-size", type=int, default=400, help="CTC beam size")
-    parser.add_argument("--model", default="fla-hub/rwkv7-0.1B-g1", help="HF causal LM checkpoint") # meta-llama/Llama-3.2-1B
+    parser.add_argument("--beam-size", type=int, default=50, help="CTC beam size")
+    parser.add_argument("--model", default="HuggingFaceTB/SmolLM2-360M", help="HF causal LM checkpoint") # meta-llama/Llama-3.2-1B
     parser.add_argument("--hf-token", default=None, help="Optional HF token")
-    parser.add_argument("--lm-weight", type=float, default=0.8, help="Neural LM fusion weight")
+    parser.add_argument("--lm-weight", type=float, default=1, help="Neural LM fusion weight")
     parser.add_argument("--word-insertion-bonus", type=float, default=1.5, help="Bonus at boundaries")
     parser.add_argument("--max-context-length", type=int, default=50, help="Token budget")
     parser.add_argument("--device", default="cuda:0", help="Torch device")
@@ -64,7 +64,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--tokens", type=Path, default=Path(DEFAULT_TOKENS), help="units file")
     parser.add_argument("--lexicon", type=Path, default=Path(DEFAULT_LEXICON), help="lexicon file")
     parser.add_argument("--top-k", type=int, default=1, help="Number of top beams to display per trial")
-    parser.add_argument("--num-homophone-beams", type=int, default=3, help="Number of text interpretations (homophones) to track per beam")
+    parser.add_argument("--num-homophone-beams", type=int, default=2, help="Number of text interpretations (homophones) to track per beam")
     parser.add_argument("--beam-prune-threshold", type=float, default=12, help="Prune beams that are more than this many log-prob points below the best.")
     parser.add_argument("--homophone-prune-threshold", type=float, default=7, help="Prune homophones more than this many log-prob points below the best.")
     parser.add_argument("--beam-beta", type=float, default=np.log(7), help="Bonus added to extending beams (not blank/repeat). Boosts probability of emitting new characters.")
@@ -88,21 +88,26 @@ def parse_args() -> argparse.Namespace:
         help="Load model in 4-bit quantization (requires bitsandbytes)"
     )
     parser.add_argument(
-        "--use-phoneme-lm",
+        "--use-ngram-lm",
         action="store_true",
-        help="Enable phoneme-level n-gram LM for frame-level scoring (default: disabled)"
+        help="Enable character-level n-gram LM for frame-level scoring (default: disabled)"
     )
     parser.add_argument(
-        "--phoneme-lm-path",
+        "--ngram-lm-path",
         type=str,
-        default="/home/ebrahim/brainaudio/creating_n_gram_lm/huge_pruned_10gram.nemo",
-        help="Path to phoneme LM file (.nemo). Set to 'none' to use dummy unigram LM."
+        default="/data2/brain2text/lm/char_lm/lm_dec19_char_huge_12gram.nemo",
+        help="Path to n-gram LM file (.nemo). Set to 'none' to use dummy unigram LM."
     )
     parser.add_argument(
-        "--phoneme-lm-weight",
+        "--ngram-lm-weight",
         type=float,
-        default=0.3,
-        help="Weight for phoneme LM fusion (default: 0.3)"
+        default=0.5,
+        help="Weight for n-gram LM fusion (default: 0.4)"
+    )
+    parser.add_argument(
+        "--disable-llm",
+        action="store_true",
+        help="Disable LLM shallow fusion (useful for testing n-gram LM alone)"
     )
     parser.add_argument(
         "--test-mode",
@@ -121,7 +126,7 @@ def main():
 
     # Set default logits path based on encoder_model_name if not provided
     if args.logits is None:
-        logits_filename = "logits_test.npz" if args.test_mode else "logits_val.npz"
+        logits_filename = "logits_test.npz" if args.test_mode else "char_logits_val.npz"
         args.logits = Path(f"/data2/brain2text/b2t_25/logits/{args.encoder_model_name}/{logits_filename}")
 
     # Initialize wandb run (before any wandb.log or Table calls)
@@ -176,87 +181,76 @@ def main():
         device=device,
     )
     
-    tokenizer = AutoTokenizer.from_pretrained(args.model, token=args.hf_token, trust_remote_code=True)
+    # Load LLM for shallow fusion (skip if --disable-llm)
+    lm_fusion = None
+    if not args.disable_llm:
+        tokenizer = AutoTokenizer.from_pretrained(args.model, token=args.hf_token, trust_remote_code=True)
 
-    if args.load_in_4bit:
-        # 4-bit quantization: device must be set via device_map at load time
-        # Use bfloat16 for compute dtype - float16 can cause NaN with some models
-        quantization_config = BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_compute_dtype=torch.bfloat16,
-            bnb_4bit_quant_type="nf4",
+        if args.load_in_4bit:
+            # 4-bit quantization: device must be set via device_map at load time
+            # Use bfloat16 for compute dtype - float16 can cause NaN with some models
+            quantization_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_compute_dtype=torch.bfloat16,
+                bnb_4bit_quant_type="nf4",
+            )
+            model = AutoModelForCausalLM.from_pretrained(
+                args.model,
+                quantization_config=quantization_config,
+                dtype=torch.bfloat16,
+                device_map={"": device},  # place entire model on specified device
+                token=args.hf_token,
+            )
+            print(f"[INFO] Loaded {args.model} in 4-bit quantization on {device}")
+        else:
+            print("STANDARD MODEL LOADING")
+            # Standard loading: load then move to device
+            model = AutoModelForCausalLM.from_pretrained(
+                args.model,
+                dtype=torch.bfloat16,
+                token=args.hf_token,
+                trust_remote_code=True
+            ).to(device)
+            print(f"[INFO] Loaded {args.model} (full precision) on {device}")
+
+        lm_fusion = HuggingFaceLMFusion(
+            model=model,
+            tokenizer=tokenizer,
+            weight=args.lm_weight,
+            homophone_aggregation="max",
+            device=device,
+            max_context_length=args.max_context_length,
+            word_insertion_bonus=args.word_insertion_bonus,
         )
-        model = AutoModelForCausalLM.from_pretrained(
-            args.model,
-            quantization_config=quantization_config,
-            dtype=torch.bfloat16,
-            device_map={"": device},  # place entire model on specified device
-            token=args.hf_token,
-        )
-        print(f"[INFO] Loaded {args.model} in 4-bit quantization on {device}")
     else:
-        print("STANDARD MODEL LOADING")
-        # Standard loading: load then move to device
-        model = AutoModelForCausalLM.from_pretrained(
-            args.model,
-            dtype=torch.bfloat16,
-            token=args.hf_token,
-            trust_remote_code=True
-        ).to(device)
-        print(f"[INFO] Loaded {args.model} (full precision) on {device}")
+        print("[INFO] LLM shallow fusion disabled (--disable-llm)")
 
-
-
-    # Get initial RWKV state and logits after BOS token (expanded for beam search)
-    initial_state, initial_logits = get_initial_rwkv_state(
-        model, tokenizer,
-        batch_size=1,
-        beam_size=args.beam_size,
-        num_homophones=args.num_homophone_beams,
-        device=device
-    )
-    print(f"Initial logits shape: {initial_logits.shape}")
-    print(f"Initial state: {len(initial_state)} layers")
-
-    breakpoint()
-
-    lm_fusion = HuggingFaceLMFusion(
-        model=model,
-        tokenizer=tokenizer,
-        weight=args.lm_weight,
-        homophone_aggregation="max",
-        device=device,
-        max_context_length=args.max_context_length,
-        word_insertion_bonus=args.word_insertion_bonus,
-    )
-
- 
-    # Create phoneme-level n-gram LM if enabled (default: disabled)
+    # Create character-level n-gram LM if enabled (default: disabled)
     fusion_models = []
     fusion_models_alpha = []
-    if args.use_phoneme_lm:
-        # Phoneme LM vocab size = 40 (39 phonemes + SIL, no blank)
+    if args.use_ngram_lm:
+        # Character LM vocab size = 32
         # CTC decoder handles mapping: CTC index i -> LM index i-1
-        PHONEME_LM_VOCAB_SIZE = 40
+        CHAR_LM_VOCAB_SIZE = 32
 
-        if args.phoneme_lm_path and args.phoneme_lm_path.lower() != "none":
-            print(f"[INFO] Loading phoneme LM from {args.phoneme_lm_path}")
-            phoneme_lm = NGramGPULanguageModel.from_nemo(
-                args.phoneme_lm_path,
-                vocab_size=PHONEME_LM_VOCAB_SIZE,
+        if args.ngram_lm_path and args.ngram_lm_path.lower() != "none":
+            print(f"[INFO] Loading n-gram LM from {args.ngram_lm_path}")
+            ngram_lm = NGramGPULanguageModel.from_nemo(
+                args.ngram_lm_path,
+                vocab_size=CHAR_LM_VOCAB_SIZE,
                 map_location=device,  # Load directly to target device
             )
         else:
-            print(f"[INFO] Using dummy unigram phoneme LM (vocab_size={PHONEME_LM_VOCAB_SIZE})")
-            phoneme_lm = NGramGPULanguageModel.dummy_unigram_lm(
-                vocab_size=PHONEME_LM_VOCAB_SIZE
+            print(f"[INFO] Using dummy unigram n-gram LM (vocab_size={CHAR_LM_VOCAB_SIZE})")
+            ngram_lm = NGramGPULanguageModel.dummy_unigram_lm(
+                vocab_size=CHAR_LM_VOCAB_SIZE
             )
 
         # Force move all parameters and buffers to device
-        phoneme_lm = phoneme_lm.to(device)
-        fusion_models.append(phoneme_lm)
-        fusion_models_alpha.append(args.phoneme_lm_weight)
-        print(f"[INFO] Phoneme LM enabled with weight={args.phoneme_lm_weight}")
+        ngram_lm = ngram_lm.to(device)
+        fusion_models.append(ngram_lm)
+        fusion_models_alpha.append(args.ngram_lm_weight)
+        print(f"[INFO] N-gram LM enabled with weight={args.ngram_lm_weight}")
 
     decoder = BatchedBeamCTCComputer(
         blank_index=lexicon.blank_index,
@@ -271,8 +265,8 @@ def main():
         beam_blank_penalty=args.beam_blank_penalty,
         fusion_models=fusion_models if fusion_models else None,
         fusion_models_alpha=fusion_models_alpha if fusion_models_alpha else None,
-        cached_state=initial_state,
-        cached_logits=initial_logits,
+        cached_state=None,
+        cached_logits=None,
     )
 
     transcripts = None
@@ -334,8 +328,26 @@ def main():
         # Sort valid indices by descending score
         valid_indices_sorted = sorted(valid_indices, key=lambda i: scores[i], reverse=True)
         topk_indices = valid_indices_sorted[:K]
-        # context_texts[batch][beam] is now List[Tuple[float, str]], get best text (index 0)
-        decoded_beams = [result.context_texts[0][i][0][1] for i in topk_indices]
+        # Get decoded text - from context_texts if LLM enabled, otherwise from token sequence
+        if lm_fusion is not None:
+            # context_texts[batch][beam] is List[Tuple[float, str]], get best text (index 0)
+            decoded_beams = [result.context_texts[0][i][0][1] for i in topk_indices]
+        else:
+            # No LLM - derive text from token sequence via lexicon
+            from brainaudio.inference.decoder import materialize_beam_transcript, collapse_ctc_sequence
+            decoded_beams = []
+            for i in topk_indices:
+                seq_raw = materialize_beam_transcript(result, 0, i)
+                seq_collapsed = collapse_ctc_sequence(seq_raw.tolist(), lexicon.blank_index)
+                # Convert token indices to characters and join (SIL = space)
+                chars = []
+                for idx in seq_collapsed:
+                    sym = lexicon.token_to_symbol.get(idx, "")
+                    if sym == "SIL":
+                        chars.append(" ")
+                    elif len(sym) == 1:  # single character
+                        chars.append(sym)
+                decoded_beams.append("".join(chars).strip())
         best_text = decoded_beams[0] if decoded_beams else ""
         decoded_sentences.append(best_text)
 
@@ -358,32 +370,36 @@ def main():
             print(f"  GT:   {ground_truth}")
         print(f"  Best: {best_text}")
 
-        # Import helpers for phoneme printing
+        # Import helpers for token sequence printing
         from brainaudio.inference.decoder import materialize_beam_transcript, collapse_ctc_sequence
 
         print(f"  Top {K} beams (with {args.num_homophone_beams} homophone interpretations each):")
         for rank, i in enumerate(topk_indices):
             beam_score = result.scores[0, i].item()
-            all_texts = result.context_texts[0][i]  # List of (lm_score, text) tuples
 
-            # Get phoneme sequence for this beam
+            # Get token sequence for this beam
             seq_raw = materialize_beam_transcript(result, 0, i)
             seq_collapsed = collapse_ctc_sequence(seq_raw.tolist(), lexicon.blank_index)
-            phoneme_names_collapsed = [lexicon.token_to_symbol.get(idx, f"?{idx}") for idx in seq_collapsed]
+            token_names_collapsed = [lexicon.token_to_symbol.get(idx, f"?{idx}") for idx in seq_collapsed]
 
             # Raw sequence (before CTC merging) - shows blanks and repeats
-            phoneme_names_raw = [lexicon.token_to_symbol.get(idx, f"?{idx}") for idx in seq_raw.tolist()]
+            token_names_raw = [lexicon.token_to_symbol.get(idx, f"?{idx}") for idx in seq_raw.tolist()]
 
-            print(f"  #{rank:02d} | score={beam_score:.2f} | {' '.join(phoneme_names_collapsed)}")
-            print(f"       Raw ({len(seq_raw)} frames): {' '.join(phoneme_names_raw[-30:])}")  # Last 30 tokens
-            for k_idx, (lm_score, text) in enumerate(all_texts):
-                print(f"       H{k_idx}: lm={lm_score:.4f} | {text}")
+            print(f"  #{rank:02d} | score={beam_score:.2f} | {' '.join(token_names_collapsed)}")
+            print(f"       Raw ({len(seq_raw)} frames): {' '.join(token_names_raw[-30:])}")  # Last 30 tokens
 
-        # Check if "economy's" appears in any beam
-        for i in valid_indices:
-            for lm_score, text in result.context_texts[0][i]:
-                if "economy's" in text.lower():
-                    print(f"  >>> FOUND 'economy's' in beam {i}: {text}")
+            # Print homophone interpretations (only if LLM enabled)
+            if lm_fusion is not None:
+                all_texts = result.context_texts[0][i]  # List of (lm_score, text) tuples
+                for k_idx, (lm_score, text) in enumerate(all_texts):
+                    print(f"       H{k_idx}: lm={lm_score:.4f} | {text}")
+
+        # Check if "economy's" appears in any beam (only if LLM enabled)
+        if lm_fusion is not None:
+            for i in valid_indices:
+                for lm_score, text in result.context_texts[0][i]:
+                    if "economy's" in text.lower():
+                        print(f"  >>> FOUND 'economy's' in beam {i}: {text}")
         print("-" * 60)
 
         # Explicit memory cleanup to prevent accumulation across trials
@@ -399,7 +415,10 @@ def main():
     print(f"Beam size: {args.beam_size}, Homophone beams: {args.num_homophone_beams}, Prune threshold: {args.homophone_prune_threshold}")
     if not args.test_mode:
         print(f"Ground truth in beams: {gt_in_beams_count}/{len(decoded_sentences)} ({100*gt_in_beams_count/len(decoded_sentences):.1f}%)")
-    print(f"LLM forward passes: {lm_fusion.get_call_count()}")
+    if lm_fusion is not None:
+        print(f"LLM forward passes: {lm_fusion.get_call_count()}")
+    else:
+        print("LLM: disabled")
 
 # Compute Metrics (skip in test mode)
     wer = None

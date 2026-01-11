@@ -205,8 +205,6 @@ class BatchedBeamHyps:
             self.last_timestamp_lasts = torch.zeros((batch_size, self.beam_size), device=device, dtype=torch.long)
 
 
-        # init KV cache
-        self.kv_cache = kv_cache
 
 
     def clear_(self):
@@ -343,38 +341,41 @@ class BatchedBeamHyps:
         self.context_texts = new_context_texts
         self.context_texts_hash = new_context_texts_hash
 
-        if getattr(self, "kv_cache", None) is not None:
-            # 1. Calculate Base Indices for the "Best" Homophones (Slab 0)
+        if getattr(self, "cached_state", None) is not None:
+            # Reindex cached_state and cached_logits after beam pruning
+            # Layout: homophones are contiguous for each beam
+            # [B0K0H0, B0K0H1, B0K0H2, B0K1H0, B0K1H1, B0K1H2, ...]
+            # flat_idx = b * K * H + k * H + h
+
             B, K = next_indices.shape
-            
-            # Create offsets to handle batching: [[0], [K], [2K]...]
-            batch_offsets = (torch.arange(B, device=next_indices.device) * K).view(-1, 1)
-            
-            # Flatten to [Batch * Beam] (e.g. indices 0 to 39)
-            base_indices = (next_indices + batch_offsets).view(-1)
+            H = self.num_homophone_beams
 
-            # 2. Create Global Indices for ALL Homophone Slabs
-            # We apply the same shuffle permutation to every "Slab" of the cache.
-            # Slab 0 = Best Homophone, Slab 1 = 2nd Best, etc.
-            all_indices_list = []
-            beam_capacity = B * K  # The size of one slab
-            
-            for h in range(self.num_homophone_beams):
-                # Calculate the start index for this slab (e.g., 0, 40, 80)
-                slab_offset = h * beam_capacity
-                
-                # Apply the base shuffle + the slab offset
-                # If Beam 5 moves to Beam 0, then Beam 5+40 moves to Beam 0+40
-                slab_indices = base_indices + slab_offset
-                all_indices_list.append(slab_indices)
-            
-            # 3. Concatenate into one massive index list
-            # Shape: [B * K * Num_Homophones]
-            global_indices = torch.cat(all_indices_list)
+            # Build gather indices for reordering
+            # next_indices[b, new_k] = old_k means beam old_k moves to position new_k
+            # We need: new_cache[b*K*H + new_k*H + h] = old_cache[b*K*H + old_k*H + h]
 
-            # 4. Reorder the Cache
-            # Calls TensorKVCache.reorder_cache (which moves data to the top without shrinking)
-            self.kv_cache.reorder_cache(global_indices)
+            batch_offsets = torch.arange(B, device=next_indices.device).view(B, 1, 1) * K * H  # [B, 1, 1]
+            old_k = next_indices.view(B, K, 1)  # [B, K, 1]
+            k_offsets = old_k * H  # [B, K, 1]
+            h_offsets = torch.arange(H, device=next_indices.device).view(1, 1, H)  # [1, 1, H]
+
+            gather_indices = (batch_offsets + k_offsets + h_offsets).view(-1)  # [B * K * H]
+
+            # Reorder cached_logits
+            self.cached_logits = self.cached_logits[gather_indices]
+
+            # Reorder cached_state (list of layer dicts)
+            new_cached_state = []
+            for layer in self.cached_state:
+                if isinstance(layer, dict):
+                    new_layer = {
+                        key: tensor[gather_indices] if tensor is not None else None
+                        for key, tensor in layer.items()
+                    }
+                    new_cached_state.append(new_layer)
+                else:
+                    new_cached_state.append(layer[gather_indices] if layer is not None else None)
+            self.cached_state = new_cached_state
             
         is_extended = next_labels >= 0
         extended_with_blank = next_labels == self.blank_index

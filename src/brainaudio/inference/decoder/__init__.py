@@ -24,6 +24,8 @@ from .beam_helpers import (
 )
 from .rnnt_utils import Hypothesis, NBestHypotheses
 from .neural_lm_fusion import NeuralLanguageModelFusion, HuggingFaceLMFusion
+from .neural_lm_fusion_kv import NeuralLanguageModelFusionKV, HuggingFaceLMFusionKV
+
 
 __all__ = [
     'LexiconConstraint',
@@ -43,6 +45,7 @@ __all__ = [
     'NBestHypotheses',
     'NeuralLanguageModelFusion',
     'HuggingFaceLMFusion',
+    'HuggingFaceLMFusionKV',
     'apply_ctc_rules',
     'load_token_to_phoneme_mapping',
     'load_phoneme_to_word_mapping',

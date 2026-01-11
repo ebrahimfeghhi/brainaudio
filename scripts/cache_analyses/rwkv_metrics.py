@@ -4,7 +4,7 @@ from transformers import AutoModelForCausalLM
 
 # --- Configuration ---
 MODEL_ID = "fla-hub/rwkv7-0.1B-g1"
-BATCH_SIZE = 500
+BATCH_SIZE = 5000
 SEQ_LENGTH = 100
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
