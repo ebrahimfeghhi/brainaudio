@@ -114,6 +114,17 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Use logits_test.npz and skip WER computation"
     )
+    parser.add_argument(
+        "--char",
+        action="store_true",
+        default=True,
+        help="Use character-level model (default: True). If False, use phoneme-level model."
+    )
+    parser.add_argument(
+        "--phoneme",
+        action="store_true",
+        help="Use phoneme-level model (sets --char to False)"
+    )
 
     return parser.parse_args()
 
@@ -121,12 +132,47 @@ def parse_args() -> argparse.Namespace:
 
 notes = "Running with simplified apply_lm_fusion_post_selection which only allows for one homophone per beam."
 
-def main(): 
+def main():
     args = parse_args()
+
+    # Handle --phoneme flag (sets char to False)
+    if args.phoneme:
+        args.char = False
+
+    # Set paths based on char vs phoneme mode
+    if args.char:
+        # Character-level paths
+        default_tokens = "/data2/brain2text/lm/char_lm/units_pytorch_character.txt"
+        default_lexicon = "/data2/brain2text/lm/char_lm/lexicon_char_cleaned.txt"
+        default_ngram_lm = "/data2/brain2text/lm/char_lm/lm_dec19_char_huge_12gram.nemo"
+        default_logits_suffix = "char_logits_val.npz"
+        ngram_vocab_size = 32
+    else:
+        # Phoneme-level paths
+        default_tokens = "/data2/brain2text/lm/units_pytorch.txt"
+        default_lexicon = "/data2/brain2text/lm/lexicon_phonemes.txt"
+        default_ngram_lm = "/home/ebrahim/brainaudio/creating_n_gram_lm/phoneme_10gram.nemo"
+        default_logits_suffix = "logits_val.npz"
+        ngram_vocab_size = 40
+
+    # Override defaults if not explicitly set
+    if args.tokens == Path(DEFAULT_TOKENS):
+        args.tokens = Path(default_tokens)
+    if args.lexicon == Path(DEFAULT_LEXICON):
+        args.lexicon = Path(default_lexicon)
+    if args.ngram_lm_path == "/data2/brain2text/lm/char_lm/lm_dec19_char_huge_12gram.nemo":
+        args.ngram_lm_path = default_ngram_lm
+    args.ngram_vocab_size = ngram_vocab_size
+
+    print(f"[INFO] Mode: {'character' if args.char else 'phoneme'}")
+    print(f"[INFO] Tokens: {args.tokens}")
+    print(f"[INFO] Lexicon: {args.lexicon}")
+    print(f"[INFO] N-gram LM: {args.ngram_lm_path}")
+    print(f"[INFO] Logits: {args.logits}")
 
     # Set default logits path based on encoder_model_name if not provided
     if args.logits is None:
-        logits_filename = "logits_test.npz" if args.test_mode else "char_logits_val.npz"
+        logits_filename = "logits_test.npz" if args.test_mode else default_logits_suffix
         args.logits = Path(f"/data2/brain2text/b2t_25/logits/{args.encoder_model_name}/{logits_filename}")
 
     # Initialize wandb run (before any wandb.log or Table calls)
@@ -225,25 +271,21 @@ def main():
     else:
         print("[INFO] LLM shallow fusion disabled (--disable-llm)")
 
-    # Create character-level n-gram LM if enabled (default: disabled)
+    # Create n-gram LM if enabled (default: disabled)
     fusion_models = []
     fusion_models_alpha = []
     if args.use_ngram_lm:
-        # Character LM vocab size = 32
-        # CTC decoder handles mapping: CTC index i -> LM index i-1
-        CHAR_LM_VOCAB_SIZE = 32
-
         if args.ngram_lm_path and args.ngram_lm_path.lower() != "none":
-            print(f"[INFO] Loading n-gram LM from {args.ngram_lm_path}")
+            print(f"[INFO] Loading n-gram LM from {args.ngram_lm_path} (vocab_size={args.ngram_vocab_size})")
             ngram_lm = NGramGPULanguageModel.from_nemo(
                 args.ngram_lm_path,
-                vocab_size=CHAR_LM_VOCAB_SIZE,
+                vocab_size=args.ngram_vocab_size,
                 map_location=device,  # Load directly to target device
             )
         else:
-            print(f"[INFO] Using dummy unigram n-gram LM (vocab_size={CHAR_LM_VOCAB_SIZE})")
+            print(f"[INFO] Using dummy unigram n-gram LM (vocab_size={args.ngram_vocab_size})")
             ngram_lm = NGramGPULanguageModel.dummy_unigram_lm(
-                vocab_size=CHAR_LM_VOCAB_SIZE
+                vocab_size=args.ngram_vocab_size
             )
 
         # Force move all parameters and buffers to device
