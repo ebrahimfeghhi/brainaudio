@@ -266,7 +266,32 @@ def _prune_history(beams: List[LMBeam], lm_order: int) -> List[Beam]:
 │ Token-level     │  │ Word-level          │  │ Word-level          │
 │ State: int      │  │ State: kenlm.State  │  │ State: text string  │
 │ O(V) per frame  │  │ O(1) per word       │  │ O(context) per word │
+│ BEFORE pruning  │  │ BEFORE pruning      │  │ AFTER pruning       │
 └─────────────────┘  └─────────────────────┘  └─────────────────────┘
+```
+
+### 2.7 Pre-Pruning vs Post-Pruning LM Application
+
+**Key Design Decision**: The word N-gram LM is applied **BEFORE** beam pruning (topk selection), similar to the phoneme LM (`fusion_models`). This is different from the neural LM (`lm_fusion`) which applies after pruning.
+
+**Why pre-pruning is better for word N-gram LM:**
+1. **Rescue effect**: Good word-level LM scores can save hypotheses that might be pruned based on acoustic scores alone
+2. **Fair competition**: All candidate tokens compete with their full scores (acoustic + LM)
+3. **Consistency**: Matches how phoneme LM works, making the architecture more uniform
+4. **Better WER**: Prevents good word sequences from being prematurely eliminated
+
+**How it works:**
+```
+Frame loop:
+  1. Expand beams with all vocab tokens → log_probs [B, beam, vocab]
+  2. Add phoneme LM scores to log_probs (fusion_models)
+  3. For tokens that complete words:
+     - Look up parent word context from cache
+     - Score completed word with word N-gram LM
+     - Add word LM score to log_probs for that (beam, token) position
+  4. topk selection → selects beam_size best candidates (NOW INCLUDING WORD LM SCORES!)
+  5. add_results_(), recombine_hyps_()
+  6. Update word LM cache with newly completed words
 ```
 
 ---
@@ -622,61 +647,160 @@ def score_word_with_cache(
 
 **No changes needed to BatchedBeamHyps!** The existing `context_texts[b][k]` already stores `(score, text)` tuples. The text serves as the key into the cache.
 
-### 3.3 Modified LM Fusion Function (Using Cache Pattern)
+### 3.3 Pre-Pruning LM Fusion Function (NEW APPROACH)
 
-**File**: `src/brainaudio/inference/decoder/neural_lm_fusion.py`
+**File**: `src/brainaudio/inference/decoder/word_ngram_lm.py`
 
-Add new function that uses the text-keyed cache:
+This function applies word N-gram LM scores **BEFORE** topk selection. It modifies `log_probs` in-place to include word LM scores for tokens that complete words.
 
 ```python
-def apply_word_ngram_fusion_post_selection(
+def apply_word_ngram_lm_pre_pruning(
     word_lm: "WordNGramLMFusion",
-    word_lm_cache: "WordLMCache",  # NEW: Pass cache through frames
+    word_lm_cache: "WordLMCache",
+    lexicon: "LexiconConstraint",
+    lexicon_state: torch.Tensor,  # [B, beam_size] - current lexicon state per beam
+    log_probs: torch.Tensor,      # [B, beam_size, vocab_size] - acoustic scores to modify
+    beam_hyps: "BatchedBeamHyps",
+    blank_index: int,
+    prev_last_labels: torch.Tensor,  # [B, beam_size]
+) -> torch.Tensor:
+    """
+    Apply word-level N-gram LM scores BEFORE beam pruning (topk selection).
+
+    This function identifies which (beam, token) combinations would complete a word,
+    computes the word-level LM score for those completions, and adds the score to
+    log_probs so that topk selection considers word-level LM information.
+
+    Key insight: Unlike post-pruning approaches, this allows good word-level LM
+    scores to "rescue" hypotheses that might otherwise be pruned based on
+    acoustic scores alone.
+
+    Args:
+        word_lm: WordNGramLMFusion instance for scoring.
+        word_lm_cache: Text-keyed cache {(text, is_eos): (score, raw, state)}.
+        lexicon: LexiconConstraint for word boundary detection.
+        lexicon_state: Current lexicon state for each beam.
+        log_probs: [B, beam_size, vocab_size] - scores to modify in-place.
+        beam_hyps: Beam hypotheses (for context_texts lookup).
+        blank_index: CTC blank token index.
+        prev_last_labels: [B, beam_size] - previous last non-blank token per beam.
+
+    Returns:
+        Modified log_probs tensor with word LM scores added for word-completing tokens.
+    """
+    if word_lm is None or lexicon is None:
+        return log_probs
+
+    batch_size, beam_size, vocab_size = log_probs.shape
+    boundary_token = lexicon.word_boundary_token
+
+    # For each beam, check which tokens would complete a word
+    # A token completes a word if:
+    #   1. The token is the word boundary token (e.g., space)
+    #   2. The previous token was NOT the boundary token (otherwise we're between words)
+
+    # We need to find which beams are "mid-word" (could complete a word with boundary token)
+    was_not_boundary = (prev_last_labels != boundary_token)  # [B, beam_size]
+
+    # Get the word that would be completed if we emit boundary_token
+    # This requires looking up the lexicon state to find which words match the current prefix
+
+    for b in range(batch_size):
+        for k in range(beam_size):
+            if not was_not_boundary[b, k]:
+                continue  # Already at word boundary, no word to complete
+
+            # Get the current lexicon state for this beam
+            state = lexicon_state[b, k].item()
+
+            # Check if this state represents a complete word
+            # (i.e., emitting boundary_token would complete a valid word)
+            word_indices = lexicon.get_words_at_state(state)
+
+            if not word_indices:
+                continue  # No valid word at this state
+
+            # Get parent context text for this beam
+            context_tuples = beam_hyps.context_texts[b][k]
+            if not context_tuples:
+                parent_text = ""
+            else:
+                parent_text = context_tuples[0][1]  # Best homophone's text
+
+            # Score each possible word completion
+            best_word_lm_delta = float('-inf')
+
+            for word_idx in word_indices:
+                word = lexicon.word_list[word_idx]
+
+                try:
+                    # Look up or compute word LM score
+                    combined_score, _, _ = score_word_with_cache(
+                        cache=word_lm_cache,
+                        word_lm=word_lm,
+                        parent_text=parent_text,
+                        new_word=word,
+                        is_eos=False,
+                    )
+
+                    # Compute delta from parent score
+                    parent_score = context_tuples[0][0] if context_tuples else 0.0
+                    word_lm_delta = combined_score - parent_score
+
+                    if word_lm_delta > best_word_lm_delta:
+                        best_word_lm_delta = word_lm_delta
+
+                except KeyError:
+                    continue  # Parent text not in cache, skip
+
+            # Add the best word LM score to the boundary token position
+            if best_word_lm_delta > float('-inf'):
+                log_probs[b, k, boundary_token] += best_word_lm_delta
+
+    return log_probs
+
+
+def update_word_lm_cache_post_selection(
+    word_lm: "WordNGramLMFusion",
+    word_lm_cache: "WordLMCache",
     lexicon: "LexiconConstraint",
     beam_hyps: "BatchedBeamHyps",
     blank_index: int,
     boundary_token: int,
     next_labels: torch.Tensor,
     prev_last_labels: torch.Tensor,
-    homophone_prune_threshold: Optional[float] = 10.0,
-    frame_idx: Optional[int] = None,
 ) -> None:
     """
-    Apply word-level N-gram LM scoring at word boundaries using cached states.
+    Update the word LM cache after beam selection with newly completed words.
 
-    Key pattern from pyctcdecode (decoder.py:383-395):
-        1. Look up parent state by parent TEXT (not beam index)
-        2. Score only the new word
-        3. Cache result by new TEXT
+    This function runs AFTER topk selection and updates context_texts for beams
+    that just completed a word. It also ensures the cache contains entries for
+    all current beam texts.
 
     Args:
         word_lm: WordNGramLMFusion instance.
-        word_lm_cache: Text-keyed cache {(text, is_eos): (score, raw, state)}.
-                       Persists across frames for O(1) lookups.
-        lexicon: LexiconConstraint for word boundary detection.
-        beam_hyps: Beam hypotheses to update in-place.
+        word_lm_cache: Text-keyed cache to update.
+        lexicon: LexiconConstraint for word lookup.
+        beam_hyps: Beam hypotheses to update.
         blank_index: CTC blank token index.
         boundary_token: Word boundary token index.
         next_labels: [B, beam_size] - tokens selected at this frame.
         prev_last_labels: [B, beam_size] - previous last non-blank tokens.
-        homophone_prune_threshold: Prune homophones worse than best by this much.
-        frame_idx: Current frame index (for debugging).
     """
-    if word_lm is None:
+    if word_lm is None or lexicon is None:
         return
 
     from .beam_helpers import materialize_beam_transcripts_batched, collapse_ctc_sequence
-    from .word_ngram_lm import score_word_with_cache
 
     batch_size, beam_size = beam_hyps.scores.shape
 
-    # --- PHASE 1: Identify beams at word boundaries ---
+    # Identify beams that just completed a word
     valid_mask = beam_hyps.scores != float('-inf')
     at_boundary = (next_labels == boundary_token)
     was_not_boundary = (prev_last_labels != boundary_token)
-    needs_scoring_mask = valid_mask & at_boundary & was_not_boundary
+    completed_word_mask = valid_mask & at_boundary & was_not_boundary
 
-    batch_indices, beam_indices = torch.where(needs_scoring_mask)
+    batch_indices, beam_indices = torch.where(completed_word_mask)
     if len(batch_indices) == 0:
         return
 
@@ -689,9 +813,7 @@ def apply_word_ngram_fusion_post_selection(
 
     # Cache for lexicon lookups
     lexicon_cache = {}
-
-    # Collect beams to score
-    to_score = []
+    num_homophone_beams = beam_hyps.num_homophone_beams
 
     for i, (b, k) in enumerate(zip(batch_indices_list, beam_indices_list)):
         seq_raw = all_transcripts[i]
@@ -707,8 +829,8 @@ def apply_word_ngram_fusion_post_selection(
         if not at_boundary_flag or not word_indices:
             continue
 
-        # Get current context texts (these serve as keys into word_lm_cache)
-        parent_tuples = beam_hyps.context_texts[b][k]  # List[(lm_score, text)]
+        # Get current context texts
+        parent_tuples = beam_hyps.context_texts[b][k]
 
         # Get candidate words (homophones)
         base_words = [lexicon.word_list[idx] for idx in word_indices]
@@ -717,27 +839,11 @@ def apply_word_ngram_fusion_post_selection(
             candidate_words.extend(get_capitalization_variants(word))
         candidate_words = list(dict.fromkeys(candidate_words))
 
-        to_score.append((b, k, parent_tuples, candidate_words))
-
-    if not to_score:
-        return
-
-    # --- PHASE 2: Score with N-gram LM using cache (O(1) per word!) ---
-    num_homophone_beams = beam_hyps.num_homophone_beams
-
-    for (b, k, parent_tuples, candidate_words) in to_score:
-        base_acoustic_score = beam_hyps.scores[b, k].item()
-
-        # For each parent text, score all candidate words
-        all_candidates = []  # List of (new_lm_score, new_text)
+        # Score all candidate words and update context_texts
+        all_candidates = []
 
         for prev_lm_score, prev_text in parent_tuples:
             for word in candidate_words:
-                # Use cache for O(1) scoring - this is the key optimization!
-                # score_word_with_cache handles:
-                #   1. Looking up parent state from cache by prev_text
-                #   2. Scoring only the new word
-                #   3. Caching the result for future lookups
                 try:
                     combined_score, raw_score, _ = score_word_with_cache(
                         cache=word_lm_cache,
@@ -747,15 +853,10 @@ def apply_word_ngram_fusion_post_selection(
                         is_eos=False,
                     )
                 except KeyError:
-                    # Parent text not in cache - this can happen if parent was
-                    # scored by neural LM but not word n-gram. Use raw scoring.
-                    # This fallback ensures robustness.
                     continue
 
-                new_lm_score = combined_score  # Cache already has accumulated score
                 new_text = f"{prev_text} {word}".strip() if prev_text else word
-
-                all_candidates.append((new_lm_score, new_text))
+                all_candidates.append((combined_score, new_text))
 
         if not all_candidates:
             continue
@@ -768,33 +869,67 @@ def apply_word_ngram_fusion_post_selection(
                 lowercase_to_best[text_lower] = (lm_score, text)
         all_candidates = list(lowercase_to_best.values())
 
-        # Sort by LM score (descending)
+        # Sort and keep top candidates
         all_candidates.sort(key=lambda x: x[0], reverse=True)
-
-        # Prune candidates too far from best
-        if homophone_prune_threshold is not None and all_candidates:
-            best_score = all_candidates[0][0]
-            all_candidates = [
-                c for c in all_candidates
-                if best_score - c[0] <= homophone_prune_threshold
-            ]
-
-        # Keep top K
         top_candidates = all_candidates[:num_homophone_beams]
 
-        # Update beam score: acoustic + best LM score
-        old_best_lm = parent_tuples[0][0] if parent_tuples else 0.0
-        new_best_lm = top_candidates[0][0]
-        acoustic_score = base_acoustic_score - old_best_lm
-        beam_hyps.scores[b, k] = acoustic_score + new_best_lm
-
-        # Update context_texts (text serves as key into cache)
+        # Update context_texts
         new_tuples = [(score, text) for score, text in top_candidates]
         beam_hyps.context_texts[b][k] = new_tuples
         beam_hyps.context_texts_hash[b][k] = hash(new_tuples[0][1])
+
+
+def get_capitalization_variants(word: str) -> List[str]:
+    """Generate capitalization variants for a word."""
+    variants = [word.lower()]
+    if word[0].isupper():
+        variants.append(word)
+    if word.lower() != word.capitalize():
+        variants.append(word.capitalize())
+    return list(dict.fromkeys(variants))  # Remove duplicates, preserve order
 ```
 
-**Key difference from original plan**: No separate `word_lm_states` storage needed. The cache is keyed by text, and `context_texts` already stores the text we need.
+### 3.4 Required Lexicon Method
+
+The pre-pruning approach requires a new method on `VectorizedLexiconConstraint`:
+
+**File**: `src/brainaudio/inference/decoder/lexicon_constraint.py`
+
+```python
+def get_words_at_state(self, state: int) -> List[int]:
+    """
+    Get word indices for all valid words that can be completed at this state.
+
+    Args:
+        state: Current lexicon FST state.
+
+    Returns:
+        List of word indices from self.word_list that are valid completions.
+        Empty list if no words complete at this state.
+    """
+    # The state encodes the current prefix in the lexicon trie/FST
+    # We need to find which words have this prefix and are at a word boundary
+
+    # Check if this state has a word boundary arc (can complete a word)
+    word_indices = []
+    for arc_label, (next_state, word_idx) in self.transitions[state].items():
+        if arc_label == self.word_boundary_token and word_idx is not None:
+            word_indices.append(word_idx)
+
+    return word_indices
+```
+
+**Note**: The exact implementation depends on how `VectorizedLexiconConstraint` stores word indices. You may need to modify this based on the actual data structure. The key is to quickly look up which words are valid completions at a given lexicon state.
+
+### 3.5 Key Differences from Post-Pruning Approach
+
+| Aspect | Post-Pruning (Original) | Pre-Pruning (New) |
+|--------|------------------------|-------------------|
+| When applied | After topk selection | Before topk selection |
+| Modifies | beam_hyps.scores directly | log_probs tensor |
+| Rescue effect | No - beams already pruned | Yes - LM can save good hypotheses |
+| Complexity | O(beam_size) per frame | O(beam_size) per frame |
+| Cache updates | During scoring | Separate post-selection step |
 
 ---
 
@@ -831,9 +966,11 @@ This is simpler and more robust because:
 1. Add the function from Section 3.3
 2. Add import at top: `from .word_ngram_lm import WordNGramLMFusion, KenlmState`
 
-### Step 4: Integrate into BatchedBeamCTCComputer
+### Step 4: Integrate into BatchedBeamCTCComputer (PRE-PRUNING)
 
 **File to modify**: `src/brainaudio/inference/decoder/ctc_batched_beam_decoding.py`
+
+**IMPORTANT**: The word N-gram LM is applied **BEFORE** topk selection (pruning), not after. This allows word-level LM scores to influence which beams survive pruning.
 
 1. Add new parameter to `__init__`:
    ```python
@@ -860,65 +997,55 @@ This is simpler and more robust because:
        # Cache starts as: {("", False): (0.0, 0.0, start_state)}
    ```
 
-3. **Pass cache to fusion function in frame loop** (around line 667):
+3. **Apply word N-gram LM scores BEFORE topk** (around line 490, after phoneme LM):
    ```python
-   # After: batched_beam_hyps.recombine_hyps_(...)
+   # After fusion_models scoring (phoneme LM), BEFORE topk selection:
+   # This is the key difference - we add word LM scores to log_probs before pruning!
 
-   # Apply word N-gram LM (fast, O(1) per word via cache)
    if self.word_ngram_lm is not None and self.lexicon is not None:
-       from .neural_lm_fusion import apply_word_ngram_fusion_post_selection
+       from .word_ngram_lm import apply_word_ngram_lm_pre_pruning
 
-       apply_word_ngram_fusion_post_selection(
+       log_probs = apply_word_ngram_lm_pre_pruning(
            word_lm=self.word_ngram_lm,
-           word_lm_cache=word_lm_cache,  # Pass cache - persists across frames!
+           word_lm_cache=word_lm_cache,
+           lexicon=self.lexicon,
+           lexicon_state=lexicon_state,
+           log_probs=log_probs,  # [B, beam_size, vocab_size]
+           beam_hyps=batched_beam_hyps,
+           blank_index=self._blank_index,
+           prev_last_labels=batched_beam_hyps.last_label,
+       )
+
+   # NOW do topk selection (with word LM scores already included!)
+   next_scores, next_candidates_indices = torch.topk(
+       log_probs.view(curr_batch_size, -1), k=self.beam_size, largest=True, sorted=True
+   )
+   ```
+
+4. **Update cache after beam selection** (after add_results_, around line 668):
+   ```python
+   # After: batched_beam_hyps.add_results_(next_indices, next_labels, next_scores)
+   # Before: batched_beam_hyps.recombine_hyps_(...)
+
+   # Update word LM cache with newly completed words
+   if self.word_ngram_lm is not None and self.lexicon is not None:
+       from .word_ngram_lm import update_word_lm_cache_post_selection
+
+       update_word_lm_cache_post_selection(
+           word_lm=self.word_ngram_lm,
+           word_lm_cache=word_lm_cache,
            lexicon=self.lexicon,
            beam_hyps=batched_beam_hyps,
            blank_index=self._blank_index,
            boundary_token=self.lexicon.word_boundary_token,
            next_labels=next_labels,
            prev_last_labels=prev_last_labels,
-           homophone_prune_threshold=self.homophone_prune_threshold,
-           frame_idx=frame_idx,
        )
 
-   # Apply neural LM (slow, but more powerful) - existing code
-   if self.lm_fusion is not None and self.lexicon is not None:
-       ...
+   batched_beam_hyps.recombine_hyps_(is_last_step= curr_max_time-1 == frame_idx)
    ```
 
-4. **EOS scoring using cache** (around line 698):
-   ```python
-   # After fusion_models EOS scoring:
-   if self.word_ngram_lm is not None and word_lm_cache is not None:
-       from .word_ngram_lm import score_word_with_cache
-
-       for b in range(curr_batch_size):
-           for k in range(self.beam_size):
-               if batched_beam_hyps.scores[b, k] != float('-inf'):
-                   # Get the text for this beam
-                   context_tuples = batched_beam_hyps.context_texts[b][k]
-                   if context_tuples:
-                       _, text = context_tuples[0]  # Best homophone's text
-
-                       # Score EOS using cache (O(1) lookup + scoring)
-                       try:
-                           eos_score, _, _ = score_word_with_cache(
-                               cache=word_lm_cache,
-                               word_lm=self.word_ngram_lm,
-                               parent_text=text,
-                               new_word="</s>",  # or handle via get_eos_score
-                               is_eos=True,
-                           )
-                           # EOS score is the delta from non-EOS to EOS
-                           non_eos_score, _, _ = word_lm_cache.get((text, False), (0.0, 0.0, None))
-                           eos_delta = eos_score - non_eos_score
-                           batched_beam_hyps.scores[b, k] += eos_delta
-                       except KeyError:
-                           # Text not in cache - skip EOS scoring for this beam
-                           pass
-   ```
-
-   **Alternative simpler EOS approach** (if you don't need incremental EOS):
+5. **EOS scoring using cache** (around line 698):
    ```python
    # Simpler: use get_eos_score directly on cached state
    if self.word_ngram_lm is not None and word_lm_cache is not None:
@@ -964,18 +1091,22 @@ decoder = BatchedBeamCTCComputer(
 )
 ```
 
-Execution order:
-1. Word N-gram LM scores first (fast, provides initial word-level guidance)
-2. Neural LM scores second (slow, but can override/refine)
+Execution order in the frame loop:
+1. **Phoneme N-gram LM** (`fusion_models`) - scores all tokens before pruning
+2. **Word N-gram LM** (`word_ngram_lm`) - scores word-completing tokens before pruning
+3. **topk selection** (pruning) - selects beam_size best candidates
+4. **Neural LM** (`lm_fusion`) - scores completed words after pruning (optional refinement)
+
+The key insight is that both phoneme and word N-gram LMs run **before pruning**, allowing their scores to influence which beams survive. The neural LM runs **after pruning** for computational efficiency (it's much slower).
 
 ### 5.2 Interaction with Phoneme N-gram LM
 
-The `fusion_models` (phoneme-level) and `word_ngram_lm` operate at different granularities:
+The `fusion_models` (phoneme-level) and `word_ngram_lm` operate at different granularities but both apply **before pruning**:
 
-- `fusion_models`: Every frame, token-level, guides towards likely phoneme sequences
-- `word_ngram_lm`: Word boundaries only, word-level, guides towards likely word sequences
+- `fusion_models`: Every frame, scores all tokens, guides towards likely phoneme sequences
+- `word_ngram_lm`: Every frame, scores word-boundary tokens only, guides towards likely word sequences
 
-Both can be used together for complementary benefits.
+Both can be used together for complementary benefits. The phoneme LM helps with within-word phoneme selection, while the word LM helps with word-level disambiguation (homophones).
 
 ### 5.3 Parameter Tuning
 
@@ -1210,12 +1341,11 @@ class EnsembleWordNGramLM:
 
 | File | Changes |
 |------|---------|
-| `word_ngram_lm.py` | **NEW** - WordNGramLMFusion class, KenlmState wrapper, cache utilities |
+| `word_ngram_lm.py` | **NEW** - WordNGramLMFusion class, KenlmState wrapper, cache utilities, `apply_word_ngram_lm_pre_pruning()`, `update_word_lm_cache_post_selection()` |
 | `batched_beam_decoding_utils.py` | **NO CHANGES** - text-based cache eliminates need for state tracking |
-| `neural_lm_fusion.py` | Add `apply_word_ngram_fusion_post_selection()` function |
-| `ctc_batched_beam_decoding.py` | Add `word_ngram_lm` parameter, create cache, call fusion, EOS scoring |
+| `ctc_batched_beam_decoding.py` | Add `word_ngram_lm` parameter, create cache, call pre-pruning function before topk, call cache update after add_results_, EOS scoring |
 
-**Simplified vs Original Plan**: The text-based caching approach (from pyctcdecode) eliminates the need to modify `BatchedBeamHyps` or handle state gathering in `recombine_hyps_()`.
+**Key Design Decision**: Word N-gram LM is applied **BEFORE** pruning (topk selection), not after. This allows word-level LM scores to influence which beams survive, preventing good word sequences from being prematurely eliminated based on acoustic scores alone.
 
 ## Appendix B: Dependencies
 
