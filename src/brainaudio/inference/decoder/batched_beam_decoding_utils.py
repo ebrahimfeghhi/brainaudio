@@ -157,7 +157,8 @@ class BatchedBeamHyps:
         # Starts with 1 tuple (empty), grows up to num_homophone_beams as homophones are encountered
         self.context_texts = [[[(0.0, "")] for _ in range(self.beam_size)] for _ in range(self.batch_size)]
         # Hash is computed from only the best text (index 0) for beam recombination
-        self.context_texts_hash = [[0 for _ in range(self.beam_size)] for _ in range(self.batch_size)]
+        # Stored as tensor to avoid Python→Tensor conversion every frame in recombine_hyps_
+        self.context_texts_hash = torch.zeros([batch_size, self.beam_size], device=device, dtype=torch.long)
         
         # Initializing tree structure for hypothesis storing
         self.transcript_wb = torch.full(
@@ -229,7 +230,7 @@ class BatchedBeamHyps:
 
         # Reset context texts to initial state (single empty tuple per beam)
         self.context_texts = [[[(0.0, "")] for _ in range(self.beam_size)] for _ in range(self.batch_size)]
-        self.context_texts_hash = [[0 for _ in range(self.beam_size)] for _ in range(self.batch_size)]
+        self.context_texts_hash.fill_(0)
 
         # model specific parameters
         if self.model_type == ASRModelTypeEnum.CTC:
@@ -321,11 +322,9 @@ class BatchedBeamHyps:
         # 2. Capture the current state (Snapshot)
         # We use the existing reference because we will build a completely new list structure below
         old_context_texts = self.context_texts
-        old_context_texts_hash = self.context_texts_hash
         new_context_texts = []
-        new_context_texts_hash = []
 
-        # 3. Reorder using Python List Comprehensions (Runs entirely in CPU RAM)
+        # 3. Reorder context_texts using Python List Comprehensions (must stay as Python list)
         for b in range(self.batch_size):
             # Retrieve the list of parent indices for this batch
             batch_parent_indices = next_indices_cpu[b]
@@ -333,13 +332,12 @@ class BatchedBeamHyps:
             # logic: new_beam[k] comes from old_beam[ parent_indices[k] ]
             # Each element is a list of tuples [(score, text), ...], so we need a shallow copy
             new_beam_list = [list(old_context_texts[b][p_idx]) for p_idx in batch_parent_indices]
-            new_beam_hash_list = [old_context_texts_hash[b][p_idx] for p_idx in batch_parent_indices]
             new_context_texts.append(new_beam_list)
-            new_context_texts_hash.append(new_beam_hash_list)
 
-        # 4. Update the class reference
+        # 4. Update the class references
         self.context_texts = new_context_texts
-        self.context_texts_hash = new_context_texts_hash
+        # Reorder context_texts_hash using fast tensor gather (no CPU transfer needed)
+        self.context_texts_hash = torch.gather(self.context_texts_hash, dim=1, index=next_indices)
 
         if getattr(self, "cached_state", None) is not None:
             # Reindex cached_state and cached_logits after beam pruning
@@ -446,7 +444,7 @@ class BatchedBeamHyps:
             )
 
     def recombine_hyps_(self, is_last_step: bool = False):
-        
+
         """
         Recombines hypotheses in the beam search by merging equivalent hypotheses and updating their scores.
         This method identifies hypotheses that are equivalent based on their transcript hash, last label,
@@ -458,37 +456,57 @@ class BatchedBeamHyps:
 
         if self.beam_size <= 1:
             return
-        
-        # for the last step, only compare transcript hashes. 
-        
-        hashed_tensor = torch.tensor(self.context_texts_hash, device=self.device)
-                
-        hyps_equal = (
-            (self.transcript_hash[:, :, None] == self.transcript_hash[:, None, :])
-            & (self.last_label[:, :, None] == self.last_label[:, None, :])
-            & (self.current_lengths_nb[:, :, None] == self.current_lengths_nb[:, None, :])
-            &  (hashed_tensor[:, :, None] == hashed_tensor[:, None, :])
+
+        # O(n) hash-based recombination instead of O(n²) pairwise comparison
+        # Combine all comparison keys into a single hash
+        combined_hash = (
+            self.transcript_hash * 1000003 +
+            self.last_label * 1009 +
+            self.current_lengths_nb * 17 +
+            self.context_texts_hash
         )
 
         if self.model_type == ASRModelTypeEnum.TDT:
-            hyps_equal &= self.next_timestamp[:, :, None] == self.next_timestamp[:, None, :]
+            combined_hash = combined_hash * 31 + self.next_timestamp
 
-        scores_matrix = torch.where(
-            hyps_equal,
-            self.scores[:, None, :].expand(self.batch_size, self.beam_size, self.beam_size),
-            self.INACTIVE_SCORE_TENSOR,
-        )
-        
-        scores_argmax = scores_matrix.argmax(-1, keepdim=False)
-        scores_to_keep = (
-            torch.arange(self.beam_size, device=scores_argmax.device, dtype=torch.long)[None, :] == scores_argmax
-        )
-        if self.score_combination == "logsumexp":
-            new_scores = torch.logsumexp(scores_matrix, dim=-1, keepdim=False)
-        else:  # max
-            new_scores = torch.max(scores_matrix, dim=-1, keepdim=False).values
-            
-        torch.where(scores_to_keep, new_scores.to(self.scores.dtype), self.INACTIVE_SCORE_TENSOR, out=self.scores)
+        # Convert to lists for fast Python dict operations
+        combined_hash_list = combined_hash.tolist()
+        scores_list = self.scores.tolist()
+        INACTIVE = float('-inf')
+
+        for b in range(self.batch_size):
+            seen = {}  # hash -> (best_score, beam_idx, [all_scores for logsumexp])
+            hashes_b = combined_hash_list[b]
+            scores_b = scores_list[b]
+
+            for k in range(self.beam_size):
+                h = hashes_b[k]
+                s = scores_b[k]
+
+                if s == INACTIVE:
+                    continue
+
+                if h not in seen:
+                    seen[h] = (s, k, [s])
+                else:
+                    old_best, old_idx, all_scores = seen[h]
+                    all_scores.append(s)
+                    if s > old_best:
+                        # New best - deactivate the old one
+                        self.scores[b, old_idx] = INACTIVE
+                        seen[h] = (s, k, all_scores)
+                    else:
+                        # This one is worse - deactivate it
+                        self.scores[b, k] = INACTIVE
+
+            # Apply logsumexp if needed (update the surviving beam's score)
+            if self.score_combination == "logsumexp":
+                for h, (best_score, best_idx, all_scores) in seen.items():
+                    if len(all_scores) > 1:
+                        import math
+                        max_s = max(all_scores)
+                        logsumexp_score = max_s + math.log(sum(math.exp(s - max_s) for s in all_scores))
+                        self.scores[b, best_idx] = logsumexp_score
 
     def remove_duplicates(self, labels: torch.Tensor, total_logps: torch.Tensor):
         """

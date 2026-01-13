@@ -1,13 +1,12 @@
 import argparse
-import gc
 import time
 from pathlib import Path
 import pandas as pd
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 import numpy as np
-import kenlm
 from datetime import datetime
+import sys
 
 from brainaudio.inference.eval_metrics import _cer_and_wer
 
@@ -20,7 +19,7 @@ from brainaudio.inference.decoder.beam_helpers import (
     load_log_probs,
     pick_device
 )
-from brainaudio.inference.decoder.word_ngram_lm import WordNGramLMFusion
+from brainaudio.inference.decoder.word_ngram_lm_optimized_v2 import FastNGramLM, WordHistory
 
 """
 CTC beam search with word-level N-gram LM fusion and optional LLM shallow fusion.
@@ -58,10 +57,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--top-k", type=int, default=1, help="Number of top beams to display per trial")
     parser.add_argument("--num-homophone-beams", type=int, default=3, help="Number of text interpretations (homophones) to track per beam")
     parser.add_argument("--beam-prune-threshold", type=float, default=12, help="Prune beams that are more than this many log-prob points below the best.")
-    parser.add_argument("--homophone-prune-threshold", type=float, default=7, help="Prune homophones more than this many log-prob points below the best.")
+    parser.add_argument("--homophone-prune-threshold", type=float, default=4, help="Prune homophones more than this many log-prob points below the best.")
     parser.add_argument("--beam-beta", type=float, default=np.log(7), help="Bonus added to extending beams (not blank/repeat).")
     parser.add_argument("--beam-blank-penalty", type=float, default=0, help="Penalty subtracted from blank emissions.")
-    parser.add_argument("--logit-scale", type=float, default=0.30, help="Scalar multiplier for encoder logits.")
+    parser.add_argument("--logit-scale", type=float, default=0.6, help="Scalar multiplier for encoder logits.")
     parser.add_argument(
         "--results-filename",
         type=str,
@@ -72,11 +71,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--load-in-4bit", action="store_true", help="Load model in 4-bit quantization (requires bitsandbytes)")
     parser.add_argument("--disable-llm", action="store_true", help="Disable LLM shallow fusion (useful for testing n-gram LM alone)")
     parser.add_argument("--test-mode", action="store_true", help="Use logits_test.npz and skip WER computation")
+    parser.add_argument("--quiet", action="store_true", help="Reduce verbose output (skip per-beam printing)")
 
     # Word N-gram LM arguments
     parser.add_argument("--word-lm-path", type=str, default=DEFAULT_WORD_LM_PATH,
                         help="Path to word-level KenLM file (.kenlm)")
-    parser.add_argument("--alpha-ngram", type=float, default=0.5,
+    parser.add_argument("--alpha-ngram", type=float, default=2,
                         help="Weight for word N-gram LM scores (default: 0.5)")
     parser.add_argument("--beta-ngram", type=float, default=1.0,
                         help="Word insertion bonus for word N-gram LM (default: 1.0)")
@@ -146,6 +146,7 @@ def main():
         lexicon_file=str(args.lexicon),
         device=device,
     )
+    
 
     # Load LLM for shallow fusion (skip if --disable-llm)
     lm_fusion = None
@@ -188,12 +189,9 @@ def main():
         print("[INFO] LLM shallow fusion disabled (--disable-llm)")
 
     # Initialize word-level N-gram LM
-    kenlm_model = kenlm.Model(args.word_lm_path)
-    word_ngram_lm = WordNGramLMFusion(
-        kenlm_model=kenlm_model,
-        alpha=args.alpha_ngram,
-        beta=args.beta_ngram,
-    )
+    word_ngram_lm = FastNGramLM(args.word_lm_path, alpha=args.alpha_ngram, beta=args.beta_ngram)
+    word_history = WordHistory()
+ 
     print(f"[INFO] Word N-gram LM loaded with alpha={args.alpha_ngram}, beta={args.beta_ngram}")
 
     decoder = BatchedBeamCTCComputer(
@@ -208,6 +206,7 @@ def main():
         beam_beta=args.beam_beta,
         beam_blank_penalty=args.beam_blank_penalty,
         word_ngram_lm=word_ngram_lm,
+        word_history = word_history
     )
 
     transcripts = None
@@ -227,10 +226,18 @@ def main():
     print(f"\n=== Starting Decode Loop: {len(args.trial_indices)} trials ===")
     print(f"[INFO] Decoding trial indices: {args.trial_indices}")
 
+    # Pre-load NPZ file once (avoid opening file per trial)
+    logits_npz = np.load(args.logits)
+
+    # Move import outside loop
+    from brainaudio.inference.decoder import materialize_beam_transcript, collapse_ctc_sequence
+
     for trial_idx in args.trial_indices:
-        # Load single trial
-        log_probs, _, lengths = load_log_probs(args.logits, [trial_idx], device)
-        log_probs *= args.logit_scale
+        # Load single trial from pre-opened NPZ (much faster than load_log_probs per trial)
+        logits = torch.from_numpy(logits_npz[f"arr_{trial_idx}"]).to(device).unsqueeze(0)
+        lengths = torch.tensor([logits.shape[1]], device=device)
+        # Convert raw logits to log probabilities, then apply acoustic scale
+        log_probs = torch.nn.functional.log_softmax(logits, dim=-1) * args.logit_scale
 
         # Run Decoder
         if device.type == "cuda":
@@ -252,7 +259,19 @@ def main():
         topk_indices = valid_indices_sorted[:K]
 
         # Get decoded text from context_texts (populated by WordNGramLM)
-        decoded_beams = [result.context_texts[0][i][0][1] for i in topk_indices]
+        #decoded_beams = [result.context_texts[0][i][0][1] for i in topk_indices]
+        #best_text = decoded_beams[0] if decoded_beams else ""
+        decoded_beams = []
+        for i in topk_indices:
+            context_list = result.context_texts[0][i]
+            if context_list:
+                # Tuple is (score, lm_id, history_id) -> We want index 2
+                hist_id = context_list[0][2]
+                text = word_history.get_text(hist_id)
+                decoded_beams.append(text)
+            else:
+                decoded_beams.append("")
+
         best_text = decoded_beams[0] if decoded_beams else ""
         decoded_sentences.append(best_text)
 
@@ -274,36 +293,34 @@ def main():
             print(f"  GT:   {ground_truth}")
         print(f"  Best: {best_text}")
 
-        # Import helpers for token sequence printing
-        from brainaudio.inference.decoder import materialize_beam_transcript, collapse_ctc_sequence
+        # Verbose per-beam printing (skip with --quiet)
+        if not args.quiet:
+            print(f"  Top {K} beams (with {args.num_homophone_beams} homophone interpretations each):")
+            for rank, i in enumerate(topk_indices):
+                beam_score = result.scores[0, i].item()
 
-        print(f"  Top {K} beams (with {args.num_homophone_beams} homophone interpretations each):")
-        for rank, i in enumerate(topk_indices):
-            beam_score = result.scores[0, i].item()
+                # Get token sequence for this beam
+                seq_raw = materialize_beam_transcript(result, 0, i)
+                seq_collapsed = collapse_ctc_sequence(seq_raw.tolist(), lexicon.blank_index)
+                token_names_collapsed = [lexicon.token_to_symbol.get(idx, f"?{idx}") for idx in seq_collapsed]
 
-            # Get token sequence for this beam
-            seq_raw = materialize_beam_transcript(result, 0, i)
-            seq_collapsed = collapse_ctc_sequence(seq_raw.tolist(), lexicon.blank_index)
-            token_names_collapsed = [lexicon.token_to_symbol.get(idx, f"?{idx}") for idx in seq_collapsed]
+                # Raw sequence (before CTC merging) - shows blanks and repeats
+                token_names_raw = [lexicon.token_to_symbol.get(idx, f"?{idx}") for idx in seq_raw.tolist()]
 
-            # Raw sequence (before CTC merging) - shows blanks and repeats
-            token_names_raw = [lexicon.token_to_symbol.get(idx, f"?{idx}") for idx in seq_raw.tolist()]
+                print(f"  #{rank:02d} | score={beam_score:.2f} | {' '.join(token_names_collapsed)}")
+                print(f"       Raw ({len(seq_raw)} frames): {' '.join(token_names_raw[-30:])}")
 
-            print(f"  #{rank:02d} | score={beam_score:.2f} | {' '.join(token_names_collapsed)}")
-            print(f"       Raw ({len(seq_raw)} frames): {' '.join(token_names_raw[-30:])}")
+                # Print homophone interpretations
+                all_texts = result.context_texts[0][i]
+                for k_idx, (lm_score, _, hist_id) in enumerate(all_texts):
+                    text_str = word_history.get_text(hist_id)
+                    print(f"       H{k_idx}: lm={lm_score:.4f} | {text_str}")
 
-            # Print homophone interpretations
-            all_texts = result.context_texts[0][i]
-            for k_idx, (lm_score, text) in enumerate(all_texts):
-                print(f"       H{k_idx}: lm={lm_score:.4f} | {text}")
+            print("-" * 60)
 
-        print("-" * 60)
-
-        # Explicit memory cleanup to prevent accumulation across trials
+        # Cleanup references (let Python GC handle it naturally)
         del result
         del log_probs
-        gc.collect()
-        torch.cuda.empty_cache()
 
     total_elapsed = time.perf_counter() - total_start_time
 

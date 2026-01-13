@@ -33,7 +33,7 @@ from .enum import PrettyStrEnum
 from .nemo_stubs import logging
 from .neural_lm_fusion import NeuralLanguageModelFusion
 from .context_biasing import GPUBoostingTreeModel
-from .word_ngram_lm import WordNGramLMFusion, WordLMCache, create_word_lm_cache, apply_word_ngram_lm_scoring, apply_word_ngram_eos_scoring
+from .word_ngram_lm_optimized_v2 import WordHistory, apply_word_ngram_lm_scoring, apply_word_ngram_eos_scoring, FastNGramLM
 
 HAVE_LM_FUSION = False
 
@@ -187,7 +187,8 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         allow_cuda_graphs: bool = True,
         lexicon: LexiconConstraint = None,
         lm_fusion: NeuralLanguageModelFusion = None,
-        word_ngram_lm: Optional[WordNGramLMFusion] = None,
+        word_ngram_lm: Optional[FastNGramLM] = None,
+        word_history: Optional[WordHistory] = None,
         lm_beam_limit: Optional[int] = None,
         num_homophone_beams: int = 1,
         homophone_prune_threshold: Optional[float] = 10.0,
@@ -246,7 +247,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             logging.warning("lm_fusion is enabled but lexicon is None. Neural LM fusion requires lexicon for word boundary detection.")
 
         self.word_ngram_lm = word_ngram_lm
-        self.word_ngram_lm_cache = create_word_lm_cache(word_ngram_lm)
+        self.word_history = word_history
 
     def force_cuda_graphs_mode(self, mode: Optional[Union[str, CudaGraphsMode]]):
         """
@@ -368,7 +369,8 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
 
             # step 2.1: getting the log probs and updating with fusion scores
             # log probs is of shape batch size [B, beam_size, V+1]
-            log_probs = decoder_outputs[:, frame_idx, :].unsqueeze(1).repeat(1, self.beam_size, 1)
+            # expand() creates a view (no copy), contiguous() makes writable copy only when needed
+            log_probs = decoder_outputs[:, frame_idx, :].unsqueeze(1).expand(-1, self.beam_size, -1).contiguous()
             log_probs += batched_beam_hyps.scores.unsqueeze(-1) # add current beam scores to every token in our beam
             
                 # step 2.2: updating non-blank and non-repeating token scores with `beam_beta`
@@ -453,11 +455,13 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                 
             batched_beam_hyps.add_results_(next_indices, next_labels, next_scores)
             
-            apply_word_ngram_lm_scoring(word_lm=self.word_ngram_lm, word_lm_cache=self.word_ngram_lm_cache, 
-                                        lexicon=self.lexicon, beam_hyps=batched_beam_hyps,
-                                        boundary_token=getattr(self.lexicon, "word_boundary_token", None),next_labels=next_labels,
+            
+            apply_word_ngram_lm_scoring(word_lm=self.word_ngram_lm, word_history=self.word_history, beam_hyps=batched_beam_hyps, 
+                                        boundary_token=getattr(self.lexicon, "word_boundary_token", None), next_labels=next_labels,
                                         prev_last_labels=prev_last_labels, parent_lexicon_states=parent_states,
-                                        homophone_prune_threshold=self.homophone_prune_threshold)
+                                        homophone_prune_threshold=self.homophone_prune_threshold, lexicon=self.lexicon)
+                      
+          
             
             
             batched_beam_hyps.recombine_hyps_(is_last_step= curr_max_time-1 == frame_idx)
@@ -469,6 +473,8 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                 from .neural_lm_fusion import apply_lm_fusion_post_selection
 
                 boundary_token = getattr(self.lexicon, "word_boundary_token", None)
+                
+                
 
                 apply_lm_fusion_post_selection(
                     lm_fusion=self.lm_fusion,
@@ -496,11 +502,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
 
         # Apply word-level N-gram LM end-of-sentence scoring
         if self.word_ngram_lm is not None:
-            apply_word_ngram_eos_scoring(
-                word_lm=self.word_ngram_lm,
-                word_lm_cache=self.word_ngram_lm_cache,
-                beam_hyps=batched_beam_hyps,
-            )
+            apply_word_ngram_eos_scoring(word_lm=self.word_ngram_lm, beam_hyps=batched_beam_hyps)
 
         return batched_beam_hyps
    

@@ -440,11 +440,11 @@ def apply_word_ngram_lm_scoring(
 
     # --- PHASE 2: Process each beam that completed a word ---
     for b, k in zip(batch_indices_list, beam_indices_list):
+        
         # Get word indices directly from parent lexicon state (efficient!)
         # parent_lexicon_states[b, k] is the state BEFORE '|' was emitted
         parent_state = parent_lexicon_states[b, k].item()
         word_indices = lexicon.get_words_at_state(parent_state)
-        
 
         if not word_indices:
             continue

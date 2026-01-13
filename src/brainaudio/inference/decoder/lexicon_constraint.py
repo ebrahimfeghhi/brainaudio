@@ -564,6 +564,8 @@ class VectorizedLexiconConstraint(LexiconConstraint):
         ) = self._build_dense_transition_table(self.device)
         self._sink_state_tensor = torch.tensor(self._sink_state, device=self.device, dtype=torch.long)
         self._root_state_tensor = torch.tensor(self._root_state, device=self.device, dtype=torch.long)
+        # Pre-allocated buffer for constraint mask (avoids allocation every frame)
+        self._mask_buffer = None
 
     def _infer_vocab_ceiling(self) -> int:
         max_token = self.blank_index
@@ -668,20 +670,26 @@ class VectorizedLexiconConstraint(LexiconConstraint):
         vocab_size: int,
         last_labels: torch.Tensor,
     ) -> torch.Tensor:
-        
-        
+
+
         self._ensure_table_device(state.device)
-        
+
         table_vocab = self.transition_table.shape[1]
-        
+
         state_clamped = torch.clamp(state, 0, self.transition_table.shape[0] - 1)
-        
+
         transitions = self.transition_table[state_clamped]
 
-        mask = torch.zeros((*state.shape, vocab_size), dtype=torch.bool, device=state.device)
-        
+        # Reuse pre-allocated buffer to avoid memory allocation every frame
+        target_shape = (*state.shape, vocab_size)
+        if self._mask_buffer is None or self._mask_buffer.shape != target_shape or self._mask_buffer.device != state.device:
+            self._mask_buffer = torch.zeros(target_shape, dtype=torch.bool, device=state.device)
+        else:
+            self._mask_buffer.zero_()
+
+        mask = self._mask_buffer
         copy_limit = min(vocab_size, table_vocab)
-        
+
         # set all permissable transitions to True in the mask
         if copy_limit > 0:
             mask[:, :, :copy_limit] = transitions[:, :, :copy_limit] != self._INVALID_STATE

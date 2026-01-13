@@ -537,7 +537,7 @@ def apply_lm_fusion_post_selection(
         beam_hyps.context_texts[b][k] = new_tuples
 
         # Update hash based on best text (index 0)
-        beam_hyps.context_texts_hash[b][k] = hash(new_tuples[0][1])
+        beam_hyps.context_texts_hash[b, k] = hash(new_tuples[0][1])
 
 def apply_lm_end_of_sentence_with_incomplete_word(
     lm_fusion: NeuralLanguageModelFusion | None,
@@ -762,4 +762,4 @@ def apply_lm_end_of_sentence_with_incomplete_word(
         beam_hyps.scores[b, k] += best_score
 
         # Update hash
-        beam_hyps.context_texts_hash[b][k] = hash(updated_tuples[0][1])
+        beam_hyps.context_texts_hash[b, k] = hash(updated_tuples[0][1])
