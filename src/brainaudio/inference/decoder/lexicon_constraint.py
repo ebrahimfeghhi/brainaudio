@@ -560,6 +560,7 @@ class VectorizedLexiconConstraint(LexiconConstraint):
             self.transition_table,
             self._sink_state,
             self._end_state_mask,
+            self._state_to_word_indices,
         ) = self._build_dense_transition_table(self.device)
         self._sink_state_tensor = torch.tensor(self._sink_state, device=self.device, dtype=torch.long)
         self._root_state_tensor = torch.tensor(self._root_state, device=self.device, dtype=torch.long)
@@ -581,8 +582,8 @@ class VectorizedLexiconConstraint(LexiconConstraint):
         self._root_state_tensor = self._root_state_tensor.to(device)
         self.device = device
 
-    def _build_dense_transition_table(self, device: torch.device) -> tuple[torch.Tensor, int, torch.Tensor]:
-        
+    def _build_dense_transition_table(self, device: torch.device) -> tuple[torch.Tensor, int, torch.Tensor, Dict[int, List[int]]]:
+
         # nodes doubles as the BFS queue; iterating by index saves a second list
         nodes: List[Dict] = [self.trie] # stores trie nodes in BFS order
         node_to_idx = {id(self.trie): 0} # assigns node IDs to integer indices in BFS order
@@ -600,36 +601,43 @@ class VectorizedLexiconConstraint(LexiconConstraint):
                     nodes.append(child)
 
         num_nodes = len(nodes)
-        sink_state = num_nodes # sink state for invalid transitions 
-    
+        sink_state = num_nodes # sink state for invalid transitions
+
         """
             table has rows for all nodes (+ sink state), and columns for each vocabulary item.
             each node represents a prefix in the lexicon trie.
-            
+
             the entry at row i, column j in the table tells us which node
-            we should move to if we are at node i and observe token j. 
+            we should move to if we are at node i and observe token j.
         """
-        
+
         table = torch.full(
             (num_nodes + 1, self._table_vocab_size),
             fill_value=self._INVALID_STATE,
             dtype=torch.long,
             device=device,
         )
-        
+
         # set to true for nodes that represent the end of a word
         end_state_mask = torch.zeros(num_nodes + 1, dtype=torch.bool, device=device)
+
+        # Map state index -> list of word indices that complete at that state
+        # Used by N-gram LM to look up which words (including homophones) complete at a given state
+        state_to_word_indices: Dict[int, List[int]] = {}
 
         for idx, node in enumerate(nodes):
             if '__end__' in node:
                 end_state_mask[idx] = True # set flag to true if end of a word
+                # Capture which word indices complete at this state (for homophone lookup)
+                if isinstance(node['__end__'], list):
+                    state_to_word_indices[idx] = node['__end__'].copy()
             for token, child in node.items():
                 if token == '__end__':
                     continue
                 if token >= self._table_vocab_size:
                     continue
-                
-                child_idx = node_to_idx[id(child)]      
+
+                child_idx = node_to_idx[id(child)]
                 table[idx, token] = child_idx
 
         # Allow boundary tokens only after completing a word (nodes with '__end__')
@@ -640,7 +648,7 @@ class VectorizedLexiconConstraint(LexiconConstraint):
 
         end_state_mask[sink_state] = False
 
-        return table, sink_state, end_state_mask
+        return table, sink_state, end_state_mask, state_to_word_indices
 
     def initialize_state(
         self,
@@ -719,11 +727,48 @@ class VectorizedLexiconConstraint(LexiconConstraint):
         next_nodes = torch.where(resettable, self._root_state_tensor, next_nodes)
         
         updated_state = torch.where(advance_mask, next_nodes, parent_clamped)
-        
+
         # reset inactivate beams to root state
         reset_mask = emitted_labels < 0
         root = torch.zeros_like(parent_clamped)
         updated_state = torch.where(reset_mask, root, updated_state)
-        
+
         return updated_state
+
+    def get_words_at_state(self, state: int) -> List[int]:
+        """
+        Get word indices for all words that complete when transitioning from this state
+        with the word boundary token.
+
+        When a beam is at a particular lexicon state (after emitting some phonemes),
+        this method returns the indices of all words that would be completed if the
+        beam emits the word boundary token next. Multiple indices indicate homophones
+        (e.g., "aunt" and "ant" share the same phoneme sequence).
+
+        Args:
+            state: Current lexicon state BEFORE emitting '|' (integer index into transition table).
+
+        Returns:
+            List of word indices from self.word_list that complete at this state.
+            Empty list if no words complete at this state.
+
+        Example:
+            >>> state = lexicon_state[b, k].item()  # Get state for beam (b, k) before '|'
+            >>> word_indices = lexicon.get_words_at_state(state)
+            >>> words = [lexicon.word_list[idx] for idx in word_indices]
+            >>> # words might be ["aunt", "ant"] for homophones
+        """
+        # The word indices are stored at the state AFTER the boundary token is emitted.
+        # We need to look up what state we'd reach after transitioning with '|'.
+        if self.word_boundary_token is None or self.word_boundary_token >= self._table_vocab_size:
+            return []
+
+        # Get the state after transitioning with the boundary token
+        boundary_state = self.transition_table[state, self.word_boundary_token].item()
+
+        # If invalid transition, no words complete here
+        if boundary_state == self._INVALID_STATE:
+            return []
+
+        return self._state_to_word_indices.get(boundary_state, [])
 
