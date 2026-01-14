@@ -23,6 +23,7 @@ import torch.nn.functional as F
 if TYPE_CHECKING:
     from .batched_beam_decoding_utils import BatchedBeamHyps
     from .lexicon_constraint import LexiconConstraint
+    from .word_ngram_lm_optimized_v2 import WordHistory
 
 
 
@@ -253,13 +254,13 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
                 # Construct full text
                 # Don't add space before punctuation
                 if not context:
-                    full_text = word
+                    full_text = word.capitalize()
                 elif context.endswith(" ") or word.startswith(" "):
-                    full_text = f"{context}{word}"
+                    full_text = f"{context.capitalize()}{word}"
                 elif word and word[0] in '.,!?;:\'\"':
-                    full_text = f"{context}{word}"
+                    full_text = f"{context.capitalize()}{word}"
                 else:
-                    full_text = f"{context} {word}"
+                    full_text = f"{context.capitalize()} {word}"
 
                 # Compute start_idx from the context
                 if context:
@@ -344,6 +345,120 @@ class HuggingFaceLMFusion(NeuralLanguageModelFusion):
         self.device = device
         self.model.to(device)
         return self
+    
+    
+def apply_llm_rescoring(
+    lm_fusion: NeuralLanguageModelFusion | None,
+    word_history: "WordHistory",
+    beam_hyps: "BatchedBeamHyps",
+    min_words_to_score: int = 1,
+) -> None:
+    """
+    Rescore beams using LLM after N-gram LM has populated context_texts.
+
+    This function scores words that have been added by the N-gram LM but not yet
+    scored by the LLM. It uses the unscored_word_count tensor to track pending words.
+
+    Args:
+        lm_fusion: The neural LM fusion module (or None to skip).
+        word_history: WordHistory object to reconstruct text from history_id.
+        beam_hyps: The beam hypotheses to update in-place.
+        min_words_to_score: Minimum unscored words before triggering LLM scoring.
+                           Set to 1 to score every word, higher for batching.
+    """
+    if lm_fusion is None:
+        return
+
+    batch_size, beam_size = beam_hyps.scores.shape
+
+    # Find beams with enough unscored words
+    needs_scoring_mask = beam_hyps.unscored_word_count >= min_words_to_score
+    batch_indices, beam_indices = torch.where(needs_scoring_mask)
+
+    if len(batch_indices) == 0:
+        return
+
+    # Collect all (context, word) pairs to score in one batch
+    flat_contexts = []
+    flat_candidates = []
+    beam_mapping = []  # (b, k, tuple_idx, num_words)
+
+    for b, k in zip(batch_indices.tolist(), beam_indices.tolist()):
+        num_words = beam_hyps.unscored_word_count[b, k].item()
+        context_tuples = beam_hyps.context_texts[b][k]
+
+        for tuple_idx, tup in enumerate(context_tuples):
+            # tup format: (score, lm_state_id, history_id)
+            hist_id = tup[2]
+            full_text = word_history.get_text(hist_id)
+
+            if not full_text:
+                continue
+
+            # Split into words and get the unscored portion
+            words = full_text.split()
+            if len(words) < num_words:
+                # Not enough words (shouldn't happen, but be safe)
+                continue
+
+            # Score words one at a time for proper LM probability
+            # Context is everything before the unscored words
+            scored_words = words[:-num_words] if num_words > 0 else words
+            unscored_words = words[-num_words:] if num_words > 0 else []
+
+            prefix = " ".join(scored_words)
+
+            for word_idx, word in enumerate(unscored_words):
+                flat_contexts.append(prefix)
+                flat_candidates.append([word])
+                beam_mapping.append((b, k, tuple_idx, word_idx))
+                # Update prefix for next word
+                prefix = f"{prefix} {word}".strip()
+
+    if not flat_contexts:
+        return
+    
+
+    # Single batched LLM call
+    all_llm_scores = lm_fusion.score_continuations(flat_contexts, flat_candidates)
+
+    # Accumulate LLM scores per (b, k, tuple_idx)
+    llm_scores_by_tuple = {}  # (b, k, tuple_idx) -> total_llm_score
+    for flat_idx, (b, k, tuple_idx, word_idx) in enumerate(beam_mapping):
+        key = (b, k, tuple_idx)
+        llm_score = all_llm_scores[flat_idx][0]  # Single candidate
+        if key not in llm_scores_by_tuple:
+            llm_scores_by_tuple[key] = 0.0
+        llm_scores_by_tuple[key] += llm_score
+
+    # Update context_texts scores
+    updated_beams = set()
+    for (b, k, tuple_idx), llm_score in llm_scores_by_tuple.items():
+        context_tuples = beam_hyps.context_texts[b][k]
+        old_tuple = context_tuples[tuple_idx]
+
+        # Update score: add LLM contribution
+        new_score = old_tuple[0] + llm_score
+        context_tuples[tuple_idx] = (new_score, old_tuple[1], old_tuple[2])
+        updated_beams.add((b, k))
+
+    # Re-sort tuples and update beam scores
+    for b, k in updated_beams:
+        context_tuples = beam_hyps.context_texts[b][k]
+
+        # Get old best score before re-sorting
+        old_best_score = context_tuples[0][0]
+
+        # Sort by score descending
+        context_tuples.sort(key=lambda x: x[0], reverse=True)
+
+        # Update beam score with the change in best LM score
+        new_best_score = context_tuples[0][0]
+        beam_hyps.scores[b, k] += (new_best_score - old_best_score)
+
+        # Reset unscored count
+        beam_hyps.unscored_word_count[b, k] = 0
+
     
 def apply_lm_fusion_post_selection(
     lm_fusion: NeuralLanguageModelFusion | None,
@@ -539,227 +654,4 @@ def apply_lm_fusion_post_selection(
         # Update hash based on best text (index 0)
         beam_hyps.context_texts_hash[b, k] = hash(new_tuples[0][1])
 
-def apply_lm_end_of_sentence_with_incomplete_word(
-    lm_fusion: NeuralLanguageModelFusion | None,
-    lexicon: 'LexiconConstraint',
-    beam_hyps: 'BatchedBeamHyps',
-    blank_index: int,
-) -> None:
-    """
-    Add end-of-sentence probability to beam scores, considering incomplete words.
 
-    For each beam:
-    1. Check if the final phoneme sequence (after last boundary) maps to a valid word
-    2. If so, compute two options:
-       - Option A: current_text + best_eos (ignore incomplete word)
-       - Option B: current_text + completed_word + best_eos (include incomplete word)
-    3. Take the max of these two scores
-
-    Args:
-        lm_fusion: The neural LM fusion module (or None to skip).
-        lexicon: Lexicon constraint for word lookup.
-        beam_hyps: The beam hypotheses to update in-place.
-        blank_index: Index of the CTC blank token.
-    """
-    from .beam_helpers import (
-        materialize_beam_transcripts_batched,
-        collapse_ctc_sequence
-    )
-
-    if lm_fusion is None:
-        return
-
-    batch_size, beam_size = beam_hyps.scores.shape
-    eos_candidates = [".", "?", "!"]
-    boundary_token = lexicon.word_boundary_token
-
-    # Collect info for all beams
-    beam_info = []  # List of (b, k, text, has_incomplete_word, candidate_words)
-
-    # Vectorized: get indices of valid (non-pruned) beams
-    valid_mask = beam_hyps.scores != float('-inf')
-    batch_indices, beam_indices = torch.where(valid_mask)
-
-    # First pass: collect beams that pass text-based filters
-    filtered_beams = []  # List of (b, k, text)
-    for b, k in zip(batch_indices.tolist(), beam_indices.tolist()):
-        # Get the best text interpretation for this beam
-        context_tuples = beam_hyps.context_texts[b][k]
-        if not context_tuples:
-            continue
-
-        _, text = context_tuples[0]
-
-        # Skip if text already ends with sentence-ending punctuation
-        if text.rstrip() and text.rstrip()[-1] in '.?!':
-            continue
-
-        filtered_beams.append((b, k, text))
-
-    if not filtered_beams:
-        return
-
-    # Batch fetch transcripts for filtered beams only
-    filtered_batch_indices = [b for b, k, text in filtered_beams]
-    filtered_beam_indices = [k for b, k, text in filtered_beams]
-    all_transcripts = materialize_beam_transcripts_batched(
-        beam_hyps, filtered_batch_indices, filtered_beam_indices
-    )
-
-    # Cache for lexicon lookups to avoid redundant trie traversals
-    lexicon_cache = {}
-
-    # Second pass: process with transcripts
-    for i, (b, k, text) in enumerate(filtered_beams):
-        seq_raw = all_transcripts[i]
-        seq_ctc = collapse_ctc_sequence(seq_raw.tolist(), blank_index)
-
-        # Check if adding a boundary token would complete a valid word
-        # We do this by checking what valid tokens can follow, and if boundary is among them
-        seq_key = tuple(seq_ctc)
-        if seq_key in lexicon_cache:
-            valid_tokens, at_boundary, word_indices = lexicon_cache[seq_key]
-        else:
-            valid_tokens, at_boundary, word_indices = lexicon.get_valid_next_tokens_with_word_info(seq_ctc)
-            lexicon_cache[seq_key] = (valid_tokens, at_boundary, word_indices)
-
-        candidate_words = []
-        # If boundary token is valid AND we're not already at a boundary (i.e., we have an incomplete word)
-        if boundary_token in valid_tokens and not at_boundary:
-            # Simulate adding boundary token to get the word indices
-            seq_with_boundary_key = seq_key + (boundary_token,)
-            if seq_with_boundary_key in lexicon_cache:
-                _, _, word_indices = lexicon_cache[seq_with_boundary_key]
-            else:
-                seq_with_boundary = seq_ctc + [boundary_token]
-                result = lexicon.get_valid_next_tokens_with_word_info(seq_with_boundary)
-                lexicon_cache[seq_with_boundary_key] = result
-                _, _, word_indices = result
-            # Get the words that would be formed
-            for idx in word_indices:
-                word = lexicon.word_list[idx]
-                # Add capitalization variants
-                candidate_words.extend(get_capitalization_variants(word))
-            # Remove duplicates
-            candidate_words = list(dict.fromkeys(candidate_words))
-
-        beam_info.append((b, k, text, candidate_words))
-
-    if not beam_info:
-        return
-
-    # --- Batch LM scoring ---
-    # For each beam, we need to score:
-    # 1. text + eos (without incomplete word)
-    # 2. text + word + eos (with incomplete word, for each candidate word)
-
-    flat_contexts = []
-    flat_candidates = []
-    beam_mapping = []  # (beam_info_idx, scoring_type, word_idx)
-    # scoring_type: 'eos_only' or 'word_then_eos'
-
-    for info_idx, (b, k, text, candidate_words) in enumerate(beam_info):
-        # Option A: just EOS
-        flat_contexts.append(text)
-        flat_candidates.append(eos_candidates)
-        beam_mapping.append((info_idx, 'eos_only', None))
-
-        # Option B: word + EOS for each candidate word
-        for word_idx, word in enumerate(candidate_words):
-            word_with_space = f"{text} {word}".strip() if text else word
-            flat_contexts.append(word_with_space)
-            flat_candidates.append(eos_candidates)
-            beam_mapping.append((info_idx, 'word_then_eos', word_idx))
-
-    # Single batched LM call
-    all_scores = lm_fusion.score_continuations(flat_contexts, flat_candidates)
-
-    # --- Process results ---
-    # For each beam, find the best option
-    results_by_beam = {}  # info_idx -> {'eos_only': score, 'word_options': [(word, score), ...]}
-
-    for flat_idx, (info_idx, scoring_type, word_idx) in enumerate(beam_mapping):
-        if info_idx not in results_by_beam:
-            results_by_beam[info_idx] = {'eos_only': None, 'word_options': []}
-
-        eos_scores = all_scores[flat_idx]
-        best_eos_idx = max(range(len(eos_candidates)), key=lambda i: eos_scores[i])
-        best_eos_score = eos_scores[best_eos_idx]
-        best_eos_punct = eos_candidates[best_eos_idx]
-
-        if scoring_type == 'eos_only':
-            results_by_beam[info_idx]['eos_only'] = (best_eos_score, best_eos_punct)
-        else:
-            # For word_then_eos, we need word score + eos score
-            # But we only scored eos here. We need to also get word score.
-            # Actually, let's restructure: score word first, then eos
-            b, k, text, candidate_words = beam_info[info_idx]
-            word = candidate_words[word_idx]
-            results_by_beam[info_idx]['word_options'].append((word, best_eos_score, best_eos_punct))
-
-    # Now we need word scores too - let's do another batch call for words
-    word_contexts = []
-    word_candidates = []
-    word_mapping = []  # (info_idx, word)
-
-    for info_idx, (b, k, text, candidate_words) in enumerate(beam_info):
-        if candidate_words:
-            word_contexts.append(text)
-            word_candidates.append(candidate_words)
-            word_mapping.append(info_idx)
-
-    word_scores_by_beam = {}
-    if word_contexts:
-        all_word_scores = lm_fusion.score_continuations(word_contexts, word_candidates)
-        for map_idx, info_idx in enumerate(word_mapping):
-            b, k, text, candidate_words = beam_info[info_idx]
-            word_scores_by_beam[info_idx] = dict(zip(candidate_words, all_word_scores[map_idx]))
-
-    # --- Update beams ---
-    for info_idx, (b, k, text, candidate_words) in enumerate(beam_info):
-        result = results_by_beam[info_idx]
-        eos_only_score, eos_only_punct = result['eos_only']
-
-        # Option A: just EOS
-        option_a_score = eos_only_score
-        option_a_text = text + eos_only_punct
-
-        # Option B: best word + EOS
-        option_b_score = float('-inf')
-        option_b_text = None
-        option_b_word = None
-
-        if candidate_words and info_idx in word_scores_by_beam:
-            for word, eos_score, eos_punct in result['word_options']:
-                word_score = word_scores_by_beam[info_idx].get(word, float('-inf'))
-                total = word_score + eos_score
-                if total > option_b_score:
-                    option_b_score = total
-                    option_b_text = f"{text} {word}".strip() + eos_punct
-                    option_b_word = word
-
-        # Take the max
-        if option_b_score > option_a_score:
-            best_score = option_b_score
-            best_text = option_b_text
-        else:
-            best_score = option_a_score
-            best_text = option_a_text
-
-        # Update context_texts
-        context_tuples = beam_hyps.context_texts[b][k]
-        updated_tuples = []
-        for lm_score, old_text in context_tuples:
-            # Use the best text for the first tuple, append punct for others
-            if not updated_tuples:
-                updated_tuples.append((lm_score + best_score, best_text))
-            else:
-                # For other homophones, just add EOS
-                updated_tuples.append((lm_score + eos_only_score, old_text + eos_only_punct))
-        beam_hyps.context_texts[b][k] = updated_tuples
-
-        # Update beam score
-        beam_hyps.scores[b, k] += best_score
-
-        # Update hash
-        beam_hyps.context_texts_hash[b, k] = hash(updated_tuples[0][1])

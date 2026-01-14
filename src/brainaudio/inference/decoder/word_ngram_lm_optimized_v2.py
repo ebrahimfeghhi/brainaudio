@@ -328,12 +328,15 @@ def apply_word_ngram_lm_scoring(
         # --- PHASE 5: Update Beam ---
         old_best_lm_score = context_tuples[0][0]
         new_best_lm_score = new_tuples[0][0]
-        
+
         beam_hyps.scores[b, k] += (new_best_lm_score - old_best_lm_score)
         beam_hyps.context_texts[b][k] = new_tuples
-        
+
         # Hash the history ID (unique to this text path)
         beam_hyps.context_texts_hash[b, k] = new_tuples[0][2]
+
+        # Track that this beam has a new word pending LLM rescoring
+        beam_hyps.unscored_word_count[b, k] += 1
 
 
 def apply_word_ngram_eos_scoring(

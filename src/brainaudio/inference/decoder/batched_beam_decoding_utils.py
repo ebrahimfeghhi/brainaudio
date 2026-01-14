@@ -159,7 +159,11 @@ class BatchedBeamHyps:
         # Hash is computed from only the best text (index 0) for beam recombination
         # Stored as tensor to avoid Python→Tensor conversion every frame in recombine_hyps_
         self.context_texts_hash = torch.zeros([batch_size, self.beam_size], device=device, dtype=torch.long)
-        
+
+        # Track how many words have been added by N-gram LM but not yet scored by LLM
+        # Allows LLM rescoring to be called less frequently (e.g., every N words)
+        self.unscored_word_count = torch.zeros([batch_size, self.beam_size], device=device, dtype=torch.long)
+
         # Initializing tree structure for hypothesis storing
         self.transcript_wb = torch.full(
             (batch_size, self.beam_size, self._max_length),
@@ -231,6 +235,7 @@ class BatchedBeamHyps:
         # Reset context texts to initial state (single empty tuple per beam)
         self.context_texts = [[[(0.0, "")] for _ in range(self.beam_size)] for _ in range(self.batch_size)]
         self.context_texts_hash.fill_(0)
+        self.unscored_word_count.fill_(0)
 
         # model specific parameters
         if self.model_type == ASRModelTypeEnum.CTC:
@@ -338,6 +343,8 @@ class BatchedBeamHyps:
         self.context_texts = new_context_texts
         # Reorder context_texts_hash using fast tensor gather (no CPU transfer needed)
         self.context_texts_hash = torch.gather(self.context_texts_hash, dim=1, index=next_indices)
+        # Reorder unscored_word_count for LLM rescoring tracking
+        self.unscored_word_count = torch.gather(self.unscored_word_count, dim=1, index=next_indices)
 
         if getattr(self, "cached_state", None) is not None:
             # Reindex cached_state and cached_logits after beam pruning
@@ -446,12 +453,30 @@ class BatchedBeamHyps:
     def recombine_hyps_(self, is_last_step: bool = False):
 
         """
-        Recombines hypotheses in the beam search by merging equivalent hypotheses and updating their scores.
-        This method identifies hypotheses that are equivalent based on their transcript hash, last label,
-        and current lengths. It then merges these equivalent hypotheses by computing a new score using
-        log-sum-exp over their scores and updates the scores tensor accordingly.
-        Returns:
-            Note: The method modifies the `self.scores` tensor in place to reflect the recombined hypotheses.
+            Merges equivalent hypotheses that have converged to the same state.
+
+            This method identifies multiple paths in the beam that result in the exact same 
+            decoding state. Equivalence is determined by a combined hash of:
+                - Transcript history (`transcript_hash`)
+                - The last predicted label (`last_label`)
+                - Current non-blank lengths (`current_lengths_nb`)
+                - Contextual states (`context_texts_hash`)
+                - (Optionally) Next timestamp, if `model_type` is TDT.
+
+            Mechanism:
+                1. Groups hypotheses by their combined state hash.
+                2. Preserves the hypothesis instance with the highest score (the "survivor").
+                3. Marks all lower-scoring equivalent hypotheses as INACTIVE (`-inf`) in `self.scores`.
+                4. If `self.score_combination` is "logsumexp", updates the survivor's score to 
+                    the log-sum-exp of all merged hypotheses (consolidating probability mass).
+
+            Args:
+                is_last_step (bool): Flag indicating if this is the final decoding step 
+                                        (unused in current logic).
+
+            Returns:
+                None: This method modifies `self.scores` in-place.
+            
         """
 
         if self.beam_size <= 1:

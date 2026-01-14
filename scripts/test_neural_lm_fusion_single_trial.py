@@ -44,8 +44,8 @@ def parse_args() -> argparse.Namespace:
                         help="Start index (inclusive). Use with --end-trial-idx for a range.")
     parser.add_argument("--end-trial-idx", type=int, default=None,
                         help="End index (exclusive). Use with --start-trial-idx for a range.")
-    parser.add_argument("--beam-size", type=int, default=300, help="CTC beam size")
-    parser.add_argument("--model", default="HuggingFaceTB/SmolLM2-360M", help="HF causal LM checkpoint")
+    parser.add_argument("--beam-size", type=int, default=100, help="CTC beam size")
+    parser.add_argument("--model", default="meta-llama/Llama-3.2-3B", help="HF causal LM checkpoint")
     parser.add_argument("--hf-token", default=None, help="Optional HF token")
     parser.add_argument("--lm-weight", type=float, default=1, help="Neural LM fusion weight")
     parser.add_argument("--word-insertion-bonus", type=float, default=1.5, help="Bonus at boundaries")
@@ -76,10 +76,12 @@ def parse_args() -> argparse.Namespace:
     # Word N-gram LM arguments
     parser.add_argument("--word-lm-path", type=str, default=DEFAULT_WORD_LM_PATH,
                         help="Path to word-level KenLM file (.kenlm)")
-    parser.add_argument("--alpha-ngram", type=float, default=2,
+    parser.add_argument("--alpha-ngram", type=float, default=0.8,
                         help="Weight for word N-gram LM scores (default: 0.5)")
     parser.add_argument("--beta-ngram", type=float, default=1.0,
                         help="Word insertion bonus for word N-gram LM (default: 1.0)")
+    parser.add_argument("--lm-rescore-interval", type=int, default=10,
+                        help="Apply LLM rescoring every N frames (0 = end only, default: 10)")
 
     return parser.parse_args()
 
@@ -262,10 +264,12 @@ def main():
         #decoded_beams = [result.context_texts[0][i][0][1] for i in topk_indices]
         #best_text = decoded_beams[0] if decoded_beams else ""
         decoded_beams = []
+        lm_scores = []
         for i in topk_indices:
             context_list = result.context_texts[0][i]
             if context_list:
                 # Tuple is (score, lm_id, history_id) -> We want index 2
+                lm_scores.append(context_list[0][0])
                 hist_id = context_list[0][2]
                 text = word_history.get_text(hist_id)
                 decoded_beams.append(text)
@@ -273,6 +277,7 @@ def main():
                 decoded_beams.append("")
 
         best_text = decoded_beams[0] if decoded_beams else ""
+        best_lm_score = lm_scores[0] if lm_scores else 0
         decoded_sentences.append(best_text)
 
         # Handle Ground Truth (skip in test mode)
@@ -288,7 +293,7 @@ def main():
 
         # Print Status
         best_score = scores[topk_indices[0]] if topk_indices else 0
-        print(f"Trial {trial_idx:3d} | {trial_elapsed*1000:.1f}ms | Score: {best_score:.2f}")
+        print(f"Trial {trial_idx:3d} | {trial_elapsed*1000:.1f}ms | Score: {best_score:.2f} | LM Score: {best_lm_score:.2f}")
         if not args.test_mode:
             print(f"  GT:   {ground_truth}")
         print(f"  Best: {best_text}")

@@ -32,6 +32,7 @@ from .cuda_python_utils import (
 from .enum import PrettyStrEnum
 from .nemo_stubs import logging
 from .neural_lm_fusion import NeuralLanguageModelFusion
+from .neural_lm_rescoring import apply_llm_rescoring_full
 from .context_biasing import GPUBoostingTreeModel
 from .word_ngram_lm_optimized_v2 import WordHistory, apply_word_ngram_lm_scoring, apply_word_ngram_eos_scoring, FastNGramLM
 
@@ -192,6 +193,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         lm_beam_limit: Optional[int] = None,
         num_homophone_beams: int = 1,
         homophone_prune_threshold: Optional[float] = 10.0,
+        lm_rescore_interval: int = 10,
     ):
         """
         Init method.
@@ -212,6 +214,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             num_homophone_beams: number of text interpretations (homophones) to track per beam. Defaults to 1.
             homophone_prune_threshold: if set, prune homophone candidates whose LM score is more than this
                 many log-prob points below the best candidate. Defaults to 10.0. Set to None to disable.
+            lm_rescore_interval: apply LLM rescoring every N frames. Set to 0 for end-only rescoring. Defaults to 10.
         """
 
         super().__init__()
@@ -248,6 +251,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
 
         self.word_ngram_lm = word_ngram_lm
         self.word_history = word_history
+        self.lm_rescore_interval = lm_rescore_interval
 
     def force_cuda_graphs_mode(self, mode: Optional[Union[str, CudaGraphsMode]]):
         """
@@ -466,38 +470,21 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             
             batched_beam_hyps.recombine_hyps_(is_last_step= curr_max_time-1 == frame_idx)
 
-        
-            # Apply LM fusion post-selection (after pruning and recombination)
-            if self.lm_fusion is not None and self.lexicon is not None:
+            # Apply LLM rescoring every N frames (if interval > 0)
+            if self.lm_fusion is not None and self.word_history is not None:
+                if self.lm_rescore_interval > 0 and frame_idx % self.lm_rescore_interval == 0:
+                    apply_llm_rescoring_full(
+                        lm_fusion=self.lm_fusion,
+                        word_history=self.word_history,
+                        beam_hyps=batched_beam_hyps,
+                    )
 
-                from .neural_lm_fusion import apply_lm_fusion_post_selection
-
-                boundary_token = getattr(self.lexicon, "word_boundary_token", None)
-                
-                
-
-                apply_lm_fusion_post_selection(
-                    lm_fusion=self.lm_fusion,
-                    lexicon=self.lexicon,
-                    beam_hyps=batched_beam_hyps,
-                    blank_index=self._blank_index,
-                    boundary_token=boundary_token,
-                    next_labels=next_labels,
-                    prev_last_labels=prev_last_labels,
-                    homophone_prune_threshold=self.homophone_prune_threshold,
-                    frame_idx=frame_idx
-                )
-
-                    
-           # After decoding is complete, add end-of-sentence probability (with incomplete word handling)
-        if self.lm_fusion is not None:
-            print("Applying LM end-of-sentence scoring...")
-            from .neural_lm_fusion import apply_lm_end_of_sentence_with_incomplete_word
-            apply_lm_end_of_sentence_with_incomplete_word(
+        # Final LLM rescoring at end of decoding
+        if self.lm_fusion is not None and self.word_history is not None:
+            apply_llm_rescoring_full(
                 lm_fusion=self.lm_fusion,
-                lexicon=self.lexicon,
+                word_history=self.word_history,
                 beam_hyps=batched_beam_hyps,
-                blank_index=self._blank_index,
             )
 
         # Apply word-level N-gram LM end-of-sentence scoring
