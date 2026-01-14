@@ -31,10 +31,9 @@ from .cuda_python_utils import (
 )
 from .enum import PrettyStrEnum
 from .nemo_stubs import logging
-from .neural_lm_fusion import NeuralLanguageModelFusion
-from .neural_lm_rescoring import apply_llm_rescoring_full, apply_llm_eos_scoring
+from .neural_lm_rescoring import apply_llm_rescoring_full, apply_llm_eos_scoring, LLMRescorer
 from .context_biasing import GPUBoostingTreeModel
-from .word_ngram_lm_optimized_v2 import WordHistory, apply_word_ngram_lm_scoring, apply_word_ngram_eos_scoring, FastNGramLM
+from .word_ngram_lm_optimized import WordHistory, apply_word_ngram_lm_scoring, apply_word_ngram_eos_scoring, FastNGramLM
 
 HAVE_LM_FUSION = False
 
@@ -187,7 +186,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         beam_threshold: float = 10.0,
         allow_cuda_graphs: bool = True,
         lexicon: LexiconConstraint = None,
-        lm_fusion: NeuralLanguageModelFusion = None,
+        lm_fusion: LLMRescorer = None,
         word_ngram_lm: Optional[FastNGramLM] = None,
         word_history: Optional[WordHistory] = None,
         lm_beam_limit: Optional[int] = None,
@@ -208,7 +207,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             beam_threshold: threshold for pruning candidates.
             allow_cuda_graphs: whether to allow CUDA graphs. Defaults to True.
             lexicon: optional LexiconConstraint to constrain beam search to valid words. Defaults to None.
-            lm_fusion: optional NeuralLanguageModelFusion for word-level LM rescoring. Defaults to None.
+            lm_fusion: optional LLMRescorer for word-level LM rescoring. Defaults to None.
             word_ngram_lm: optional WordNGramLMFusion for word-level N-gram LM rescoring. Defaults to None.
             lm_beam_limit: optional cap on how many beams per batch element receive neural LM scoring at a word boundary.
             num_homophone_beams: number of text interpretations (homophones) to track per beam. Defaults to 1.
@@ -317,14 +316,11 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
 
         curr_batch_size, curr_max_time, vocab_size = decoder_outputs.shape
 
-        lexicon_state = None
-        if self.lexicon is not None and getattr(self.lexicon, "supports_state_tracking", False):
-            # lexicon_state is of shape (batch_size, beam_size)
-            lexicon_state = self.lexicon.initialize_state(
-                batch_size=curr_batch_size,
-                beam_size=self.beam_size,
-                device=decoder_outputs.device,
-            )
+        lexicon_state = self.lexicon.initialize_state(
+            batch_size=curr_batch_size,
+            beam_size=self.beam_size,
+            device=decoder_outputs.device,
+        )
 
         # All tensors below stay on the same device/dtype as logits so we avoid syncs later.
 
@@ -377,33 +373,20 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             log_probs = decoder_outputs[:, frame_idx, :].unsqueeze(1).expand(-1, self.beam_size, -1).contiguous()
             log_probs += batched_beam_hyps.scores.unsqueeze(-1) # add current beam scores to every token in our beam
             
-                # step 2.2: updating non-blank and non-repeating token scores with `beam_beta`
-            #if frame_idx == curr_max_time - 5:  # First padding frame
-            #    breakpoint()
             # step 2.2: updating non-blank and non-repeating token scores with `beam_beta`
-
-                
             log_probs = torch.where(repeated_or_blank_mask, log_probs, log_probs + self.beam_beta)
 
-            # step 2.2.1: apply blank penalty
-            log_probs = torch.where(vocab_blank_mask[None, None, :], log_probs - self.beam_blank_penalty, log_probs)
-
+ 
             # step 2.2.5: apply lexicon constraints if provided
             # This masks out tokens that would create invalid words according to the lexicon
             if self.lexicon is not None:
                 # Vectorized lexicon maintains internal state (prefix) per beam
-                if lexicon_state is not None:
-                    lexicon_mask = self.lexicon.get_constraint_mask_with_state(
-                        state=lexicon_state,
-                        vocab_size=vocab_size,
-                        last_labels=batched_beam_hyps.last_label,
-                    )
-                else:
-                    lexicon_mask = self.lexicon.get_constraint_mask(
-                        sequences=batched_beam_hyps.transcript_wb,
-                        last_labels=batched_beam_hyps.last_label,
-                        vocab_size=vocab_size,
-                    )
+                lexicon_mask = self.lexicon.get_constraint_mask_with_state(
+                    state=lexicon_state,
+                    vocab_size=vocab_size,
+                    last_labels=batched_beam_hyps.last_label,
+                )
+    
                 
                 # Set invalid tokens to -inf so they won't be selected by topk
                 log_probs = torch.where(lexicon_mask, log_probs, INACTIVE_SCORE)

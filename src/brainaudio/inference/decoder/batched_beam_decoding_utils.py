@@ -156,9 +156,6 @@ class BatchedBeamHyps:
         # Sorted by score descending, index 0 is the best interpretation
         # Starts with 1 tuple (empty), grows up to num_homophone_beams as homophones are encountered
         self.context_texts = [[[(0.0, "")] for _ in range(self.beam_size)] for _ in range(self.batch_size)]
-        # Hash is computed from only the best text (index 0) for beam recombination
-        # Stored as tensor to avoid Python→Tensor conversion every frame in recombine_hyps_
-        self.context_texts_hash = torch.zeros([batch_size, self.beam_size], device=device, dtype=torch.long)
 
         # Track how many words have been added by N-gram LM but not yet scored by LLM
         # Allows LLM rescoring to be called less frequently (e.g., every N words)
@@ -234,7 +231,6 @@ class BatchedBeamHyps:
 
         # Reset context texts to initial state (single empty tuple per beam)
         self.context_texts = [[[(0.0, "")] for _ in range(self.beam_size)] for _ in range(self.batch_size)]
-        self.context_texts_hash.fill_(0)
         self.unscored_word_count.fill_(0)
 
         # model specific parameters
@@ -341,47 +337,9 @@ class BatchedBeamHyps:
 
         # 4. Update the class references
         self.context_texts = new_context_texts
-        # Reorder context_texts_hash using fast tensor gather (no CPU transfer needed)
-        self.context_texts_hash = torch.gather(self.context_texts_hash, dim=1, index=next_indices)
         # Reorder unscored_word_count for LLM rescoring tracking
         self.unscored_word_count = torch.gather(self.unscored_word_count, dim=1, index=next_indices)
 
-        if getattr(self, "cached_state", None) is not None:
-            # Reindex cached_state and cached_logits after beam pruning
-            # Layout: homophones are contiguous for each beam
-            # [B0K0H0, B0K0H1, B0K0H2, B0K1H0, B0K1H1, B0K1H2, ...]
-            # flat_idx = b * K * H + k * H + h
-
-            B, K = next_indices.shape
-            H = self.num_homophone_beams
-
-            # Build gather indices for reordering
-            # next_indices[b, new_k] = old_k means beam old_k moves to position new_k
-            # We need: new_cache[b*K*H + new_k*H + h] = old_cache[b*K*H + old_k*H + h]
-
-            batch_offsets = torch.arange(B, device=next_indices.device).view(B, 1, 1) * K * H  # [B, 1, 1]
-            old_k = next_indices.view(B, K, 1)  # [B, K, 1]
-            k_offsets = old_k * H  # [B, K, 1]
-            h_offsets = torch.arange(H, device=next_indices.device).view(1, 1, H)  # [1, 1, H]
-
-            gather_indices = (batch_offsets + k_offsets + h_offsets).view(-1)  # [B * K * H]
-
-            # Reorder cached_logits
-            self.cached_logits = self.cached_logits[gather_indices]
-
-            # Reorder cached_state (list of layer dicts)
-            new_cached_state = []
-            for layer in self.cached_state:
-                if isinstance(layer, dict):
-                    new_layer = {
-                        key: tensor[gather_indices] if tensor is not None else None
-                        for key, tensor in layer.items()
-                    }
-                    new_cached_state.append(new_layer)
-                else:
-                    new_cached_state.append(layer[gather_indices] if layer is not None else None)
-            self.cached_state = new_cached_state
-            
         is_extended = next_labels >= 0
         extended_with_blank = next_labels == self.blank_index
         extended_with_label = (is_extended) & (~extended_with_blank)
@@ -455,12 +413,11 @@ class BatchedBeamHyps:
         """
             Merges equivalent hypotheses that have converged to the same state.
 
-            This method identifies multiple paths in the beam that result in the exact same 
+            This method identifies multiple paths in the beam that result in the exact same
             decoding state. Equivalence is determined by a combined hash of:
                 - Transcript history (`transcript_hash`)
                 - The last predicted label (`last_label`)
                 - Current non-blank lengths (`current_lengths_nb`)
-                - Contextual states (`context_texts_hash`)
                 - (Optionally) Next timestamp, if `model_type` is TDT.
 
             Mechanism:
@@ -487,8 +444,7 @@ class BatchedBeamHyps:
         combined_hash = (
             self.transcript_hash * 1000003 +
             self.last_label * 1009 +
-            self.current_lengths_nb * 17 +
-            self.context_texts_hash
+            self.current_lengths_nb * 17
         )
 
         if self.model_type == ASRModelTypeEnum.TDT:
