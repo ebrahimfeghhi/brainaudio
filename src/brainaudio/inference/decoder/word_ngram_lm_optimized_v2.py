@@ -75,21 +75,27 @@ class WordHistory:
         """Reconstruct full sentence from a Node ID."""
         if node_idx < 0:
             return ""
-            
+
         # Unroll logic locally for speed
         out_words = []
         curr = node_idx
         # Cache lists locally to avoid self. lookups in loop
         p_list = self.parents
         w_list = self.words
-        
+
         while curr != -1:
             if curr >= len(w_list):
                 break
             out_words.append(w_list[curr])
             curr = p_list[curr]
-            
-        return " ".join(reversed(out_words))
+
+        # Smart join: no space before punctuation
+        result = []
+        for word in reversed(out_words):
+            if result and word not in '.?!,;:':
+                result.append(' ')
+            result.append(word)
+        return ''.join(result)
     
     def reset(self):
         """Clear history to free memory between trials."""

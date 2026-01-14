@@ -32,7 +32,7 @@ from .cuda_python_utils import (
 from .enum import PrettyStrEnum
 from .nemo_stubs import logging
 from .neural_lm_fusion import NeuralLanguageModelFusion
-from .neural_lm_rescoring import apply_llm_rescoring_full
+from .neural_lm_rescoring import apply_llm_rescoring_full, apply_llm_eos_scoring
 from .context_biasing import GPUBoostingTreeModel
 from .word_ngram_lm_optimized_v2 import WordHistory, apply_word_ngram_lm_scoring, apply_word_ngram_eos_scoring, FastNGramLM
 
@@ -472,16 +472,16 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
 
             # Apply LLM rescoring every N frames (if interval > 0)
             if self.lm_fusion is not None and self.word_history is not None:
-                if self.lm_rescore_interval > 0 and frame_idx % self.lm_rescore_interval == 0:
+                if self.lm_rescore_interval > 0 and frame_idx % self.lm_rescore_interval == 0 and frame_idx > 0:
                     apply_llm_rescoring_full(
                         lm_fusion=self.lm_fusion,
                         word_history=self.word_history,
-                        beam_hyps=batched_beam_hyps,
+                        beam_hyps=batched_beam_hyps
                     )
 
-        # Final LLM rescoring at end of decoding
+        # Final LLM EOS scoring (scores full text + punctuation)
         if self.lm_fusion is not None and self.word_history is not None:
-            apply_llm_rescoring_full(
+            apply_llm_eos_scoring(
                 lm_fusion=self.lm_fusion,
                 word_history=self.word_history,
                 beam_hyps=batched_beam_hyps,

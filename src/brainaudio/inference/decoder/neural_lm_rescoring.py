@@ -17,11 +17,14 @@
 from typing import List, TYPE_CHECKING
 import torch
 import torch.nn.functional as F
+import truecase
 
 if TYPE_CHECKING:
     from .batched_beam_decoding_utils import BatchedBeamHyps
     from .neural_lm_fusion import HuggingFaceLMFusion
     from .word_ngram_lm_optimized_v2 import WordHistory
+    
+truecase_enabled = True
 
 
 @torch.no_grad()
@@ -138,9 +141,13 @@ def apply_llm_rescoring_full(
 
                 if not text:
                     continue
-
-                # Capitalize first word for proper LLM scoring
-                text = text[0].upper() + text[1:] if text else text
+                
+                if truecase_enabled:
+                    # Apply truecasing
+                    text = truecase.get_true_case(text)
+                else:
+                    # Capitalize first word for proper LLM scoring
+                    text = text[0].upper() + text[1:] if text else text
 
                 num_words = len(text.split())
                 texts_to_score.append(text)

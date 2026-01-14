@@ -44,7 +44,7 @@ def parse_args() -> argparse.Namespace:
                         help="Start index (inclusive). Use with --end-trial-idx for a range.")
     parser.add_argument("--end-trial-idx", type=int, default=None,
                         help="End index (exclusive). Use with --start-trial-idx for a range.")
-    parser.add_argument("--beam-size", type=int, default=100, help="CTC beam size")
+    parser.add_argument("--beam-size", type=int, default=300, help="CTC beam size")
     parser.add_argument("--model", default="meta-llama/Llama-3.2-3B", help="HF causal LM checkpoint")
     parser.add_argument("--hf-token", default=None, help="Optional HF token")
     parser.add_argument("--lm-weight", type=float, default=1, help="Neural LM fusion weight")
@@ -60,7 +60,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--homophone-prune-threshold", type=float, default=4, help="Prune homophones more than this many log-prob points below the best.")
     parser.add_argument("--beam-beta", type=float, default=np.log(7), help="Bonus added to extending beams (not blank/repeat).")
     parser.add_argument("--beam-blank-penalty", type=float, default=0, help="Penalty subtracted from blank emissions.")
-    parser.add_argument("--logit-scale", type=float, default=0.6, help="Scalar multiplier for encoder logits.")
+    parser.add_argument("--logit-scale", type=float, default=0.4, help="Scalar multiplier for encoder logits.")
     parser.add_argument(
         "--results-filename",
         type=str,
@@ -82,6 +82,9 @@ def parse_args() -> argparse.Namespace:
                         help="Word insertion bonus for word N-gram LM (default: 1.0)")
     parser.add_argument("--lm-rescore-interval", type=int, default=10,
                         help="Apply LLM rescoring every N frames (0 = end only, default: 10)")
+    
+    parser.add_argument("--enable-truecase", action="store_true", help="Enable truecasing of output text (default: disabled)")
+    
 
     return parser.parse_args()
 
