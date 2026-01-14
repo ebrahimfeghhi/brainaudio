@@ -262,14 +262,12 @@ def apply_word_ngram_lm_scoring(
         
         context_tuples = beam_hyps.context_texts[b][k]
 
-        # Handle Init/Legacy format
-        if not context_tuples or (context_tuples and len(context_tuples[0]) == 2):
-            context_tuples = [(0.0, 0, -1)]  # (score, state_0, hist_-1)
 
         all_candidates = []
 
         # --- PHASE 3: The Hot Loop (Fully Inlined) ---
         for prev_score, parent_lm_id, parent_hist_id in context_tuples:
+            
             for word in candidate_words:
                 
                 # A. Score (Try Cache First)
@@ -338,9 +336,6 @@ def apply_word_ngram_lm_scoring(
         beam_hyps.scores[b, k] += (new_best_lm_score - old_best_lm_score)
         beam_hyps.context_texts[b][k] = new_tuples
 
-        # Track that this beam has a new word pending LLM rescoring
-        beam_hyps.unscored_word_count[b, k] += 1
-
 
 def apply_word_ngram_eos_scoring(
     word_lm: "FastNGramLM",
@@ -370,11 +365,7 @@ def apply_word_ngram_eos_scoring(
                 continue
 
             context_tuples = beam_hyps.context_texts[b][k]
-            
-            # Init Check
-            if not context_tuples or (context_tuples and len(context_tuples[0]) == 2):
-                base_score = context_tuples[0][0] if context_tuples else 0.0
-                context_tuples = [(base_score, 0, -1)]
+
 
             updated_tuples = []
             

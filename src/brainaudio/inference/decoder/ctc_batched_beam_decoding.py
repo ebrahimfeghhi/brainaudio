@@ -449,9 +449,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                                         homophone_prune_threshold=self.homophone_prune_threshold, lexicon=self.lexicon)
                       
           
-            
-            
-            batched_beam_hyps.recombine_hyps_(is_last_step= curr_max_time-1 == frame_idx)
+            batched_beam_hyps.recombine_hyps_()
 
             # Apply LLM rescoring every N frames (if interval > 0)
             if self.lm_fusion is not None and self.word_history is not None:

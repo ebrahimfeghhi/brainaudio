@@ -151,15 +151,11 @@ class BatchedBeamHyps:
         self.current_lengths_nb = torch.zeros([batch_size, self.beam_size], device=device, dtype=torch.long)
         self.current_lengths_wb = torch.zeros([batch_size, self.beam_size], device=device, dtype=torch.long)
 
-        # context_texts stores 1 to K text interpretations per beam as List[Tuple[float, str]]
-        # Each tuple is (lm_score_contribution, text_sequence)
-        # Sorted by score descending, index 0 is the best interpretation
-        # Starts with 1 tuple (empty), grows up to num_homophone_beams as homophones are encountered
-        self.context_texts = [[[(0.0, "")] for _ in range(self.beam_size)] for _ in range(self.batch_size)]
+        # (lm_score, state_0, hist_-1)
+        self.context_texts = [[[(0.0, 0, -1)] for _ in range(self.beam_size)] for _ in range(self.batch_size)]
 
         # Track how many words have been added by N-gram LM but not yet scored by LLM
         # Allows LLM rescoring to be called less frequently (e.g., every N words)
-        self.unscored_word_count = torch.zeros([batch_size, self.beam_size], device=device, dtype=torch.long)
 
         # Initializing tree structure for hypothesis storing
         self.transcript_wb = torch.full(
@@ -230,8 +226,7 @@ class BatchedBeamHyps:
             self.transcript_prefix_hash.fill_(INIT_PREFIX_HASH_VALUE)
 
         # Reset context texts to initial state (single empty tuple per beam)
-        self.context_texts = [[[(0.0, "")] for _ in range(self.beam_size)] for _ in range(self.batch_size)]
-        self.unscored_word_count.fill_(0)
+        self.context_texts = [[[(0.0, 0.0, -1)] for _ in range(self.beam_size)] for _ in range(self.batch_size)]
 
         # model specific parameters
         if self.model_type == ASRModelTypeEnum.CTC:
@@ -337,8 +332,6 @@ class BatchedBeamHyps:
 
         # 4. Update the class references
         self.context_texts = new_context_texts
-        # Reorder unscored_word_count for LLM rescoring tracking
-        self.unscored_word_count = torch.gather(self.unscored_word_count, dim=1, index=next_indices)
 
         is_extended = next_labels >= 0
         extended_with_blank = next_labels == self.blank_index
