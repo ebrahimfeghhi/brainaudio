@@ -68,5 +68,30 @@
 2. For all equivalent beams, remove lower scoring one or add the probabilities of equivalent beams together. 
 
 
-## Apply Neural LM Rescoring 
 
+
+## Apply Neural LM Rescoring
+
+
+### LLMRescoring 
+1. Keeps track of model, tokenizer, device, alpha, beta, scoring_chunk_size, llm_call_count.
+
+### Score_texts_batch
+1. Receives as input model, tokenizer, and texts.
+2. Sorts text by length to minimize padding.
+3. Loops through each chunk of text (default = 256).
+4. Tokenizes the text.
+5. Obtains logits for text.
+6. Compute cross entropy. 
+
+
+### Apply LLM Rescoring Full
+1. Takes as input LLM rescorer instance, word history, and beam hyps object.
+2. Creates a dictionary where keys are unique text attributes, and values are the batch idx, beam idx, homophone beam idx, and number of words. 
+3. Pass unique texts to score texts batch to get log probs for each text. 
+4. Fill context texts back in using the dictionary values.
+
+
+### Apply LLM Rescoring End
+1. Computes the probability of the text sequence given a period, ?, or ! for every single context text. This is probably a bit overkill. 
+2. 

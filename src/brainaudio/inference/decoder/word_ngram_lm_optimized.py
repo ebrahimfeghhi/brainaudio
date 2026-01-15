@@ -336,6 +336,10 @@ def apply_word_ngram_lm_scoring(
         beam_hyps.scores[b, k] += (new_best_lm_score - old_best_lm_score)
         beam_hyps.context_texts[b][k] = new_tuples
 
+        # Increment word count to prevent premature recombination with beams
+        # that haven't been LM-scored for this word yet
+        beam_hyps.num_lm_scored_words[b, k] += 1
+
 
 def apply_word_ngram_eos_scoring(
     word_lm: "FastNGramLM",

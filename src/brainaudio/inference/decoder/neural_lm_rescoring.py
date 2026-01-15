@@ -110,6 +110,7 @@ def score_texts_batch(
     final_scores = [0.0] * len(texts)
     for original_idx, score in zip(sorted_indices, all_scores_sorted):
         final_scores[original_idx] = score
+        
 
     return final_scores
 

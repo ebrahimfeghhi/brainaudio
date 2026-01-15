@@ -181,6 +181,12 @@ class BatchedBeamHyps:
             (batch_size, self.beam_size), fill_value=NON_EXISTENT_LABEL_VALUE, device=device, dtype=torch.long
         )
 
+        # Track number of words that have been LM-scored for each beam
+        # Used in recombination to avoid merging beams at different LM scoring stages
+        self.num_lm_scored_words = torch.zeros(
+            (batch_size, self.beam_size), device=device, dtype=torch.long
+        )
+
         self.transcript_hash = torch.full(
             [batch_size, self.beam_size], device=device, dtype=torch.long, fill_value=INIT_HASH_VALUE
         )
@@ -220,6 +226,7 @@ class BatchedBeamHyps:
         self.scores[:, 0].fill_(0.0)
 
         self.last_label.fill_(NON_EXISTENT_LABEL_VALUE)
+        self.num_lm_scored_words.fill_(0)
 
         self.transcript_hash.fill_(INIT_HASH_VALUE)
         if self.store_prefix_hashes:
@@ -302,8 +309,6 @@ class BatchedBeamHyps:
         """
         if self.model_type == ASRModelTypeEnum.TDT and next_label_durations is None:
             raise ValueError("`next_label_durations` is required when model type is TDT.")
-
-
 
         last_labels = torch.gather(self.last_label, dim=-1, index=next_indices)
         self.transcript_wb.scatter_(dim=-1, index=self.current_lengths_wb.unsqueeze(-1), src=next_labels.unsqueeze(-1))
@@ -394,6 +399,11 @@ class BatchedBeamHyps:
             # track last non-blank label
             torch.where(extended_with_label, next_labels, last_labels, out=self.last_label)
 
+        # Propagate num_lm_scored_words from parent beams
+        self.num_lm_scored_words.copy_(
+            torch.gather(self.num_lm_scored_words, dim=-1, index=next_indices)
+        )
+
         # store prefix hashes for batched maes
         if self.store_prefix_hashes:
             prev_transcript_prefix_hash = torch.gather(self.transcript_prefix_hash, dim=-1, index=next_indices)
@@ -401,7 +411,7 @@ class BatchedBeamHyps:
                 extended_with_label, prev_transcript_hash, prev_transcript_prefix_hash, out=self.transcript_prefix_hash
             )
 
-    def recombine_hyps_(self, is_last_step: bool = False):
+    def recombine_hyps_(self):
 
         """
             Merges equivalent hypotheses that have converged to the same state.
@@ -411,6 +421,7 @@ class BatchedBeamHyps:
                 - Transcript history (`transcript_hash`)
                 - The last predicted label (`last_label`)
                 - Current non-blank lengths (`current_lengths_nb`)
+                - Number of LM-scored words (`num_lm_scored_words`)
                 - (Optionally) Next timestamp, if `model_type` is TDT.
 
             Mechanism:
@@ -434,10 +445,12 @@ class BatchedBeamHyps:
 
         # O(n) hash-based recombination instead of O(n²) pairwise comparison
         # Combine all comparison keys into a single hash
+        # Include num_lm_scored_words to prevent merging beams at different LM scoring stages
         combined_hash = (
             self.transcript_hash * 1000003 +
             self.last_label * 1009 +
-            self.current_lengths_nb * 17
+            self.current_lengths_nb * 17 +
+            self.num_lm_scored_words * 37
         )
 
         if self.model_type == ASRModelTypeEnum.TDT:
@@ -672,6 +685,7 @@ class BatchedBeamHyps:
         self.current_lengths_wb.copy_(torch.gather(self.current_lengths_wb, dim=-1, index=indices))
 
         self.last_label.copy_(torch.gather(self.last_label, dim=-1, index=indices))
+        self.num_lm_scored_words.copy_(torch.gather(self.num_lm_scored_words, dim=-1, index=indices))
 
         if self.model_type == ASRModelTypeEnum.TDT or self.model_type == ASRModelTypeEnum.RNNT:
             self.next_timestamp.copy_(torch.gather(self.next_timestamp, dim=-1, index=indices))

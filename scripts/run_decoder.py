@@ -71,7 +71,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--load-in-4bit", action="store_true", help="Load model in 4-bit quantization (requires bitsandbytes)")
     parser.add_argument("--disable-llm", action="store_true", help="Disable LLM shallow fusion (useful for testing n-gram LM alone)")
     parser.add_argument("--test-mode", action="store_true", help="Use logits_test.npz and skip WER computation")
-    parser.add_argument("--quiet", action="store_true", help="Reduce verbose output (skip per-beam printing)")
+    parser.add_argument("--quiet", action="store_false", default=True, help="Reduce verbose output (skip per-beam printing)")
 
     # Word N-gram LM arguments
     parser.add_argument("--word-lm-path", type=str, default=DEFAULT_WORD_LM_PATH,

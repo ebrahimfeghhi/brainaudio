@@ -442,6 +442,9 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                 
             batched_beam_hyps.add_results_(next_indices, next_labels, next_scores)
             
+            batched_beam_hyps.recombine_hyps_()
+            
+            
             
             apply_word_ngram_lm_scoring(word_lm=self.word_ngram_lm, word_history=self.word_history, beam_hyps=batched_beam_hyps, 
                                         boundary_token=getattr(self.lexicon, "word_boundary_token", None), next_labels=next_labels,
@@ -449,7 +452,6 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                                         homophone_prune_threshold=self.homophone_prune_threshold, lexicon=self.lexicon)
                       
           
-            batched_beam_hyps.recombine_hyps_()
 
             # Apply LLM rescoring every N frames (if interval > 0)
             if self.lm_fusion is not None and self.word_history is not None:
