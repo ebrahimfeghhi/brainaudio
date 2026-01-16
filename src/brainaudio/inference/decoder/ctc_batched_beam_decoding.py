@@ -347,7 +347,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             float_dtype=decoder_outputs.dtype,
             model_type='ctc',
             num_homophone_beams=self.num_homophone_beams,
-            score_combination='max',
+            score_combination='logsumexp',
         )
 
         # Main decoding loop: process one acoustic frame at a time
@@ -444,8 +444,6 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             
             batched_beam_hyps.recombine_hyps_()
             
-            
-            
             apply_word_ngram_lm_scoring(word_lm=self.word_ngram_lm, word_history=self.word_history, beam_hyps=batched_beam_hyps, 
                                         boundary_token=getattr(self.lexicon, "word_boundary_token", None), next_labels=next_labels,
                                         prev_last_labels=prev_last_labels, parent_lexicon_states=parent_states,
@@ -471,8 +469,8 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             )
 
         # Apply word-level N-gram LM end-of-sentence scoring
-        if self.word_ngram_lm is not None:
-            apply_word_ngram_eos_scoring(word_lm=self.word_ngram_lm, beam_hyps=batched_beam_hyps)
+        #if self.word_ngram_lm is not None:
+        #    apply_word_ngram_eos_scoring(word_lm=self.word_ngram_lm, beam_hyps=batched_beam_hyps)
 
         return batched_beam_hyps
    

@@ -46,7 +46,9 @@ def score_texts_batch(
     """
     if not texts:
         return []
-
+    
+    model.eval()
+    
     # Sort by length to minimize padding waste (speeds up batching)
     sorted_indices = sorted(range(len(texts)), key=lambda k: len(texts[k]))
     sorted_texts = [texts[i] for i in sorted_indices]
@@ -111,7 +113,6 @@ def score_texts_batch(
     for original_idx, score in zip(sorted_indices, all_scores_sorted):
         final_scores[original_idx] = score
         
-
     return final_scores
 
 
@@ -180,6 +181,7 @@ def apply_llm_rescoring_full(
     unique_texts = list(unique_requests.keys())
     
     lm_fusion.llm_call_count += 1
+    
     unique_scores = score_texts_batch(
         model=lm_fusion.model,
         tokenizer=lm_fusion.tokenizer,
@@ -195,6 +197,7 @@ def apply_llm_rescoring_full(
     updated_beams = set()
 
     for text, llm_score in zip(unique_texts, unique_scores):
+        
         # Retrieve everyone who asked for this text
         requests = unique_requests[text]
         
@@ -247,9 +250,6 @@ def apply_llm_eos_scoring(
             if beam_hyps.scores[b, k] == float('-inf'): continue
 
             context_tuples = beam_hyps.context_texts[b][k]
-            # Only score the top hypothesis for EOS (usually sufficient)
-            # Or iterate all if deep rescoring is needed.
-            # Let's iterate all to match your logic.
             for tuple_idx, tup in enumerate(context_tuples):
                 if len(tup) != 3: continue
                 
@@ -289,6 +289,7 @@ def apply_llm_eos_scoring(
     results_by_tuple: Dict[Tuple[int, int, int], List[Tuple[float, str]]] = {}
     
     for text, llm_score in zip(unique_texts, unique_scores):
+        
         num_words = text_cache[text]
         final_score = alpha * llm_score + beta * num_words
         
