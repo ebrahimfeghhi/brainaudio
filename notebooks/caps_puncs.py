@@ -74,8 +74,8 @@ def main():
         return
 
     sentences = [
-        "I drove a cadillac",
-        "I drove a Cadillac"
+        "He is also a member of the real iris addendum",
+        "He is also a member of the royal iris academy",
     ]
 
     print("\nComputing log probabilities...")

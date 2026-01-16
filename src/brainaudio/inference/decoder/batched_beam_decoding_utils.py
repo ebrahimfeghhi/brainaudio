@@ -475,7 +475,7 @@ class BatchedBeamHyps:
 
                 if h not in seen:
                     seen[h] = (s, k, [s])
-                else:
+                else:  
                     old_best, old_idx, all_scores = seen[h]
                     all_scores.append(s)
                     if s > old_best:

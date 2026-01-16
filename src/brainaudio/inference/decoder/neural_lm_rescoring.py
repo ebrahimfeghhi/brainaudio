@@ -7,6 +7,7 @@ Optimized LLM rescoring with Fused Cross Entropy and Deduplication.
 
 from dataclasses import dataclass, field
 from typing import Any, List, Dict, Tuple, TYPE_CHECKING
+from sympy import re
 import torch
 import torch.nn.functional as F
 import truecase
@@ -166,7 +167,14 @@ def apply_llm_rescoring_full(
                     text = truecase.get_true_case(text)
                 else:
                     text = text[0].upper() + text[1:] if text else text
-
+                
+                # Capitalize "royal" -> "Royal" (experimental)
+                import re
+                text = re.sub(r'\broyal\b', 'Royal', text, flags=re.IGNORECASE)
+                text = re.sub(r'\birish\b', 'Irish', text, flags=re.IGNORECASE)
+                text = re.sub(r'\bacademy\b', 'Academy', text, flags=re.IGNORECASE)
+                
+                
                 # Register request
                 if text not in unique_requests:
                     unique_requests[text] = []

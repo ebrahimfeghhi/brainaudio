@@ -22,7 +22,7 @@
 ## Add results
 1. Updates transcript_wb and transcript_wb_prev_ptr using next_labels and next_indices, respectively.
 2. Updates context texts. 
-3. Increase current lengths nb if the bneam was extended with a non blank, non-repeating label.
+3. Increase current lengths nb if the beam was extended with a non blank, non-repeating label.
 4. Increment current lengths wb. 
 5. Update transcript hash for beams that were extended with a label.
 6. Update last label with next labels if is_extended is true. This means last label is the actual last label emitted by the model, even if it's a blank or repeated token.
@@ -30,7 +30,7 @@
 ## Word Level N-gram LM
 
 ### WordHistory
-1. Creates a words and parents list. ALso create a deduplication cache.
+1. Creates a words and parents list. Also create a deduplication cache.
 2. Get_text method: Walks backwards similar to how we reconstruct phoneme sequences. Basically the word list keeps track of the current word. We output the most recent word, then use the parent list to find the index for the previous word. 
 3. Add method: Appends new word and parent index. Avoids duplication by checking to see if this path already exists (in other words, was the same word already added with the same parent history).
 
@@ -66,8 +66,6 @@
 ## Recombine hyps
 1. Determine beam equivalence using the transcript history, the last predicted label, and current lengths nb. Last predicted label is necessary because two beams with equivalent transcript histories after CTC merging rules can't be merged if one ends in a blank and the other doesn't. Current lengths nb seems to be added in cases hashes collide (double check).
 2. For all equivalent beams, remove lower scoring one or add the probabilities of equivalent beams together. 
-
-
 
 
 ## Apply Neural LM Rescoring

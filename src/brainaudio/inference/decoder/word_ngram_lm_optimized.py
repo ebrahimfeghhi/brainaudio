@@ -256,6 +256,11 @@ def apply_word_ngram_lm_scoring(
         # Assumption: lexicon.word_list is already interned in main.py
         candidate_words = [lexicon.word_list[idx] for idx in word_indices]
         
+        # DEBUG: Check if "irish" or "academy" is ever a candidate
+        #for cw in candidate_words:
+        #    if cw.lower() in ('irish', 'academy'):
+        #        print(f"[NGRAM DEBUG] Found '{cw}' in candidate_words for beam b={b}, k={k}")
+        
         # Fast Dedupe (only if necessary)
         if len(candidate_words) > 1:
             candidate_words = list(dict.fromkeys(candidate_words))
