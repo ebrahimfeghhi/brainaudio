@@ -28,8 +28,12 @@ MAXIMUM SPEED VERSION v2:
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple, Union
 import heapq
+import re
 
 import kenlm
+
+# Regex to strip phoneme variant suffix, e.g., "record(2)" -> "record"
+_VARIANT_SUFFIX_RE = re.compile(r'\(\d+\)$')
 
 if TYPE_CHECKING:
     import torch
@@ -254,14 +258,13 @@ def apply_word_ngram_lm_scoring(
             continue
         
         # Assumption: lexicon.word_list is already interned in main.py
-        candidate_words = [lexicon.word_list[idx] for idx in word_indices]
-        
-        # DEBUG: Check if "irish" or "academy" is ever a candidate
-        #for cw in candidate_words:
-        #    if cw.lower() in ('irish', 'academy'):
-        #        print(f"[NGRAM DEBUG] Found '{cw}' in candidate_words for beam b={b}, k={k}")
-        
-        # Fast Dedupe (only if necessary)
+        # Strip variant suffix (e.g., "record(2)" -> "record") for LM lookup
+        candidate_words = [
+            _VARIANT_SUFFIX_RE.sub('', lexicon.word_list[idx])
+            for idx in word_indices
+        ]
+
+        # Dedupe after stripping variants (e.g., "record", "record(2)" -> just "record")
         if len(candidate_words) > 1:
             candidate_words = list(dict.fromkeys(candidate_words))
         
@@ -272,9 +275,9 @@ def apply_word_ngram_lm_scoring(
 
         # --- PHASE 3: The Hot Loop (Fully Inlined) ---
         for prev_score, parent_lm_id, parent_hist_id in context_tuples:
-            
+
             for word in candidate_words:
-                
+
                 # A. Score (Try Cache First)
                 # Using (int, str) key is very fast with interned strings
                 cache_key = (parent_lm_id, word)

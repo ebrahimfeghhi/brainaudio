@@ -54,13 +54,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--logits", type=Path, default=None, help="NPZ logits file (default: derived from encoder-model-name)")
     parser.add_argument("--tokens", type=Path, default=Path(DEFAULT_TOKENS), help="units file")
     parser.add_argument("--lexicon", type=Path, default=Path(DEFAULT_LEXICON), help="lexicon file")
-    parser.add_argument("--top-k", type=int, default=1, help="Number of top beams to display per trial")
+    parser.add_argument("--top-k", type=int, default=10, help="Number of top beams to display per trial")
     parser.add_argument("--num-homophone-beams", type=int, default=3, help="Number of text interpretations (homophones) to track per beam")
     parser.add_argument("--beam-prune-threshold", type=float, default=12, help="Prune beams that are more than this many log-prob points below the best.")
     parser.add_argument("--homophone-prune-threshold", type=float, default=4, help="Prune homophones more than this many log-prob points below the best.")
     parser.add_argument("--beam-beta", type=float, default=np.log(7), help="Bonus added to extending beams (not blank/repeat).")
     parser.add_argument("--beam-blank-penalty", type=float, default=0, help="Penalty subtracted from blank emissions.")
-    parser.add_argument("--logit-scale", type=float, default=0.3, help="Scalar multiplier for encoder logits.")
+    parser.add_argument("--logit-scale", type=float, default=0.4, help="Scalar multiplier for encoder logits.")
     parser.add_argument(
         "--results-filename",
         type=str,
@@ -71,7 +71,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--load-in-4bit", action="store_true", help="Load model in 4-bit quantization (requires bitsandbytes)")
     parser.add_argument("--disable-llm", action="store_true", help="Disable LLM shallow fusion (useful for testing n-gram LM alone)")
     parser.add_argument("--test-mode", action="store_true", help="Use logits_test.npz and skip WER computation")
-    parser.add_argument("--quiet", action="store_false", default=True, help="Reduce verbose output (skip per-beam printing)")
+    parser.add_argument("--verbose", action="store_true", default=False, help="Enable verbose output (per-beam printing)")
 
     # Word N-gram LM arguments
     parser.add_argument("--word-lm-path", type=str, default=DEFAULT_WORD_LM_PATH,
@@ -301,8 +301,8 @@ def main():
             print(f"  GT:   {ground_truth}")
         print(f"  Best: {best_text}")
 
-        # Verbose per-beam printing (skip with --quiet)
-        if not args.quiet:
+        # Verbose per-beam printing
+        if args.verbose:
             print(f"  Top {K} beams (with {args.num_homophone_beams} homophone interpretations each):")
             for rank, i in enumerate(topk_indices):
                 beam_score = result.scores[0, i].item()

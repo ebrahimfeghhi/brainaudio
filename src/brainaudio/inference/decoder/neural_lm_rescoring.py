@@ -7,10 +7,9 @@ Optimized LLM rescoring with Fused Cross Entropy and Deduplication.
 
 from dataclasses import dataclass, field
 from typing import Any, List, Dict, Tuple, TYPE_CHECKING
-from sympy import re
+
 import torch
 import torch.nn.functional as F
-import truecase
 
 if TYPE_CHECKING:
     from .batched_beam_decoding_utils import BatchedBeamHyps
@@ -28,7 +27,6 @@ class LLMRescorer:
     scoring_chunk_size: int = 256
     llm_call_count: int = field(default=0, repr=False)
 
-truecase_enabled = False
 
 @torch.no_grad()
 def score_texts_batch(
@@ -40,20 +38,20 @@ def score_texts_batch(
 ) -> List[float]:
     """
     Compute log probability using Fused Cross Entropy (Memory Optimized).
-    
-    Instead of calculating the full (B, T, V) log_softmax tensor, 
+
+    Instead of calculating the full (B, T, V) log_softmax tensor,
     we use F.cross_entropy which runs a fused kernel and only outputs (B, T).
     This reduces VRAM usage by ~100x for large vocabularies.
     """
     if not texts:
         return []
-    
+
     model.eval()
-    
+
     # Sort by length to minimize padding waste (speeds up batching)
     sorted_indices = sorted(range(len(texts)), key=lambda k: len(texts[k]))
     sorted_texts = [texts[i] for i in sorted_indices]
-    
+
     all_scores_sorted = []
 
     for chunk_start in range(0, len(sorted_texts), chunk_size):
@@ -77,26 +75,26 @@ def score_texts_batch(
         # Shift for next-token prediction
         shift_logits = logits[..., :-1, :].contiguous()
         shift_labels = input_ids[..., 1:].contiguous()
-        
+
         # --- OPTIMIZATION START ---
-        # Fused calculation: calculates softmax + nll_loss in one go without 
+        # Fused calculation: calculates softmax + nll_loss in one go without
         # materializing the huge (Batch, Seq, Vocab) probability tensor.
-        
+
         # Flatten to (N, C) for cross_entropy API
         flat_logits = shift_logits.view(-1, shift_logits.size(-1))
         flat_labels = shift_labels.view(-1)
-        
+
         # reduction='none' gives loss per token
         token_losses = F.cross_entropy(
-            flat_logits, 
-            flat_labels, 
-            reduction='none', 
+            flat_logits,
+            flat_labels,
+            reduction='none',
             ignore_index=tokenizer.pad_token_id
         )
-        
+
         # Reshape back to (Batch, Seq)
         token_losses = token_losses.view(shift_labels.shape)
-        
+
         # Convert Loss (positive) to LogProb (negative)
         # We explicitly mask again to be safe, though ignore_index handles values
         shift_mask = attention_mask[..., 1:].contiguous()
@@ -113,7 +111,7 @@ def score_texts_batch(
     final_scores = [0.0] * len(texts)
     for original_idx, score in zip(sorted_indices, all_scores_sorted):
         final_scores[original_idx] = score
-        
+
     return final_scores
 
 
@@ -124,7 +122,7 @@ def apply_llm_rescoring_full(
 ) -> None:
     """
     Rescore beams with DEDUPLICATION.
-    
+
     1. Collects all unique text strings across all beams.
     2. Scores each unique string once.
     3. Broadcasts the score back to all requesting beams.
@@ -137,17 +135,17 @@ def apply_llm_rescoring_full(
     # --- PHASE 1: Deduplication ---
     # Map: unique_text -> List of (batch_idx, beam_idx, tuple_idx, num_words)
     unique_requests: Dict[str, List[Tuple[int, int, int, int]]] = {}
-    
+
     # Store old best scores to calculate the final beam update delta
-    old_best_scores: Dict[Tuple[int, int], float] = {} 
+    old_best_scores: Dict[Tuple[int, int], float] = {}
 
     for b in range(batch_size):
         for k in range(beam_size):
             if beam_hyps.scores[b, k] == float('-inf'):
                 continue
-                
+
             context_tuples = beam_hyps.context_texts[b][k]
-            
+
             # Save the current best score (usually index 0) for the delta update later
             if context_tuples:
                  old_best_scores[(b, k)] = context_tuples[0][0]
@@ -155,30 +153,20 @@ def apply_llm_rescoring_full(
             for tuple_idx, tup in enumerate(context_tuples):
                 # Format: (score, lm_state_id, history_id)
                 if len(tup) != 3: continue
-                
+
                 history_id = tup[2]
                 if history_id < 0: continue
 
                 text = word_history.get_text(history_id)
                 if not text: continue
-                
-                # Apply Truecasing / Capitalization
-                if truecase_enabled:
-                    text = truecase.get_true_case(text)
-                else:
-                    text = text[0].upper() + text[1:] if text else text
-                
-                # Capitalize "royal" -> "Royal" (experimental)
-                import re
-                text = re.sub(r'\broyal\b', 'Royal', text, flags=re.IGNORECASE)
-                text = re.sub(r'\birish\b', 'Irish', text, flags=re.IGNORECASE)
-                text = re.sub(r'\bacademy\b', 'Academy', text, flags=re.IGNORECASE)
-                
-                
+
+                # Capitalize first letter
+                text = text[0].upper() + text[1:] if text else text
+
                 # Register request
                 if text not in unique_requests:
                     unique_requests[text] = []
-                
+
                 num_words = len(text.split())
                 unique_requests[text].append((b, k, tuple_idx, num_words))
 
@@ -187,9 +175,9 @@ def apply_llm_rescoring_full(
 
     # --- PHASE 2: Batched Scoring ---
     unique_texts = list(unique_requests.keys())
-    
+
     lm_fusion.llm_call_count += 1
-    
+
     unique_scores = score_texts_batch(
         model=lm_fusion.model,
         tokenizer=lm_fusion.tokenizer,
@@ -205,30 +193,30 @@ def apply_llm_rescoring_full(
     updated_beams = set()
 
     for text, llm_score in zip(unique_texts, unique_scores):
-        
+
         # Retrieve everyone who asked for this text
         requests = unique_requests[text]
-        
+
         for (b, k, tuple_idx, num_words) in requests:
             new_score = alpha * llm_score + beta * num_words
-            
+
             # Update tuple in place
             old_tuple = beam_hyps.context_texts[b][k][tuple_idx]
             beam_hyps.context_texts[b][k][tuple_idx] = (new_score, old_tuple[1], old_tuple[2])
-            
+
             updated_beams.add((b, k))
 
     # --- PHASE 4: Sort & Finalize ---
     for b, k in updated_beams:
         context_tuples = beam_hyps.context_texts[b][k]
-        
+
         # Sort by new scores
         context_tuples.sort(key=lambda x: x[0], reverse=True)
-        
+
         # Update beam score based on the change in the BEST path
         old_best = old_best_scores[(b, k)]
         new_best = context_tuples[0][0]
-        
+
         beam_hyps.scores[b, k] += (new_best - old_best)
 
 
@@ -249,7 +237,7 @@ def apply_llm_eos_scoring(
 
     # Map: unique_punct_text -> List of (b, k, tuple_idx, history_id, punct_char)
     unique_requests: Dict[str, List[Tuple[int, int, int, int, str]]] = {}
-    
+
     # Store base texts to calculate word counts
     text_cache: Dict[str, int] = {} # text -> word_count
 
@@ -260,7 +248,7 @@ def apply_llm_eos_scoring(
             context_tuples = beam_hyps.context_texts[b][k]
             for tuple_idx, tup in enumerate(context_tuples):
                 if len(tup) != 3: continue
-                
+
                 history_id = tup[2]
                 if history_id < 0: continue
 
@@ -270,15 +258,15 @@ def apply_llm_eos_scoring(
 
                 # Capitalize
                 text_cap = text[0].upper() + text[1:] if text else text
-                
+
                 # Generate candidates
                 for punct in eos_candidates:
                     full_text = text_cap + punct
-                    
+
                     if full_text not in unique_requests:
                         unique_requests[full_text] = []
                         text_cache[full_text] = len(text_cap.split()) # Words don't include punct
-                    
+
                     unique_requests[full_text].append((b, k, tuple_idx, history_id, punct))
 
     if not unique_requests:
@@ -295,12 +283,12 @@ def apply_llm_eos_scoring(
 
     # Organize results: (b, k, tuple_idx) -> List[(score, punct)]
     results_by_tuple: Dict[Tuple[int, int, int], List[Tuple[float, str]]] = {}
-    
+
     for text, llm_score in zip(unique_texts, unique_scores):
-        
+
         num_words = text_cache[text]
         final_score = alpha * llm_score + beta * num_words
-        
+
         for (b, k, tuple_idx, _, punct) in unique_requests[text]:
             key = (b, k, tuple_idx)
             if key not in results_by_tuple:
@@ -310,22 +298,22 @@ def apply_llm_eos_scoring(
     # Update Hypotheses
     updated_beams = set()
     old_best_scores = {} # Capture on demand
-    
+
     for (b, k, tuple_idx), options in results_by_tuple.items():
         # Find best punctuation
         best_score, best_punct = max(options, key=lambda x: x[0])
-        
+
         if (b, k) not in old_best_scores:
             old_best_scores[(b, k)] = beam_hyps.context_texts[b][k][0][0]
 
         old_tup = beam_hyps.context_texts[b][k][tuple_idx]
         history_id = old_tup[2]
-        
+
         # Add punct to history
-        # Note: This might create duplicates in history if not handled in WordHistory, 
+        # Note: This might create duplicates in history if not handled in WordHistory,
         # but WordHistory.add() usually handles dedupe.
         new_hist_id = word_history.add(history_id, best_punct)
-        
+
         beam_hyps.context_texts[b][k][tuple_idx] = (best_score, old_tup[1], new_hist_id)
         updated_beams.add((b, k))
 
@@ -333,7 +321,7 @@ def apply_llm_eos_scoring(
     for b, k in updated_beams:
         tuples = beam_hyps.context_texts[b][k]
         tuples.sort(key=lambda x: x[0], reverse=True)
-        
+
         old = old_best_scores.get((b, k), tuples[0][0]) # Fallback just in case
         new = tuples[0][0]
         beam_hyps.scores[b, k] += (new - old)
