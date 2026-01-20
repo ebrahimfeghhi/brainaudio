@@ -182,7 +182,6 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         preserve_alignments=False,
         compute_timestamps: bool = False,
         beam_beta: float = 0.0,
-        beam_blank_penalty: float = 0.0,
         beam_threshold: float = 10.0,
         allow_cuda_graphs: bool = True,
         lexicon: LexiconConstraint = None,
@@ -193,6 +192,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         num_homophone_beams: int = 1,
         homophone_prune_threshold: Optional[float] = 10.0,
         lm_rescore_interval: int = 10,
+        word_boundary_bonus: float = 0.0
     ):
         """
         Init method.
@@ -203,7 +203,6 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             preserve_alignments: if alignments are needed. Defaults to False.
             compute_timestamps: if timestamps are needed. Defaults to False.
             beam_beta: bonus for extending beams (emitting new non-blank, non-repeat tokens).
-            beam_blank_penalty: penalty subtracted from blank emissions.
             beam_threshold: threshold for pruning candidates.
             allow_cuda_graphs: whether to allow CUDA graphs. Defaults to True.
             lexicon: optional LexiconConstraint to constrain beam search to valid words. Defaults to None.
@@ -226,8 +225,8 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         self.return_best_hypothesis = return_best_hypothesis
 
         self.beam_beta = beam_beta
-        self.beam_blank_penalty = beam_blank_penalty
         self.beam_threshold = beam_threshold
+        self.word_boundary_bonus = word_boundary_bonus
 
         assert not self.preserve_alignments, "Preserve aligments is not supported"
 
@@ -298,6 +297,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         self.state = None
         self.full_graph = None
         self.separate_graphs = None
+        
 
     @torch.no_grad()
     def batched_beam_search_torch(
@@ -347,7 +347,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             float_dtype=decoder_outputs.dtype,
             model_type='ctc',
             num_homophone_beams=self.num_homophone_beams,
-            score_combination='logsumexp',
+            score_combination='max',
         )
 
         # Main decoding loop: process one acoustic frame at a time
@@ -363,6 +363,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             # This identifies which tokens would be *repetitions* of the previous non-blank token
             repeated_mask = batched_beam_hyps.last_label[:, :, None] == vocab[None, None, :]
             
+            
             # repeated_or_blank_mask: [B, beam_size, V+1] - True for blanks OR repeated tokens
             # CTC rule: emitting blank or repeating the last token doesn't add a new symbol
             repeated_or_blank_mask = repeated_mask | vocab_blank_mask[None, None, :]
@@ -376,7 +377,11 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             # step 2.2: updating non-blank and non-repeating token scores with `beam_beta`
             log_probs = torch.where(repeated_or_blank_mask, log_probs, log_probs + self.beam_beta)
 
- 
+            # step 2.2.1: apply word boundary bonus (only for non-repeats)
+            wb_token = self.lexicon.word_boundary_token
+            wb_not_repeat = ~repeated_mask[:, :, wb_token]  # [B, beam_size]
+            log_probs[:, :, wb_token] += self.word_boundary_bonus * wb_not_repeat
+
             # step 2.2.5: apply lexicon constraints if provided
             # This masks out tokens that would create invalid words according to the lexicon
             if self.lexicon is not None:

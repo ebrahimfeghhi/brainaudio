@@ -5,10 +5,10 @@ Prints sentences where the predictions differ between the two methods.
 
 import argparse
 import random
+import re
 import pandas as pd
 from pathlib import Path
 from jiwer import wer as compute_wer, process_words
-import string
 
 RANDOM_SEED = 42
 
@@ -55,15 +55,19 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def clean_string(text: str) -> str:
+    """Normalize text: keep only letters, hyphens, apostrophes, and spaces."""
+    text = re.sub(r"[^a-zA-Z\- \']", "", text)
+    text = text.replace("--", "").lower().strip()
+    return text
+
+
 def sentence_wer(prediction: str, reference: str) -> float:
-    """Compute WER for a single sentence (case-insensitive, punctuation-stripped)."""
-    
-    # Create a translation table that maps every punctuation char to None
-    translator = str.maketrans('', '', string.punctuation)
-    
-    # 1. Normalization: Lowercase -> Remove Punctuation -> Strip whitespace
-    p_clean = prediction.lower().translate(translator).strip()
-    r_clean = reference.lower().translate(translator).strip()
+    """Compute WER for a single sentence (case-insensitive, keeps apostrophes/hyphens)."""
+
+    # Normalization: keep letters, hyphens, apostrophes, spaces
+    p_clean = clean_string(prediction)
+    r_clean = clean_string(reference)
     
     # 2. Handle empty references (e.g., silence or only punctuation)
     if not r_clean:
@@ -148,10 +152,9 @@ def main():
         llm_wer = sentence_wer(llm_pred, ground_truth)
         baseline_wer = sentence_wer(baseline_pred, ground_truth)
 
-        # Check if predictions differ (normalized: lowercase, no punctuation)
-        translator = str.maketrans('', '', string.punctuation)
-        llm_normalized = llm_pred.lower().translate(translator).strip()
-        baseline_normalized = baseline_pred.lower().translate(translator).strip()
+        # Check if predictions differ (normalized)
+        llm_normalized = clean_string(llm_pred)
+        baseline_normalized = clean_string(baseline_pred)
         text_differs = llm_normalized != baseline_normalized
 
         # Categorize
@@ -182,11 +185,10 @@ def main():
     diff_text_count = sum(1 for r in results if r["text_differs"])
     same_wer_diff_text_count = sum(1 for r in results if r["category"] == "SAME" and r["text_differs"])
 
-    # Compute aggregate WER and error types (case-insensitive, punctuation removed)
-    translator = str.maketrans('', '', string.punctuation)
-    llm_preds_all = [r["llm_pred"].lower().translate(translator).strip() for r in results]
-    baseline_preds_all = [r["baseline_pred"].lower().translate(translator).strip() for r in results]
-    gts_all = [r["ground_truth"].lower().translate(translator).strip() for r in results]
+    # Compute aggregate WER and error types (normalized)
+    llm_preds_all = [clean_string(r["llm_pred"]) for r in results]
+    baseline_preds_all = [clean_string(r["baseline_pred"]) for r in results]
+    gts_all = [clean_string(r["ground_truth"]) for r in results]
 
     # Process words to get detailed error counts
     llm_output = process_words(gts_all, llm_preds_all)
@@ -274,9 +276,9 @@ def main():
 
         # Compute WER for worse trials subset
         if worse_results_for_csv:
-            worse_llm_preds = [r["llm_pred"].lower().translate(translator).strip() for r in worse_results_for_csv]
-            worse_baseline_preds = [r["baseline_pred"].lower().translate(translator).strip() for r in worse_results_for_csv]
-            worse_gts = [r["ground_truth"].lower().translate(translator).strip() for r in worse_results_for_csv]
+            worse_llm_preds = [clean_string(r["llm_pred"]) for r in worse_results_for_csv]
+            worse_baseline_preds = [clean_string(r["baseline_pred"]) for r in worse_results_for_csv]
+            worse_gts = [clean_string(r["ground_truth"]) for r in worse_results_for_csv]
             worse_llm_output = process_words(worse_gts, worse_llm_preds)
             worse_baseline_output = process_words(worse_gts, worse_baseline_preds)
         else:
@@ -292,9 +294,9 @@ def main():
             random.seed(RANDOM_SEED)
             random_subset_50 = random.sample(worse_results_for_csv, random_subset_size_50)
             random_subset_50_indices = [r['idx'] for r in random_subset_50]
-            random_50_llm_preds = [r["llm_pred"].lower().translate(translator).strip() for r in random_subset_50]
-            random_50_baseline_preds = [r["baseline_pred"].lower().translate(translator).strip() for r in random_subset_50]
-            random_50_gts = [r["ground_truth"].lower().translate(translator).strip() for r in random_subset_50]
+            random_50_llm_preds = [clean_string(r["llm_pred"]) for r in random_subset_50]
+            random_50_baseline_preds = [clean_string(r["baseline_pred"]) for r in random_subset_50]
+            random_50_gts = [clean_string(r["ground_truth"]) for r in random_subset_50]
             random_subset_50_output = process_words(random_50_gts, random_50_llm_preds)
             random_subset_50_baseline_output = process_words(random_50_gts, random_50_baseline_preds)
 
@@ -307,9 +309,9 @@ def main():
             random.seed(RANDOM_SEED)
             random_subset_25 = random.sample(worse_results_for_csv, random_subset_size_25)
             random_subset_25_indices = [r['idx'] for r in random_subset_25]
-            random_25_llm_preds = [r["llm_pred"].lower().translate(translator).strip() for r in random_subset_25]
-            random_25_baseline_preds = [r["baseline_pred"].lower().translate(translator).strip() for r in random_subset_25]
-            random_25_gts = [r["ground_truth"].lower().translate(translator).strip() for r in random_subset_25]
+            random_25_llm_preds = [clean_string(r["llm_pred"]) for r in random_subset_25]
+            random_25_baseline_preds = [clean_string(r["baseline_pred"]) for r in random_subset_25]
+            random_25_gts = [clean_string(r["ground_truth"]) for r in random_subset_25]
             random_subset_25_output = process_words(random_25_gts, random_25_llm_preds)
             random_subset_25_baseline_output = process_words(random_25_gts, random_25_baseline_preds)
 
@@ -322,9 +324,9 @@ def main():
             random.seed(RANDOM_SEED)
             random_subset_10 = random.sample(worse_results_for_csv, random_subset_size_10)
             random_subset_10_indices = [r['idx'] for r in random_subset_10]
-            random_10_llm_preds = [r["llm_pred"].lower().translate(translator).strip() for r in random_subset_10]
-            random_10_baseline_preds = [r["baseline_pred"].lower().translate(translator).strip() for r in random_subset_10]
-            random_10_gts = [r["ground_truth"].lower().translate(translator).strip() for r in random_subset_10]
+            random_10_llm_preds = [clean_string(r["llm_pred"]) for r in random_subset_10]
+            random_10_baseline_preds = [clean_string(r["baseline_pred"]) for r in random_subset_10]
+            random_10_gts = [clean_string(r["ground_truth"]) for r in random_subset_10]
             random_subset_10_output = process_words(random_10_gts, random_10_llm_preds)
             random_subset_10_baseline_output = process_words(random_10_gts, random_10_baseline_preds)
 

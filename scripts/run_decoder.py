@@ -28,7 +28,7 @@ CTC beam search with word-level N-gram LM fusion and optional LLM shallow fusion
 # Default paths (phoneme mode)
 DEFAULT_ENCODER_MODEL_NAME = "pretrained_RNN"
 DEFAULT_TOKENS = "/data2/brain2text/lm/units_pytorch.txt"
-DEFAULT_LEXICON = "/data2/brain2text/lm/vocab_lower_100k_pytorch_phoneme.txt"
+DEFAULT_LEXICON = "/data2/brain2text/lm/vocab_lower_100k_pytorch_phoneme_with_variants.txt"
 DEFAULT_WORD_LM_PATH = "/data2/brain2text/lm/lm_dec19_huge_4gram.kenlm"
 TRANSCRIPTS_PKL = Path("/data2/brain2text/b2t_25/transcripts_val_cleaned.pkl")
 
@@ -58,8 +58,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--num-homophone-beams", type=int, default=3, help="Number of text interpretations (homophones) to track per beam")
     parser.add_argument("--beam-prune-threshold", type=float, default=12, help="Prune beams that are more than this many log-prob points below the best.")
     parser.add_argument("--homophone-prune-threshold", type=float, default=4, help="Prune homophones more than this many log-prob points below the best.")
-    parser.add_argument("--beam-beta", type=float, default=np.log(7), help="Bonus added to extending beams (not blank/repeat).")
-    parser.add_argument("--beam-blank-penalty", type=float, default=0, help="Penalty subtracted from blank emissions.")
+    parser.add_argument("--beam-beta", type=float, default=1.5, help="Bonus added to extending beams (not blank/repeat).")
+    parser.add_argument("--word-boundary-bonus", type=float, default=1, help="Bonus added when emitting word boundary token.")
     parser.add_argument("--logit-scale", type=float, default=0.4, help="Scalar multiplier for encoder logits.")
     parser.add_argument(
         "--results-filename",
@@ -78,7 +78,7 @@ def parse_args() -> argparse.Namespace:
                         help="Path to word-level KenLM file (.kenlm)")
     parser.add_argument("--alpha-ngram", type=float, default=0.8,
                         help="Weight for word N-gram LM scores (default: 0.5)")
-    parser.add_argument("--beta-ngram", type=float, default=1.0,
+    parser.add_argument("--beta-ngram", type=float, default=0,
                         help="Word insertion bonus for word N-gram LM (default: 1.0)")
     parser.add_argument("--lm-rescore-interval", type=int, default=10,
                         help="Apply LLM rescoring every N frames (0 = end only, default: 10)")
@@ -209,7 +209,7 @@ def main():
         beam_threshold=args.beam_prune_threshold,
         homophone_prune_threshold=args.homophone_prune_threshold,
         beam_beta=args.beam_beta,
-        beam_blank_penalty=args.beam_blank_penalty,
+        word_boundary_bonus=args.word_boundary_bonus,
         word_ngram_lm=word_ngram_lm,
         word_history = word_history
     )
@@ -240,6 +240,13 @@ def main():
     for trial_idx in args.trial_indices:
         # Load single trial from pre-opened NPZ (much faster than load_log_probs per trial)
         logits = torch.from_numpy(logits_npz[f"arr_{trial_idx}"]).to(device).unsqueeze(0)
+
+        # Add 3 frames of padding with uniform probability (all tokens equally likely)
+        num_padding_frames = 2
+        vocab_size = logits.shape[-1]
+        padding = torch.zeros((1, num_padding_frames, vocab_size), device=device, dtype=logits.dtype)
+        logits = torch.cat([logits, padding], dim=1)
+
         lengths = torch.tensor([logits.shape[1]], device=device)
         # Convert raw logits to log probabilities, then apply acoustic scale
         log_probs = torch.nn.functional.log_softmax(logits, dim=-1) * args.logit_scale
