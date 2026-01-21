@@ -32,7 +32,6 @@ from .cuda_python_utils import (
 from .enum import PrettyStrEnum
 from .nemo_stubs import logging
 from .neural_lm_rescoring import apply_llm_rescoring_full, apply_llm_eos_scoring, LLMRescorer
-from .context_biasing import GPUBoostingTreeModel
 from .word_ngram_lm_optimized import WordHistory, apply_word_ngram_lm_scoring, apply_word_ngram_eos_scoring, FastNGramLM
 
 HAVE_LM_FUSION = False
