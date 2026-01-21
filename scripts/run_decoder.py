@@ -45,7 +45,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--end-trial-idx", type=int, default=None,
                         help="End index (exclusive). Use with --start-trial-idx for a range.")
     parser.add_argument("--beam-size", type=int, default=300, help="CTC beam size")
-    parser.add_argument("--model", default="facebook/opt-2.7b", help="HF causal LM checkpoint")
+    parser.add_argument("--model", default="meta-llama/llama-3.2-3b", help="HF causal LM checkpoint")
     parser.add_argument("--hf-token", default=None, help="Optional HF token")
     parser.add_argument("--lm-weight", type=float, default=1, help="Neural LM fusion weight")
     parser.add_argument("--word-insertion-bonus", type=float, default=0, help="Bonus at boundaries")
