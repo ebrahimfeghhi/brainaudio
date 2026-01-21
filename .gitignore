@@ -22,6 +22,7 @@ llms/
 # Large LM training files
 creating_n_gram_lm/*.txt
 creating_n_gram_lm/archive/*.txt
+creating_n_gram_lm/lm_training_data/
 # Truecaser models
 *.truecasemodel
 *.dist
