@@ -15,7 +15,7 @@ import torch.nn.functional as F
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from tqdm import tqdm
 
-
+1
 def load_transcripts(file_path: str) -> Tuple[List[str], List[str]]:
     """
     Load transcripts and split into train/val based on marker comment.
@@ -139,7 +139,7 @@ def main():
     parser.add_argument(
         "--transcript-file",
         type=str,
-        default="/home/ebrahim/brainaudio/data/transcripts_all.txt",
+        default="/home/ebrahim/brainaudio/data/transcripts_merged.txt",
         help="Path to transcripts file",
     )
     parser.add_argument(
@@ -157,7 +157,7 @@ def main():
     parser.add_argument(
         "--device",
         type=str,
-        default="cuda" if torch.cuda.is_available() else "cpu",
+        default="cuda:1" if torch.cuda.is_available() else "cpu",
         help="Device to use",
     )
     args = parser.parse_args()
