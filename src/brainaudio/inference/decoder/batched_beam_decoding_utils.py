@@ -90,7 +90,7 @@ class BatchedBeamHyps:
         float_dtype: torch.dtype = None,
         store_prefix_hashes: Optional[bool] = False,
         model_type: Optional[ASRModelTypeEnum | str] = ASRModelTypeEnum.RNNT,
-        score_combination: str = "logsumexp",
+        score_combination: str = "max",
         num_homophone_beams: int = 1,
         cached_state: Optional[List] = None,
         cached_logits: Optional[torch.Tensor] = None,

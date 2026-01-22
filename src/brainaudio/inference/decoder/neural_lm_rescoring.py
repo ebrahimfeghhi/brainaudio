@@ -7,6 +7,7 @@ Optimized LLM rescoring with Fused Cross Entropy and Deduplication.
 
 from dataclasses import dataclass, field
 from typing import Any, List, Dict, Tuple, TYPE_CHECKING
+import re
 
 import torch
 import torch.nn.functional as F
@@ -14,6 +15,32 @@ import torch.nn.functional as F
 if TYPE_CHECKING:
     from .batched_beam_decoding_utils import BatchedBeamHyps
     from .word_ngram_lm_optimized import WordHistory
+
+
+# Multi-word phrases to capitalize (checked first)
+_CAPITALIZE_PHRASES = [
+    ('new york', 'New York'),
+    ('oklahoma city', 'Oklahoma City'),
+]
+
+# Words that should always be capitalized (proper nouns, "I", etc.)
+_CAPITALIZE_WORDS = {
+    'academy', 'access', 'action', 'amazon', 'american', 'amiga', 'argentina',
+    'arkansas', 'assad', 'baltimore', 'barr', 'bay', 'being', 'benefits',
+    'bermuda', 'bill', 'burma', 'cadillac', 'calculations', 'canyon', 'charter',
+    'christian', 'christmas', 'colorado', 'comparison', 'county', 'courier',
+    'cowboys', 'craigslist', 'dallas', 'davis', 'deadline', 'december', 'detroit',
+    'difficulty', 'disciplinary', 'distances', 'early', 'england', 'europe',
+    'european', 'faces', 'florida', 'free', 'garland', 'gates', 'gay', 'giants',
+    'god', 'godfather', 'government', 'grand', 'green', 'gulf', 'hank',
+    'harassing', 'hercules', 'holidays', 'hollywood', 'house', 'houston',
+    'hurricane', 'i', "i'd", "i'll", 'illinois', "i'm", 'indiana', 'internet',
+    'iran', 'irish', 'ive', 'johnson', 'jose', 'july', 'june', 'kansas', 'lambs',
+    'louisiana', 'maine', 'masters', 'may', 'mexican', 'michigan', 'nba',
+    'pat', 'persia', 'persian', 'pittsburgh', 'press', 'rome', 'royal', 'sales',
+    'saturday', 'silence', 'springs', 'state', 'sunday', 'texas', 'three',
+    'trudeau', 'trump', 'turkey', 'tv', 'un', 'university', 'william', 'williams',
+}
 
 
 @dataclass
@@ -162,6 +189,8 @@ def apply_llm_rescoring_full(
 
                 # Capitalize first letter
                 text = text[0].upper() + text[1:] if text else text
+                
+                
 
                 # Register request
                 if text not in unique_requests:

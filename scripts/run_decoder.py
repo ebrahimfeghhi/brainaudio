@@ -4,6 +4,7 @@ from pathlib import Path
 import pandas as pd
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+from peft import PeftModel
 import numpy as np
 from datetime import datetime
 import sys
@@ -45,9 +46,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--end-trial-idx", type=int, default=None,
                         help="End index (exclusive). Use with --start-trial-idx for a range.")
     parser.add_argument("--beam-size", type=int, default=300, help="CTC beam size")
-    parser.add_argument("--model", default="meta-llama/llama-3.2-3b", help="HF causal LM checkpoint")
+    parser.add_argument("--model", default="meta-llama/Llama-3.2-3B", help="HF causal LM checkpoint")
+    parser.add_argument("--lora-adapter", type=str, default="./llama-3.2-3b-hf-finetuned", help="Path to LoRA adapter")
+    parser.add_argument("--no-adapter", action="store_true", help="Use base model without LoRA adapter")
     parser.add_argument("--hf-token", default=None, help="Optional HF token")
-    parser.add_argument("--lm-weight", type=float, default=1, help="Neural LM fusion weight")
+    parser.add_argument("--lm-weight", type=float, default=1.2, help="Neural LM fusion weight")
     parser.add_argument("--word-insertion-bonus", type=float, default=0, help="Bonus at boundaries")
     parser.add_argument("--max-context-length", type=int, default=50, help="Token budget")
     parser.add_argument("--device", default="cuda:0", help="Torch device")
@@ -182,6 +185,12 @@ def main():
                 trust_remote_code=True
             ).to(device)
             print(f"[INFO] Loaded {args.model} on {device}")
+
+        # Load LoRA adapter unless --no-adapter is specified
+        if not args.no_adapter:
+            model = PeftModel.from_pretrained(model, args.lora_adapter)
+            model = model.merge_and_unload()  # Merge adapter into base model for faster inference
+            print(f"[INFO] Loaded and merged LoRA adapter from {args.lora_adapter}")
 
         lm_fusion = LLMRescorer(
             model=model,
