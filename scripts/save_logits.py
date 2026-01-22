@@ -5,7 +5,7 @@ import os
 from typing import Optional, Dict
 
 # --- Configuration ---
-MODEL_NAME = "baseline_hpo_combined_trial_6"
+MODEL_NAME = "refined_hpo_combined_trial_44"
 local_model_folder = "b2t_combined" # folder the model is stored
 modelWeightsFiles = ["modelWeights_PER_25"]
 
