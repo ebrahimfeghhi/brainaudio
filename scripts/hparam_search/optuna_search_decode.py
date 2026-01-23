@@ -25,14 +25,12 @@ RESULTS_DIR = Path("/data2/brain2text/hpo/decoder_hpo")
 
 # Define hyperparameter search space
 # Format: "param_name": (min, max) for floats, or (min, max) for ints
+# Fixing the acoustic scale, fixing the beam-prune-threshold
 HPO_RANGES = {
-    "beam-size": (100, 500),                      # CTC beam size   <default: 300>
     "alpha-ngram": (0.5, 1.2),                    # N-gram LM weight    <default: 0.8>
     "lm-weight": (0.5, 2.0),                      # Neural LM fusion weight  <default: 1.0>
     "beam-beta": (0.5, 2.5),                      # Bonus for extending beams    <default: 1.5>
     "word-boundary-bonus": (0.5, 2.0),            # Bonus for word boundary token   <default: 1.0>
-    "beam-prune-threshold": (8.0, 16.0),          # Beam pruning threshold    <default: 12.0>
-    "homophone-prune-threshold": (2.0, 6.0),      # Homophone pruning threshold    <default: 4.0>
     "num-homophone-beams": (2, 5),                # Number of homophone interpretations    <default: 3>
 }
 
@@ -41,12 +39,16 @@ FIXED_PARAMS = {
     "encoder-model-name": ENCODER_MODEL_NAME,
     "device": DEVICE,
     "load-in-4bit": True,  
+    "beam-size": 300,
     "logit-scale": 0.4,  # Fixed to default value to decouple interactions
-    "word-insertion-bonus": 1.5,
+    "word-insertion-bonus": 0.0,
     "max-context-length": 50,
-    "top-k": 10,
+    "top-k": 0,
     "lm-rescore-interval": 10,
     "beta-ngram": 0,
+    "beam-prune-threshold": 12.0,
+    "homophone-prune-threshold": 4.0
+
 
 }
 
@@ -60,13 +62,10 @@ def run_decoder_with_params(trial):
     """
     # Sample hyperparameters
     params = {}
-    params["beam-size"] = trial.suggest_int("beam-size", *HPO_RANGES["beam-size"])
     params["alpha-ngram"] = trial.suggest_float("alpha-ngram", *HPO_RANGES["alpha-ngram"])
     params["lm-weight"] = trial.suggest_float("lm-weight", *HPO_RANGES["lm-weight"])
     params["beam-beta"] = trial.suggest_float("beam-beta", *HPO_RANGES["beam-beta"])
     params["word-boundary-bonus"] = trial.suggest_float("word-boundary-bonus", *HPO_RANGES["word-boundary-bonus"])
-    params["beam-prune-threshold"] = trial.suggest_float("beam-prune-threshold", *HPO_RANGES["beam-prune-threshold"])
-    params["homophone-prune-threshold"] = trial.suggest_float("homophone-prune-threshold", *HPO_RANGES["homophone-prune-threshold"])
     params["num-homophone-beams"] = trial.suggest_int("num-homophone-beams", *HPO_RANGES["num-homophone-beams"])
 
     # Generate unique results filename for this trial
