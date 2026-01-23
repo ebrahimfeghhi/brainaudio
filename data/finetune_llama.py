@@ -158,12 +158,12 @@ class PerplexityCallback(TrainerCallback):
 
 def main():
     parser = argparse.ArgumentParser(description="Fine-tune Llama 3.2 3B Base via HF")
-    parser.add_argument("--transcript-files", type=str, nargs="+", default=["data/transcripts_merged.txt"])
-    parser.add_argument("--output-dir", type=str, default="./llama-3.2-3b-hf-finetuned_dropout005")
+    parser.add_argument("--transcript-files", type=str, nargs="+", default=["data/transcripts_merged_with_c4.txt"])
+    parser.add_argument("--output-dir", type=str, default="./llama-3.2-3b-hf-finetuned_with_c4")
     parser.add_argument("--model-name", type=str, default="meta-llama/Llama-3.2-3B")
     parser.add_argument("--max-seq-length", type=int, default=512)
     parser.add_argument("--num-epochs", type=int, default=3)
-    parser.add_argument("--eval-every", type=float, default=0.25, help="Evaluate every N epochs")
+    parser.add_argument("--eval-every", type=float, default=0.5, help="Evaluate every N epochs")
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--learning-rate", type=float, default=2e-4)
     parser.add_argument("--seed", type=int, default=42)
@@ -234,6 +234,7 @@ def main():
 
     train_ds = Dataset.from_dict({"text": all_train})
     train_ds = train_ds.map(formatting_func)
+    train_ds = train_ds.shuffle(seed=args.seed)
     
     val_ds = None
     if all_val:
@@ -244,7 +245,7 @@ def main():
     peft_config = LoraConfig(
         r=16,
         lora_alpha=32, # alpha usually 2x rank
-        lora_dropout=0.05,
+        lora_dropout=0.00,
         bias="none",
         task_type=TaskType.CAUSAL_LM,
         target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
