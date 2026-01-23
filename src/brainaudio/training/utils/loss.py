@@ -136,3 +136,32 @@ def evaluate(val_loader, model, participant_id, forward_ctc, args, beam_search_d
     print("WER: ", wer, "PER: ", per)
 
     return avg_loss, wer, per
+
+def get_param_groups_with_weight_decay(model, weight_decay):
+    """
+    Separate parameters into groups with and without weight decay.
+    LayerNorm parameters and biases are excluded from weight decay.
+
+    Args:
+        model: torch.nn.Module 
+        weight_decay:
+
+    Returns:
+        Parameter Dictionary that classifies dichotomizes decayed and non-decayed parameters
+    """
+    decay = []
+    no_decay = []
+    
+    for name, param in model.named_parameters():
+        if not param.requires_grad:
+            continue
+        # Exclude LayerNorm weights/biases and all biases from weight decay
+        if 'norm' in name.lower() or name.endswith('.bias'):
+            no_decay.append(param)
+        else:
+            decay.append(param)
+    
+    return [
+        {'params': decay, 'weight_decay': weight_decay},
+        {'params': no_decay, 'weight_decay': 0.0}
+    ]

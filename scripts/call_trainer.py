@@ -6,9 +6,9 @@ from brainaudio.models.transformer_chunking import TransformerModel
 from brainaudio.training.trainer import trainModel
 
 
-config_path = "baseline_gru_b2t_25.yaml"
+config_path = "best_chunked_transformer_combined.yaml"
 config_file = f"../src/brainaudio/training/utils/custom_configs/{config_path}"
-device = "cuda:0"
+device = "cuda:1"
 
 with open(config_file, 'r') as f:
     config = yaml.safe_load(f)
