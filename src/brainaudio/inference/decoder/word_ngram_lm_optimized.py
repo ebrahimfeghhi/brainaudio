@@ -263,14 +263,20 @@ def apply_word_ngram_lm_scoring(
             _VARIANT_SUFFIX_RE.sub('', lexicon.word_list[idx])
             for idx in word_indices
         ]
+    
 
         # Dedupe after stripping variants (e.g., "record", "record(2)" -> just "record")
         if len(candidate_words) > 1:
             candidate_words = list(dict.fromkeys(candidate_words))
-        
+            
+        #if "please" in candidate_words:
+        #    context_tuples = beam_hyps.context_texts[b][k]
+        #    for score, lm_id, hist_id in context_tuples:
+        #        text = word_history.get_text(hist_id)
+        #        print(f"please candidate | context: '{text}' | score: {score:.3f}")
+            
         context_tuples = beam_hyps.context_texts[b][k]
-
-
+                
         all_candidates = []
 
         # --- PHASE 3: The Hot Loop (Fully Inlined) ---
@@ -317,6 +323,17 @@ def apply_word_ngram_lm_scoring(
 
         if not all_candidates:
             continue
+
+        # Debug: Check scores for please/place
+        #if "please" in candidate_words or "place" in candidate_words:
+        ##    beam_score = beam_hyps.scores[b, k]
+        ##    # Acoustic score = beam_score - old_lm_score (before this word)
+        #    old_lm_score = context_tuples[0][0] if context_tuples else 0
+        #   acoustic_score = beam_score - old_lm_score
+        #    for score, lm_id, hist_id in all_candidates:
+        #        text = word_history.get_text(hist_id)
+        #        if text and ("please" in text or "place" in text):
+        #            print(f"N-GRAM SCORED: '{text}' | lm={score:.3f} | beam={beam_score:.3f} | acoustic={acoustic_score:.3f}")
 
         # --- PHASE 4: Select Top-K and Prune ---
         # OPTIMIZATION: Use heapq.nlargest instead of full sort

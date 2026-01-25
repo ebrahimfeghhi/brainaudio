@@ -8,6 +8,7 @@ from peft import PeftModel
 import numpy as np
 from datetime import datetime
 import sys
+import psutil
 
 from brainaudio.inference.eval_metrics import _cer_and_wer
 
@@ -33,61 +34,106 @@ DEFAULT_LEXICON = "/data2/brain2text/lm/vocab_lower_100k_pytorch_phoneme_with_va
 DEFAULT_WORD_LM_PATH = "/data2/brain2text/lm/lm_dec19_huge_4gram.kenlm"
 TRANSCRIPTS_PKL = Path("/data2/brain2text/b2t_25/transcripts_val_cleaned.pkl")
 
+# LoRA adapter paths (auto-selected based on model)
+LORA_ADAPTER_1B = "/home/ebrahim/brainaudio/llama-3.2-1b-hf-finetuned"
+LORA_ADAPTER_3B = "/home/ebrahim/brainaudio/llama-3.2-3b-hf-finetuned"
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser("CTC beam search + word N-gram LM + optional LLM fusion")
 
-    parser.add_argument("--encoder-model-name", type=str, default=DEFAULT_ENCODER_MODEL_NAME,
-                        help="Name of the encoder model (used for logits path and wandb logging)")
+    # =========================================================================
+    # COMMONLY USED ARGUMENTS
+    # =========================================================================
+
+    # Trial selection
+    parser.add_argument("--random-100", action="store_true",
+                        help="Randomly select 100 trials (fixed seed=42 for reproducibility)")
     parser.add_argument("--trial-indices", type=int, nargs="*", default=None,
-                        help="List of trial indices to decode (e.g., --trial-indices 0 5 10). Default: all trials in logits file")
+                        help="List of trial indices to decode (e.g., --trial-indices 0 5 10)")
     parser.add_argument("--start-trial-idx", type=int, default=None,
                         help="Start index (inclusive). Use with --end-trial-idx for a range.")
     parser.add_argument("--end-trial-idx", type=int, default=None,
                         help="End index (exclusive). Use with --start-trial-idx for a range.")
-    parser.add_argument("--beam-size", type=int, default=300, help="CTC beam size")
-    parser.add_argument("--model", default="meta-llama/Llama-3.2-3B", help="HF causal LM checkpoint")
-    parser.add_argument("--lora-adapter", type=str, default="./llama-3.2-3b-hf-finetuned", help="Path to LoRA adapter")
-    parser.add_argument("--no-adapter", action="store_true", help="Use base model without LoRA adapter")
-    parser.add_argument("--hf-token", default=None, help="Optional HF token")
-    parser.add_argument("--lm-weight", type=float, default=1, help="Neural LM fusion weight")
-    parser.add_argument("--word-insertion-bonus", type=float, default=0, help="Bonus at boundaries")
-    parser.add_argument("--max-context-length", type=int, default=50, help="Token budget")
-    parser.add_argument("--device", default="cuda:0", help="Torch device")
-    parser.add_argument("--logits", type=Path, default=None, help="NPZ logits file (default: derived from encoder-model-name)")
-    parser.add_argument("--tokens", type=Path, default=Path(DEFAULT_TOKENS), help="units file")
-    parser.add_argument("--lexicon", type=Path, default=Path(DEFAULT_LEXICON), help="lexicon file")
-    parser.add_argument("--top-k", type=int, default=10, help="Number of top beams to display per trial")
-    parser.add_argument("--num-homophone-beams", type=int, default=3, help="Number of text interpretations (homophones) to track per beam")
-    parser.add_argument("--beam-prune-threshold", type=float, default=12, help="Prune beams that are more than this many log-prob points below the best.")
-    parser.add_argument("--homophone-prune-threshold", type=float, default=4, help="Prune homophones more than this many log-prob points below the best.")
-    parser.add_argument("--beam-beta", type=float, default=1.5, help="Bonus added to extending beams (not blank/repeat).")
-    parser.add_argument("--word-boundary-bonus", type=float, default=1, help="Bonus added when emitting word boundary token.")
-    parser.add_argument("--logit-scale", type=float, default=0.4, help="Scalar multiplier for encoder logits.")
-    parser.add_argument(
-        "--results-filename",
-        type=str,
-        default=datetime.now().strftime("%m_%d_%H%M"),
-        help="Filename for saving results (will be placed in /home/ebrahim/brainaudio/results directory)"
-    )
-    parser.add_argument("--enable-wandb", action="store_true", help="Enable W&B logging (default: disabled)")
-    parser.add_argument("--load-in-4bit", action="store_true", help="Load model in 4-bit quantization (requires bitsandbytes)")
-    parser.add_argument("--disable-llm", action="store_true", help="Disable LLM shallow fusion (useful for testing n-gram LM alone)")
-    parser.add_argument("--test-mode", action="store_true", help="Use logits_test.npz and skip WER computation")
-    parser.add_argument("--verbose", action="store_true", default=False, help="Enable verbose output (per-beam printing)")
 
-    # Word N-gram LM arguments
-    parser.add_argument("--word-lm-path", type=str, default=DEFAULT_WORD_LM_PATH,
-                        help="Path to word-level KenLM file (.kenlm)")
-    parser.add_argument("--alpha-ngram", type=float, default=0.8,
-                        help="Weight for word N-gram LM scores (default: 0.5)")
-    parser.add_argument("--beta-ngram", type=float, default=0,
-                        help="Word insertion bonus for word N-gram LM (default: 1.0)")
+    # LLM model
+    parser.add_argument("--model", default="meta-llama/Llama-3.2-3B",
+                        help="HF model: meta-llama/Llama-3.2-3B or meta-llama/Llama-3.2-1B")
+    parser.add_argument("--disable-llm", action="store_true",
+                        help="Disable LLM shallow fusion (n-gram LM only)")
+    parser.add_argument("--load-in-4bit", action="store_true",
+                        help="Load model in 4-bit quantization")
+
+    # Key hyperparameters
+    parser.add_argument("--lm-weight", type=float, default=1,
+                        help="LLM fusion weight")
+    parser.add_argument("--alpha-ngram", type=float, default=0.80,
+                        help="N-gram LM weight")
+    parser.add_argument("--logit-scale", type=float, default=0.40,
+                        help="Encoder logits scale")
+
+    # Output
+    parser.add_argument("--results-filename", type=str,
+                        default=datetime.now().strftime("%m_%d_%H%M"),
+                        help="Results filename (saved to /home/ebrahim/brainaudio/results/)")
+    parser.add_argument("--enable-wandb", action="store_true",
+                        help="Enable W&B logging")
+    parser.add_argument("--verbose", action="store_true", default=False,
+                        help="Verbose per-beam output")
+
+    # =========================================================================
+    # LESS COMMONLY CHANGED
+    # =========================================================================
+
+    # LLM settings
+    parser.add_argument("--lora-adapter", type=str, default=None,
+                        help="LoRA adapter path (auto-selected if not specified)")
+    parser.add_argument("--no-adapter", action="store_true",
+                        help="Use base model without LoRA adapter")
+    parser.add_argument("--word-insertion-bonus", type=float, default=0,
+                        help="LLM word insertion bonus")
     parser.add_argument("--lm-rescore-interval", type=int, default=10,
-                        help="Apply LLM rescoring every N frames (0 = end only, default: 10)")
-    
-    parser.add_argument("--enable-truecase", action="store_true", help="Enable truecasing of output text (default: disabled)")
-    
+                        help="LLM rescoring interval in frames (0 = end only)")
+    parser.add_argument("--scoring-chunk-size", type=int, default=256,
+                        help="Batch size for LLM scoring")
+
+    # N-gram LM settings
+    parser.add_argument("--word-lm-path", type=str, default=DEFAULT_WORD_LM_PATH,
+                        help="Path to KenLM file")
+    parser.add_argument("--beta-ngram", type=float, default=0,
+                        help="N-gram word insertion bonus")
+
+    # Beam search settings
+    parser.add_argument("--beam-size", type=int, default=1000,
+                        help="CTC beam size")
+    parser.add_argument("--num-homophone-beams", type=int, default=3,
+                        help="Homophone interpretations per beam")
+    parser.add_argument("--beam-prune-threshold", type=float, default=18,
+                        help="Beam pruning threshold (log-prob)")
+    parser.add_argument("--homophone-prune-threshold", type=float, default=4,
+                        help="Homophone pruning threshold (log-prob)")
+    parser.add_argument("--beam-beta", type=float, default=1.5,
+                        help="Extension bonus (non-blank/repeat)")
+    parser.add_argument("--word-boundary-bonus", type=float, default=1,
+                        help="Word boundary token bonus")
+    parser.add_argument("--top-k", type=int, default=10,
+                        help="Top beams to display")
+
+    # Paths
+    parser.add_argument("--encoder-model-name", type=str, default=DEFAULT_ENCODER_MODEL_NAME,
+                        help="Encoder model name (for logits path)")
+    parser.add_argument("--logits", type=Path, default=None,
+                        help="NPZ logits file (default: derived from encoder-model-name)")
+    parser.add_argument("--tokens", type=Path, default=Path(DEFAULT_TOKENS),
+                        help="Units file")
+    parser.add_argument("--lexicon", type=Path, default=Path(DEFAULT_LEXICON),
+                        help="Lexicon file")
+    parser.add_argument("--device", default="cuda:0",
+                        help="Torch device")
+    parser.add_argument("--hf-token", default=None,
+                        help="HuggingFace token")
+    parser.add_argument("--test-mode", action="store_true",
+                        help="Use logits_test.npz, skip WER")
 
     return parser.parse_args()
 
@@ -98,16 +144,40 @@ notes = "Word-level N-gram LM fusion with optional LLM shallow fusion."
 def main():
     args = parse_args()
 
+    # Determine device early (needed for VRAM monitoring)
+    device = pick_device(args.device)
+
+    # Initialize resource monitoring
+    process = psutil.Process()
+    initial_cpu_memory = process.memory_info().rss
+    peak_cpu_memory = initial_cpu_memory
+
+    if device.type == "cuda":
+        torch.cuda.reset_peak_memory_stats(device)
+
     print(f"[INFO] Tokens: {args.tokens}")
     print(f"[INFO] Lexicon: {args.lexicon}")
     print(f"[INFO] Word LM: {args.word_lm_path}")
     print(f"[INFO] Alpha (ngram weight): {args.alpha_ngram}")
     print(f"[INFO] Beta (word insertion bonus): {args.beta_ngram}")
+    print(f"[INFO] Scoring chunk size: {args.scoring_chunk_size}")
 
     # Set default logits path based on encoder_model_name if not provided
     if args.logits is None:
         logits_filename = "logits_test.npz" if args.test_mode else "logits_val.npz"
         args.logits = Path(f"/data2/brain2text/b2t_25/logits/{args.encoder_model_name}/{logits_filename}")
+
+    # Auto-select LoRA adapter based on model if not explicitly provided
+    if args.lora_adapter is None and not args.no_adapter and not args.disable_llm:
+        model_lower = args.model.lower()
+        if "1b" in model_lower:
+            args.lora_adapter = LORA_ADAPTER_1B
+            print(f"[INFO] Auto-selected 1B LoRA adapter: {args.lora_adapter}")
+        elif "3b" in model_lower:
+            args.lora_adapter = LORA_ADAPTER_3B
+            print(f"[INFO] Auto-selected 3B LoRA adapter: {args.lora_adapter}")
+        else:
+            print(f"[WARN] Could not auto-detect model size from '{args.model}', no adapter will be used")
 
     print(f"[INFO] Logits: {args.logits}")
 
@@ -125,12 +195,18 @@ def main():
     else:
         print("[wandb] W&B logging disabled")
 
-    device = pick_device(args.device)
     K = args.top_k
 
     # Determine trial indices to decode
     if args.trial_indices is not None:
         print(f"Using {len(args.trial_indices)} explicitly provided trial indices")
+    elif args.random_100:
+        logits_npz = np.load(args.logits)
+        trial_keys = [k for k in logits_npz.keys() if k.startswith("arr_")]
+        all_indices = sorted([int(k.split("_")[1]) for k in trial_keys])
+        rng = np.random.default_rng(seed=42)
+        args.trial_indices = sorted(rng.choice(all_indices, size=min(100, len(all_indices)), replace=False).tolist())
+        print(f"Using random 100 trials (seed=42): {len(args.trial_indices)} trials")
     elif args.start_trial_idx is not None or args.end_trial_idx is not None:
         logits_npz = np.load(args.logits)
         trial_keys = [k for k in logits_npz.keys() if k.startswith("arr_")]
@@ -186,8 +262,8 @@ def main():
             ).to(device)
             print(f"[INFO] Loaded {args.model} on {device}")
 
-        # Load LoRA adapter unless --no-adapter is specified
-        if not args.no_adapter:
+        # Load LoRA adapter unless --no-adapter is specified or no adapter path available
+        if not args.no_adapter and args.lora_adapter is not None:
             model = PeftModel.from_pretrained(model, args.lora_adapter)
             model = model.merge_and_unload()  # Merge adapter into base model for faster inference
             print(f"[INFO] Loaded and merged LoRA adapter from {args.lora_adapter}")
@@ -198,6 +274,7 @@ def main():
             device=device,
             weight=args.lm_weight,
             word_insertion_bonus=args.word_insertion_bonus,
+            scoring_chunk_size=args.scoring_chunk_size,
         )
     else:
         print("[INFO] LLM shallow fusion disabled (--disable-llm)")
@@ -220,7 +297,8 @@ def main():
         beam_beta=args.beam_beta,
         word_boundary_bonus=args.word_boundary_bonus,
         word_ngram_lm=word_ngram_lm,
-        word_history = word_history
+        word_history=word_history,
+        lm_rescore_interval=args.lm_rescore_interval,
     )
 
     transcripts = None
@@ -346,7 +424,18 @@ def main():
         del result
         del log_probs
 
+        # Update peak CPU memory (lightweight check)
+        current_cpu_memory = process.memory_info().rss
+        peak_cpu_memory = max(peak_cpu_memory, current_cpu_memory)
+
     total_elapsed = time.perf_counter() - total_start_time
+
+    # Compute peak resource usage
+    peak_vram_gb = 0.0
+    if device.type == "cuda":
+        peak_vram_bytes = torch.cuda.max_memory_allocated(device)
+        peak_vram_gb = peak_vram_bytes / (1024 ** 3)
+    peak_cpu_memory_gb = peak_cpu_memory / (1024 ** 3)
 
     print("\n=== Final Results Summary ===")
     print(f"Processed {len(decoded_sentences)} trials in {total_elapsed:.2f}s")
@@ -357,6 +446,8 @@ def main():
         print(f"LLM forward passes: {lm_fusion.llm_call_count}")
     else:
         print("LLM: disabled")
+    print(f"Peak VRAM: {peak_vram_gb:.2f} GB")
+    print(f"Peak CPU Memory: {peak_cpu_memory_gb:.2f} GB")
 
     # Compute Metrics (skip in test mode)
     wer = None
@@ -390,6 +481,11 @@ def main():
             import wandb
             if 'wer' in locals() and wer is not None:
                 wandb.log({"WER": wer})
+            wandb.log({
+                "peak_vram_gb": peak_vram_gb,
+                "peak_cpu_memory_gb": peak_cpu_memory_gb,
+                "total_time_seconds": total_elapsed,
+            })
             if decoded_sentences and ground_truth_sentences:
                 data = list(zip(args.trial_indices, ground_truth_sentences, decoded_sentences))
                 table = wandb.Table(data=data, columns=["trial_idx", "ground_truth", "predicted"])

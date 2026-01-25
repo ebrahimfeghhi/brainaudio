@@ -17,30 +17,22 @@ if TYPE_CHECKING:
     from .word_ngram_lm_optimized import WordHistory
 
 
-# Multi-word phrases to capitalize (checked first)
-_CAPITALIZE_PHRASES = [
-    ('new york', 'New York'),
-    ('oklahoma city', 'Oklahoma City'),
-]
+def caps_text(text):
+    if not text:
+        return text
 
-# Words that should always be capitalized (proper nouns, "I", etc.)
-_CAPITALIZE_WORDS = {
-    'academy', 'access', 'action', 'amazon', 'american', 'amiga', 'argentina',
-    'arkansas', 'assad', 'baltimore', 'barr', 'bay', 'being', 'benefits',
-    'bermuda', 'bill', 'burma', 'cadillac', 'calculations', 'canyon', 'charter',
-    'christian', 'christmas', 'colorado', 'comparison', 'county', 'courier',
-    'cowboys', 'craigslist', 'dallas', 'davis', 'deadline', 'december', 'detroit',
-    'difficulty', 'disciplinary', 'distances', 'early', 'england', 'europe',
-    'european', 'faces', 'florida', 'free', 'garland', 'gates', 'gay', 'giants',
-    'god', 'godfather', 'government', 'grand', 'green', 'gulf', 'hank',
-    'harassing', 'hercules', 'holidays', 'hollywood', 'house', 'houston',
-    'hurricane', 'i', "i'd", "i'll", 'illinois', "i'm", 'indiana', 'internet',
-    'iran', 'irish', 'ive', 'johnson', 'jose', 'july', 'june', 'kansas', 'lambs',
-    'louisiana', 'maine', 'masters', 'may', 'mexican', 'michigan', 'nba',
-    'pat', 'persia', 'persian', 'pittsburgh', 'press', 'rome', 'royal', 'sales',
-    'saturday', 'silence', 'springs', 'state', 'sunday', 'texas', 'three',
-    'trudeau', 'trump', 'turkey', 'tv', 'un', 'university', 'william', 'williams',
-}
+    # 1. Capitalize the first letter of the sentence (Your original logic)
+    text = text[0].upper() + text[1:]
+
+    # 2. Capitalize "i" and its contractions
+    # The \b ensures we only match whole words (so "idiom" isn't affected)
+    # We look for: i, i'm, i'll, i'd, and i've
+    pattern = r"\b(i|i'm|i'll|i'd|i've)\b"
+    
+    # re.sub finds the pattern and capitalizes the match
+    text = re.sub(pattern, lambda match: match.group(0).capitalize(), text)
+
+    return text
 
 
 @dataclass
@@ -186,12 +178,10 @@ def apply_llm_rescoring_full(
 
                 text = word_history.get_text(history_id)
                 if not text: continue
-
+     
                 # Capitalize first letter
-                text = text[0].upper() + text[1:] if text else text
+                text = caps_text(text)
                 
-                
-
                 # Register request
                 if text not in unique_requests:
                     unique_requests[text] = []
@@ -222,7 +212,7 @@ def apply_llm_rescoring_full(
     updated_beams = set()
 
     for text, llm_score in zip(unique_texts, unique_scores):
-
+        
         # Retrieve everyone who asked for this text
         requests = unique_requests[text]
 
@@ -245,6 +235,14 @@ def apply_llm_rescoring_full(
         # Update beam score based on the change in the BEST path
         old_best = old_best_scores[(b, k)]
         new_best = context_tuples[0][0]
+
+        # Debug: Check what old_best values look like
+        #best_history_id = context_tuples[0][2]
+        #if best_history_id >= 0:
+        #    text = word_history.get_text(best_history_id)
+        #    if text and (text == "you can come and go as you place" or text == "you can come and go as you please"):
+        #        final_beam = beam_hyps.scores[b, k] + (new_best - old_best)
+        #        print(f"FINAL: {text} | old_best={old_best:.3f} new_best={new_best:.3f} delta={new_best-old_best:.3f} final_beam={final_beam:.3f}")
 
         beam_hyps.scores[b, k] += (new_best - old_best)
 
@@ -314,6 +312,9 @@ def apply_llm_eos_scoring(
     results_by_tuple: Dict[Tuple[int, int, int], List[Tuple[float, str]]] = {}
 
     for text, llm_score in zip(unique_texts, unique_scores):
+        
+        #if "You can come and go as you" in text:
+        #    print(text)
 
         num_words = text_cache[text]
         final_score = alpha * llm_score + beta * num_words
