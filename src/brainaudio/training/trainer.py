@@ -12,9 +12,10 @@ from torchaudio.models.decoder import ctc_decoder
 
 # brainaudio internal package imports
 from brainaudio.training.utils.augmentations import gauss_smooth
-from brainaudio.training.utils.loss import forward_ctc, evaluate
+from brainaudio.training.utils.loss import forward_ctc, evaluate, get_param_groups_with_weight_decay
 from brainaudio.datasets.lazy_data_loading import getDatasetLoaders
 from brainaudio.training.utils.learning_scheduler import create_learning_rate_scheduler
+
 
 def trainModel(args, model):
 
@@ -60,17 +61,18 @@ def trainModel(args, model):
             f"Missing suffix for participant id {pid}."
         )
     
-
+    param_groups = get_param_groups_with_weight_decay(model, args['l2_decay'])
+    
     if args['optimizer'] == 'AdamW':
         
-         optimizer = torch.optim.AdamW(model.parameters(), lr=args['learning_rate'], 
+         optimizer = torch.optim.AdamW(param_groups, lr=args['learning_rate'], 
                                        weight_decay=args['l2_decay'], eps=args['eps'], 
                                        betas=(args['beta1'], args['beta2']), fused=True)
          
     if args['optimizer'] == 'Adam':
         
         optimizer = torch.optim.Adam(
-            model.parameters(),
+            param_groups,
             lr=args["learning_rate"],
             betas=(0.9, 0.999),
             eps=0.1,
@@ -191,7 +193,7 @@ def trainModel(args, model):
                                                 foreach = True
                                                 )
                 optimizer.step()
-                scheduler.step()  
+        scheduler.step()  
                           
         avgTrainLoss = np.mean(train_loss)
         
@@ -200,7 +202,6 @@ def trainModel(args, model):
         per_array = []
         
         current_lr = optimizer.param_groups[0]['lr']
-        # scheduler.step()  
         
         
         if epoch % args["evaluate_every_n_epochs"] == 0:
@@ -215,58 +216,47 @@ def trainModel(args, model):
             
             endTime = time.time()
             
-            # Log the metrics to wandb
-            if args["evaluate_wer"]:
-                log_dict = {
-                    "train_ctc_Loss": avgTrainLoss,
-                    "ctc_loss": loss_array[0],
-                    "wer": wer_array[0],
-                    "per": per_array[0],
-                    "learning_rate": current_lr, 
-                    "grad_norm": np.mean(grad_norm_store), 
-                    "time_per_epoch": (endTime - startTime) / 100
-                }
-            else:
-                log_dict = {
-                    "train_ctc_Loss": avgTrainLoss,
-                    "ctc_loss": loss_array[0],
-                    "per": per_array[0],
-                    "learning_rate": current_lr, 
-                    "grad_norm": np.mean(grad_norm_store), 
-                    "time_per_epoch": (endTime - startTime) / 100
-                }
 
-            
-            if len(loss_array) > 0:
-                if args["evaluate_wer"]:
-                    for pid, (avgDayLoss, wer, per) in enumerate(zip(loss_array[1:], wer_array[1:], per_array[1:])):
+            log_dict = {"train_ctc_Loss": avgTrainLoss,
+                        "learning_rate": current_lr, 
+                        "grad_norm": np.mean(grad_norm_store), 
+                        "time_per_epoch": (endTime - startTime) / 100
+                        }
+            # Log both PER and WER when evaluated by WER
+            if args["evaluate_wer"]:
+                    for pid, (avgDayLoss, wer, per) in enumerate(zip(loss_array, wer_array, per_array)):
                         log_dict[f"ctc_loss_{pid}"] = avgDayLoss
                         log_dict[f"wer_{pid}"] = wer
                         log_dict[f"per_{pid}"] = per
-                else:
-                    for pid, (avgDayLoss, per) in enumerate(zip(loss_array[1:], per_array[1:])):
+            # Log only PER when evaluated by PER
+            else:
+                    for pid, (avgDayLoss, per) in enumerate(zip(loss_array, per_array)):
                         log_dict[f"ctc_loss_{pid}"] = avgDayLoss
                         log_dict[f"per_{pid}"] = per
 
-                    
-
+                
             wandb.log(log_dict)
             
             # Save best models for mean across participants
+
+            # Save by mean WER
             if args["evaluate_wer"] and len(valWER) > 0 and np.mean(wer_array) < np.min(valWER):
                 torch.save(model.state_dict(), outputDir + "/modelWeights_WER")
-                
+            
+            # Save by mean PER
             if len(valPER) > 0 and np.mean(per_array) < np.min(valPER):
                 torch.save(model.state_dict(), outputDir + "/modelWeights_PER")
             
             # Save best models per participant
             for pid in range(len(loss_array)):
                 suffix = get_participant_suffix(pid)
+                # Save individual model by WER
                 if args["evaluate_wer"]:
                     if pid not in best_wer_by_participant or wer_array[pid] < best_wer_by_participant[pid]:
                         best_wer_by_participant[pid] = wer_array[pid]
                         torch.save(model.state_dict(), outputDir + f"/modelWeights_WER{suffix}")
                 
+                # Save individual model by PER
                 if pid not in best_per_by_participant or per_array[pid] < best_per_by_participant[pid]:
                     best_per_by_participant[pid] = per_array[pid]
                     torch.save(model.state_dict(), outputDir + f"/modelWeights_PER{suffix}")

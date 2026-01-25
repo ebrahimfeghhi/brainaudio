@@ -2,7 +2,7 @@
 This script is used to save a config setting.
 To use this script, first modify the custom_config.yaml file.
 Running the script will save the contents of the custom_config file into the 
-custom_configs folder under the name provided by the user. 
+src/brainaudio/training/utils/custom_configs folder under the name provided by the user. 
 '''
 import yaml
 
