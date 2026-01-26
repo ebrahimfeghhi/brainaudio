@@ -23,47 +23,48 @@ class LazySpeechDataset(Dataset):
         return len(self.file_paths)
 
     def __getitem__(self, idx):
-        
-        # 1. Load *only* the single trial's .npz file
-        #    allow_pickle=True is needed to load string arrays
-        with np.load(self.file_paths[idx], allow_pickle=True) as trial_data:
+        try:
+            # 1. Load *only* the single trial's .npz file
+            # allow_pickle=True is needed to load string arrays
+            with np.load(self.file_paths[idx], allow_pickle=True) as trial_data:
+                
+                # Load neural data (always present)
+                neural_feats = trial_data['sentenceDat']
+                
+                # Load text, using a dummy array if it's a test file
+                text_seq = trial_data.get('text')
+                
+                # Load metadata
+                day = trial_data['day'].item()
+                transcript = trial_data['transcription'].item()
+
+            # 2. Calculate lengths on-the-fly
+            neural_time_bins = neural_feats.shape[0]
+            text_seq_len = len(text_seq)
+
+            # 3. Convert to Tensors
+            neural_feats_tensor = torch.tensor(neural_feats, dtype=torch.float32)
             
-            # Load neural data (always present)
-            neural_feats = trial_data['sentenceDat']
-            
-            # Load text, using a dummy array if it's a test file
-            # This prevents crashes in test mode and ensures collate_fn works
-            text_seq = trial_data.get('text')
-            
-            # Load metadata, .item() extracts the scalar value
-            day = trial_data['day'].item()
-            
-            transcript = trial_data['transcription'].item()
+            if self.transform:
+                neural_feats_tensor = self.transform(neural_feats_tensor)
 
+            # 4. Build the output tuple
+            items = [
+                neural_feats_tensor,
+                torch.tensor(text_seq, dtype=torch.int32),
+                torch.tensor(neural_time_bins, dtype=torch.int32),
+                torch.tensor(text_seq_len, dtype=torch.int32),
+                torch.tensor(day, dtype=torch.int64),
+            ]
 
-        # 2. Calculate lengths on-the-fly (no need to save them)
-        neural_time_bins = neural_feats.shape[0]
-        text_seq_len = len(text_seq)
+            if self.return_transcript:
+                items.append(transcript)
 
-        # 3. Convert to Tensors
-        neural_feats_tensor = torch.tensor(neural_feats, dtype=torch.float32)
-        
-        if self.transform:
-            neural_feats_tensor = self.transform(neural_feats_tensor)
+            return tuple(items)
 
-        # 4. Build the output tuple
-        items = [
-            neural_feats_tensor,
-            torch.tensor(text_seq, dtype=torch.int32),
-            torch.tensor(neural_time_bins, dtype=torch.int32),
-            torch.tensor(text_seq_len, dtype=torch.int32),
-            torch.tensor(day, dtype=torch.int64),
-        ]
-
-        if self.return_transcript:
-            items.append(transcript)
-
-        return tuple(items)
+        except Exception as e:
+            # This print statement will reveal the corrupted file path
+            raise RuntimeError(f"FAILED to load file: {self.file_paths[idx]}") from e
 
 def getDatasetLoaders(
     manifest_paths: list[str],

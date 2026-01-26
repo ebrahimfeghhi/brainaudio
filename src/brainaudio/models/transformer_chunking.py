@@ -211,7 +211,14 @@ class TransformerModel(BaseTimeMaskedModel):
         self._train_sampler = sampler
         
         eval_chunk_size = config_dict["eval"]["chunk_size"]
-        eval_context_chunks = config_dict["eval"]["context_chunks"]
+        eval_context_secs = config_dict["eval"]["context_sec"]
+        if eval_context_secs is not None and eval_chunk_size is not None:
+            total_context_timesteps = eval_context_secs / config_dict["timestep_duration_sec"]
+            eval_context_chunks = math.ceil(total_context_timesteps / eval_chunk_size)
+        else:
+            eval_context_chunks = None
+        
+        
         
         self._eval_config = ChunkConfig(
             chunk_size=eval_chunk_size,

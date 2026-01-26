@@ -114,18 +114,14 @@ class ChunkConfigSampler:
         chunk_size = max(1, int(chunk_size))
 
         if self.left_constrain_prob < 1.0 and self._rng.random() > self.left_constrain_prob:
-            
             context_chunks = None
-            
         else:
             
             context_sec = self._sample_range(self.context_sec_range, dtype='float')
             
             if context_sec is None or context_sec == float('inf'):
                 context_chunks = None
-                
             else:
-                
                 total_context_timesteps = context_sec / self.timestep_duration_sec
                 context_chunks = math.ceil(total_context_timesteps / chunk_size)
         

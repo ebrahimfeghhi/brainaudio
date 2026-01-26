@@ -5,9 +5,9 @@ import os
 from typing import Optional, Dict
 
 # --- Configuration ---
-MODEL_NAME = "refined_hpo_combined_trial_44"
+MODEL_NAME = "best_chunked_transformer_combined_seed_0"
 local_model_folder = "b2t_combined" # folder the model is stored
-modelWeightsFiles = ["modelWeights_PER_25"]
+modelWeightsFiles = "modelWeights_PER_24" # "modelWeights_PER_24"
 
 
 LOAD_MODEL_FOLDER = f"/data2/brain2text/{local_model_folder}/outputs/{MODEL_NAME}"  
@@ -17,29 +17,29 @@ PARTITION = 'val'
 # Optionally evaluate multiple chunk configs per run. Use None to keep the
 # checkpoint's stored eval config. Add dicts like {"chunk_size": 5, "context_chunks": 50}.
 EVAL_CONFIGS = [
-    {"chunk_size": None, "context_chunks": 50},
+    {"chunk_size": None, "context_sec": None},
 ]
 
 
-if local_model_folder == "b2t_25":
+if modelWeightsFiles == "modelWeights_PER_25":
     
     MANIFEST_PATHS = ["/data2/brain2text/b2t_25/trial_level_data/manifest.json"]
     SAVE_PATHS = {0:'/data2/brain2text/b2t_25/logits/'}
     PARTICIPANT_IDS = [0]
     
     
-if local_model_folder == "b2t_24":
+if modelWeightsFiles == "modelWeights_PER_24":
     
     MANIFEST_PATHS = ["/data2/brain2text/b2t_24/trial_level_data/manifest.json"]
     SAVE_PATHS = {0:'/data2/brain2text/b2t_24/logits/'}
     PARTICIPANT_IDS = [0]
     
     
-if local_model_folder == "b2t_combined":
+if modelWeightsFiles == "modelWeights_PER":
     
     MANIFEST_PATHS = ["/data2/brain2text/b2t_25/trial_level_data/manifest.json", 
                       "/data2/brain2text/b2t_24/trial_level_data/manifest.json"]
-    SAVE_PATHS = { 0:'/data2/brain2text/b2t_25/logits/',
+    SAVE_PATHS = { 0:'/data2/brain2text/b2t_25/logits/test/',
                     1:'/data2/brain2text/b2t_24/logits/'}
     PARTICIPANT_IDS = [0, 1]
     
@@ -68,7 +68,7 @@ def main():
         model, args = load_transformer_model(
             LOAD_MODEL_FOLDER,
             DEVICE,
-            modelWeightsFile=modelWeightsFiles[0],
+            modelWeightsFile=modelWeightsFiles,
             eval_chunk_config=eval_cfg,
         )
 
