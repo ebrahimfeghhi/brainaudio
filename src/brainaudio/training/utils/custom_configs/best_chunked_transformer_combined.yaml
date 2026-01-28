@@ -6,7 +6,15 @@ participant_suffixes:
 - _25
 - _24
 seeds:
-- 0
+- 1
+- 2
+- 3
+- 4
+- 5
+- 6
+- 7
+- 8
+- 9
 evaluate_wer: false
 evaluate_every_n_epochs: 1
 modelName: best_chunked_transformer_combined
