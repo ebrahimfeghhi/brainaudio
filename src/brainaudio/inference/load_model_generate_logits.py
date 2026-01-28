@@ -112,10 +112,10 @@ def generate_and_save_logits(model, config, partition, device,
         if not cfg:
             return None
         chunk = cfg.get("chunk_size")
-        context = cfg.get("context_chunks")
+        context = cfg.get("context_sec")
         chunk_str = "full" if chunk is None else str(chunk)
         context_str = "full" if context is None else str(context)
-        return f"chunk_{chunk_str}_context_{context_str}"
+        return f"chunk:{chunk_str}_context:{context_str}"
 
     chunk_tag = _format_chunk_tag(chunk_config)
     if chunk_tag:

@@ -76,11 +76,11 @@ model:
     depth: 6
     chunked_attention:
       chunkwise_prob: 0.63828125
-      chunk_size_min: 1
-      chunk_size_max: 20
-      left_constrain_prob: 1
-      context_sec_min: 20
-      context_sec_max: 20
+      chunk_size_min: 1   # 80ms
+      chunk_size_max: 20  # 1600ms = 16s
+      left_constrain_prob: 0.7
+      context_sec_min: 5  # 5s = 500ms
+      context_sec_max: 20 # 20s = 2000ms
       timestep_duration_sec: 0.08
       eval:
         chunk_size: 5
