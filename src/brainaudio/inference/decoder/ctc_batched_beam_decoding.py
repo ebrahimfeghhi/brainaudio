@@ -31,7 +31,7 @@ from .cuda_python_utils import (
 )
 from .enum import PrettyStrEnum
 from .nemo_stubs import logging
-from .neural_lm_rescoring import apply_llm_rescoring_full, apply_llm_eos_scoring, LLMRescorer
+from .neural_lm_rescoring import apply_llm_rescoring_full, apply_llm_eos_scoring, apply_llm_eos_scoring_with_pending, LLMRescorer
 from .word_ngram_lm_optimized import WordHistory, apply_word_ngram_lm_scoring, apply_word_ngram_eos_scoring, FastNGramLM
 
 HAVE_LM_FUSION = False
@@ -464,12 +464,12 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
                         beam_hyps=batched_beam_hyps
                     )
 
-        # Final LLM EOS scoring (scores full text + punctuation)
-        if self.lm_fusion is not None and self.word_history is not None:
+        # Final LLM EOS scoring (scores full text + punctuation, including pending words)
+        if self.lm_fusion is not None and self.word_history is not None and lexicon_state is not None:
             apply_llm_eos_scoring(
                 lm_fusion=self.lm_fusion,
                 word_history=self.word_history,
-                beam_hyps=batched_beam_hyps,
+                beam_hyps=batched_beam_hyps
             )
 
         # Apply word-level N-gram LM end-of-sentence scoring

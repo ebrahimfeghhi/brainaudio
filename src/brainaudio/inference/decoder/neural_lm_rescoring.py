@@ -15,6 +15,7 @@ import torch.nn.functional as F
 if TYPE_CHECKING:
     from .batched_beam_decoding_utils import BatchedBeamHyps
     from .word_ngram_lm_optimized import WordHistory
+    from .vectorized_lexicon_constraint import VectorizedLexiconConstraint
 
 
 def caps_text(text):
@@ -34,6 +35,17 @@ def caps_text(text):
 
     return text
 
+# Global pre-compiled regex (Optimization #2)
+I_PATTERN = re.compile(r"\b(i|i'm|i'll|i'd|i've)\b")
+
+def caps_text(text):
+    if not text:
+        return text
+    # Capitalize first char
+    text = text[0].upper() + text[1:]
+    # Use pre-compiled regex
+    return I_PATTERN.sub(lambda match: match.group(0).capitalize(), text)
+
 
 @dataclass
 class LLMRescorer:
@@ -41,8 +53,8 @@ class LLMRescorer:
     model: Any
     tokenizer: Any
     device: torch.device
-    weight: float = 0.5
-    word_insertion_bonus: float = 0.0
+    llm_weight: float = 1.0
+    ngram_weight: float = 0.0
     scoring_chunk_size: int = 256
     llm_call_count: int = field(default=0, repr=False)
 
@@ -152,8 +164,8 @@ def apply_llm_rescoring_full(
     batch_size, beam_size = beam_hyps.scores.shape
 
     # --- PHASE 1: Deduplication ---
-    # Map: unique_text -> List of (batch_idx, beam_idx, tuple_idx, num_words)
-    unique_requests: Dict[str, List[Tuple[int, int, int, int]]] = {}
+    # Map: unique_text -> List of (batch_idx, beam_idx, tuple_idx)
+    unique_requests: Dict[str, List[Tuple[int, int, int]]] = {}
 
     # Store old best scores to calculate the final beam update delta
     old_best_scores: Dict[Tuple[int, int], float] = {}
@@ -186,8 +198,7 @@ def apply_llm_rescoring_full(
                 if text not in unique_requests:
                     unique_requests[text] = []
 
-                num_words = len(text.split())
-                unique_requests[text].append((b, k, tuple_idx, num_words))
+                unique_requests[text].append((b, k, tuple_idx))
 
     if not unique_requests:
         return
@@ -205,22 +216,22 @@ def apply_llm_rescoring_full(
         chunk_size=lm_fusion.scoring_chunk_size,
     )
 
-    alpha = lm_fusion.weight
-    beta = lm_fusion.word_insertion_bonus
+    llm_weight = lm_fusion.llm_weight
+    ngram_weight = lm_fusion.ngram_weight
 
     # --- PHASE 3: Broadcast Updates ---
     updated_beams = set()
 
     for text, llm_score in zip(unique_texts, unique_scores):
-        
+
         # Retrieve everyone who asked for this text
         requests = unique_requests[text]
 
-        for (b, k, tuple_idx, num_words) in requests:
-            new_score = alpha * llm_score + beta * num_words
-
+        for (b, k, tuple_idx) in requests:
             # Update tuple in place
             old_tuple = beam_hyps.context_texts[b][k][tuple_idx]
+            old_score = old_tuple[0]
+            new_score = ngram_weight * old_score + llm_weight * llm_score
             beam_hyps.context_texts[b][k][tuple_idx] = (new_score, old_tuple[1], old_tuple[2])
 
             updated_beams.add((b, k))
@@ -236,14 +247,7 @@ def apply_llm_rescoring_full(
         old_best = old_best_scores[(b, k)]
         new_best = context_tuples[0][0]
 
-        # Debug: Check what old_best values look like
-        #best_history_id = context_tuples[0][2]
-        #if best_history_id >= 0:
-        #    text = word_history.get_text(best_history_id)
-        #    if text and (text == "you can come and go as you place" or text == "you can come and go as you please"):
-        #        final_beam = beam_hyps.scores[b, k] + (new_best - old_best)
-        #        print(f"FINAL: {text} | old_best={old_best:.3f} new_best={new_best:.3f} delta={new_best-old_best:.3f} final_beam={final_beam:.3f}")
-
+    
         beam_hyps.scores[b, k] += (new_best - old_best)
 
 
@@ -264,9 +268,6 @@ def apply_llm_eos_scoring(
 
     # Map: unique_punct_text -> List of (b, k, tuple_idx, history_id, punct_char)
     unique_requests: Dict[str, List[Tuple[int, int, int, int, str]]] = {}
-
-    # Store base texts to calculate word counts
-    text_cache: Dict[str, int] = {} # text -> word_count
 
     for b in range(batch_size):
         for k in range(beam_size):
@@ -292,7 +293,6 @@ def apply_llm_eos_scoring(
 
                     if full_text not in unique_requests:
                         unique_requests[full_text] = []
-                        text_cache[full_text] = len(text_cap.split()) # Words don't include punct
 
                     unique_requests[full_text].append((b, k, tuple_idx, history_id, punct))
 
@@ -305,19 +305,14 @@ def apply_llm_eos_scoring(
         lm_fusion.model, lm_fusion.tokenizer, unique_texts, lm_fusion.device, lm_fusion.scoring_chunk_size
     )
 
-    alpha = lm_fusion.weight
-    beta = lm_fusion.word_insertion_bonus
+    llm_weight = lm_fusion.llm_weight
+    ngram_weight = lm_fusion.ngram_weight
 
     # Organize results: (b, k, tuple_idx) -> List[(score, punct)]
     results_by_tuple: Dict[Tuple[int, int, int], List[Tuple[float, str]]] = {}
 
     for text, llm_score in zip(unique_texts, unique_scores):
-        
-        #if "You can come and go as you" in text:
-        #    print(text)
-
-        num_words = text_cache[text]
-        final_score = alpha * llm_score + beta * num_words
+        final_score = llm_weight * llm_score
 
         for (b, k, tuple_idx, _, punct) in unique_requests[text]:
             key = (b, k, tuple_idx)
@@ -344,7 +339,10 @@ def apply_llm_eos_scoring(
         # but WordHistory.add() usually handles dedupe.
         new_hist_id = word_history.add(history_id, best_punct)
 
-        beam_hyps.context_texts[b][k][tuple_idx] = (best_score, old_tup[1], new_hist_id)
+        # Combine N-gram and LLM scores
+        old_score = old_tup[0]
+        new_score = ngram_weight * old_score + best_score
+        beam_hyps.context_texts[b][k][tuple_idx] = (new_score, old_tup[1], new_hist_id)
         updated_beams.add((b, k))
 
     # Final Sort
@@ -353,5 +351,160 @@ def apply_llm_eos_scoring(
         tuples.sort(key=lambda x: x[0], reverse=True)
 
         old = old_best_scores.get((b, k), tuples[0][0]) # Fallback just in case
+        new = tuples[0][0]
+        beam_hyps.scores[b, k] += (new - old)
+
+
+def apply_llm_eos_scoring_with_pending(
+    lm_fusion: "LLMRescorer | None",
+    word_history: "WordHistory",
+    beam_hyps: "BatchedBeamHyps",
+    lexicon: "VectorizedLexiconConstraint",
+    lexicon_states: "torch.Tensor",
+) -> None:
+    """
+    Enhanced EOS scoring that also considers pending (pseudo-complete) words.
+
+    For beams where the lexicon state is at a word-terminal (phonemes form a
+    complete word but boundary token wasn't emitted), this function scores both:
+    - current_text + punct (without pending word)
+    - current_text + pending_word + punct (with pending word)
+
+    And picks the best scoring option.
+
+    Args:
+        lm_fusion: LLM rescorer config
+        word_history: Word history for text lookup/storage
+        beam_hyps: Current beam hypotheses
+        lexicon: Lexicon constraint (for get_words_at_state)
+        lexicon_states: Current lexicon states [batch, beam]
+    """
+    if lm_fusion is None:
+        return
+
+    batch_size, beam_size = beam_hyps.scores.shape
+    eos_candidates = [".", "?", "!"]
+
+    # Strip variant suffix pattern (e.g., "record(2)" -> "record")
+    variant_pattern = re.compile(r'\(\d+\)$')
+
+    # Map: unique_text -> List of (b, k, tuple_idx, history_id, punct, pending_word_or_none)
+    # pending_word_or_none is None for "without pending word" candidates, or the word string
+    unique_requests: Dict[str, List[Tuple[int, int, int, int, str, str | None]]] = {}
+
+    for b in range(batch_size):
+        for k in range(beam_size):
+            if beam_hyps.scores[b, k] == float('-inf'):
+                continue
+
+            context_tuples = beam_hyps.context_texts[b][k]
+
+            # Get pending words at current lexicon state
+            state = lexicon_states[b, k].item()
+            pending_word_indices = lexicon.get_words_at_state(state)
+
+            # Get unique pending words (strip variant suffixes, dedupe)
+            pending_words = []
+            if pending_word_indices:
+                seen = set()
+                for idx in pending_word_indices:
+                    word = variant_pattern.sub('', lexicon.word_list[idx])
+                    if word not in seen:
+                        seen.add(word)
+                        pending_words.append(word)
+
+            for tuple_idx, tup in enumerate(context_tuples):
+                if len(tup) != 3:
+                    continue
+
+                history_id = tup[2]
+                if history_id < 0:
+                    continue
+
+                text = word_history.get_text(history_id)
+                if not text:
+                    continue
+                if text.rstrip() and text.rstrip()[-1] in '.?!':
+                    continue
+
+                # Capitalize
+                text_cap = caps_text(text)
+
+                # Generate candidates WITHOUT pending word
+                for punct in eos_candidates:
+                    full_text = text_cap + punct
+
+                    if full_text not in unique_requests:
+                        unique_requests[full_text] = []
+                    unique_requests[full_text].append((b, k, tuple_idx, history_id, punct, None))
+
+                # Generate candidates WITH pending word (if any)
+                for pending_word in pending_words:
+                    text_with_pending = text_cap + " " + pending_word
+                    text_with_pending_cap = caps_text(text_with_pending)
+
+                    for punct in eos_candidates:
+                        full_text = text_with_pending_cap + punct
+
+                        if full_text not in unique_requests:
+                            unique_requests[full_text] = []
+                        unique_requests[full_text].append((b, k, tuple_idx, history_id, punct, pending_word))
+
+    if not unique_requests:
+        return
+
+    # Batch Score all unique texts
+    unique_texts = list(unique_requests.keys())
+    unique_scores = score_texts_batch(
+        lm_fusion.model, lm_fusion.tokenizer, unique_texts, lm_fusion.device, lm_fusion.scoring_chunk_size
+    )
+
+    llm_weight = lm_fusion.llm_weight
+    ngram_weight = lm_fusion.ngram_weight
+
+    # Organize results: (b, k, tuple_idx) -> List[(score, punct, pending_word_or_none)]
+    results_by_tuple: Dict[Tuple[int, int, int], List[Tuple[float, str, str | None]]] = {}
+
+    for text, llm_score in zip(unique_texts, unique_scores):
+        final_score = llm_weight * llm_score
+
+        for (b, k, tuple_idx, _, punct, pending_word) in unique_requests[text]:
+            key = (b, k, tuple_idx)
+            if key not in results_by_tuple:
+                results_by_tuple[key] = []
+            results_by_tuple[key].append((final_score, punct, pending_word))
+
+    # Update Hypotheses
+    updated_beams = set()
+    old_best_scores = {}
+
+    for (b, k, tuple_idx), options in results_by_tuple.items():
+        # Find best option (highest score)
+        best_score, best_punct, best_pending_word = max(options, key=lambda x: x[0])
+
+        if (b, k) not in old_best_scores:
+            old_best_scores[(b, k)] = beam_hyps.context_texts[b][k][0][0]
+
+        old_tup = beam_hyps.context_texts[b][k][tuple_idx]
+        history_id = old_tup[2]
+
+        # Build new history: optionally add pending word, then add punct
+        new_hist_id = history_id
+        if best_pending_word is not None:
+            new_hist_id = word_history.add(new_hist_id, best_pending_word)
+        new_hist_id = word_history.add(new_hist_id, best_punct)
+
+        # Combine N-gram and LLM scores
+        old_score = old_tup[0]
+        new_score = ngram_weight * old_score + best_score
+        beam_hyps.context_texts[b][k][tuple_idx] = (new_score, old_tup[1], new_hist_id)
+        updated_beams.add((b, k))
+
+    # Final Sort
+    for b, k in updated_beams:
+        tuples = beam_hyps.context_texts[b][k]
+        tuples.sort(key=lambda x: x[0], reverse=True)
+
+        old = old_best_scores.get((b, k), tuples[0][0])
         new = tuples[0][0]
         beam_hyps.scores[b, k] += (new - old)

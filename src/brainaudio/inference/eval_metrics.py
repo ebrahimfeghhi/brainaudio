@@ -10,8 +10,8 @@ import re
 def clean_string(transcript):
     
     transcript = re.sub(r"[^a-zA-Z\- \']", "", transcript)
-    transcript = transcript.replace("--", "").lower()
-    
+    transcript = transcript.replace("--", "").lower().strip()
+
     return transcript
 
 

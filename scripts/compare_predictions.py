@@ -384,7 +384,7 @@ def main():
                 "llm_prediction": r["llm_pred"],
                 "baseline_prediction": r["baseline_pred"],
             }
-            for r in diff_results
+            for r in worse_results_for_csv
         ])
 
         # Write header then CSV
@@ -392,7 +392,7 @@ def main():
             f.write('\n'.join(header_lines) + '\n')
             comparison_df.to_csv(f, index=False)
 
-        print(f"\nSaved {len(diff_results)} sentences with different predictions to {output_csv_path}")
+        print(f"\nSaved {len(worse_results_for_csv)} worse sentences to {output_csv_path}")
 
 
 if __name__ == "__main__":

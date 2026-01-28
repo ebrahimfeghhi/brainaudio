@@ -157,17 +157,18 @@ class PerplexityCallback(TrainerCallback):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Fine-tune Llama 3.2 1B Base via HF")
-    parser.add_argument("--transcript-files", type=str, nargs="+", default=["data/transcripts_merged.txt"])
-    parser.add_argument("--output-dir", type=str, default="./llama-3.2-1b-hf-finetuned")
-    parser.add_argument("--model-name", type=str, default="meta-llama/Llama-3.2-1B")
+    parser = argparse.ArgumentParser(description="Fine-tune Llama 3.2 3B Base via HF")
+    parser.add_argument("--transcript-files", type=str, nargs="+", default=["../data/transcripts_merged_normalized.txt"])
+    parser.add_argument("--output-dir", type=str, default="./llama-3.2-3b-hf-finetuned-normalized")
+    parser.add_argument("--model-name", type=str, default="meta-llama/Llama-3.2-3B")
     parser.add_argument("--max-seq-length", type=int, default=512)
     parser.add_argument("--num-epochs", type=int, default=1)
-    parser.add_argument("--eval-every", type=float, default=0.5, help="Evaluate every N epochs")
+    parser.add_argument("--eval-every", type=float, default=0.25, help="Evaluate every N epochs")
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--learning-rate", type=float, default=2e-4)
     parser.add_argument("--seed", type=int, default=42)
-    
+    parser.add_argument("--device", type=str, default=None, help="CUDA device(s) to use, e.g. '0', '0,1', or 'cpu'")
+
     args = parser.parse_args()
 
     print(f"Loading Model: {args.model_name}")
@@ -176,6 +177,11 @@ def main():
     is_70b = "70b" in args.model_name.lower()
     if is_70b:
         print("Detected 70B model - enabling 4-bit quantization, multi-GPU, and memory optimizations")
+
+    # Set CUDA device(s)
+    if args.device is not None:
+        os.environ["CUDA_VISIBLE_DEVICES"] = args.device
+    elif is_70b:
         os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"  # Use 2 GPUs for 70B
     else:
         os.environ["CUDA_VISIBLE_DEVICES"] = "1"  # Single GPU for smaller models

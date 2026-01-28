@@ -1,4 +1,5 @@
 import argparse
+import os
 import time
 from pathlib import Path
 import pandas as pd
@@ -35,8 +36,8 @@ DEFAULT_WORD_LM_PATH = "/data2/brain2text/lm/lm_dec19_huge_4gram.kenlm"
 TRANSCRIPTS_PKL = Path("/data2/brain2text/b2t_25/transcripts_val_cleaned.pkl")
 
 # LoRA adapter paths (auto-selected based on model)
-LORA_ADAPTER_1B = "/home/ebrahim/brainaudio/llama-3.2-1b-hf-finetuned"
-LORA_ADAPTER_3B = "/home/ebrahim/brainaudio/llama-3.2-3b-hf-finetuned"
+LORA_ADAPTER_1B = "../finetune_llm/llama-3.2-1b-hf-finetuned-normalized"
+LORA_ADAPTER_3B = "../finetune_llm/llama-3.2-3b-hf-finetuned-normalized"
 
 
 def parse_args() -> argparse.Namespace:
@@ -58,17 +59,19 @@ def parse_args() -> argparse.Namespace:
 
     # LLM model
     parser.add_argument("--model", default="meta-llama/Llama-3.2-3B",
-                        help="HF model: meta-llama/Llama-3.2-3B or meta-llama/Llama-3.2-1B")
+                        help="HF model: meta-llama/Llama-3.2-3B or meta-llama/Llama-3.2-3B")
     parser.add_argument("--disable-llm", action="store_true",
                         help="Disable LLM shallow fusion (n-gram LM only)")
     parser.add_argument("--load-in-4bit", action="store_true",
                         help="Load model in 4-bit quantization")
 
     # Key hyperparameters
-    parser.add_argument("--lm-weight", type=float, default=1,
-                        help="LLM fusion weight")
-    parser.add_argument("--alpha-ngram", type=float, default=0.80,
-                        help="N-gram LM weight")
+    parser.add_argument("--llm-weight", type=float, default=1.2,
+                        help="LLM score weight for rescoring")
+    parser.add_argument("--ngram-rescore-weight", type=float, default=0.0,
+                        help="N-gram score weight during LLM rescoring (interpolation)")
+    parser.add_argument("--alpha-ngram", type=float, default=1.0,
+                        help="N-gram LM weight (during beam search)")
     parser.add_argument("--logit-scale", type=float, default=0.40,
                         help="Encoder logits scale")
 
@@ -76,8 +79,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--results-filename", type=str,
                         default=datetime.now().strftime("%m_%d_%H%M"),
                         help="Results filename (saved to /home/ebrahim/brainaudio/results/)")
-    parser.add_argument("--enable-wandb", action="store_true",
-                        help="Enable W&B logging")
+    parser.add_argument("--no-wandb", action="store_true",
+                        help="Disable W&B logging (enabled by default)")
     parser.add_argument("--verbose", action="store_true", default=False,
                         help="Verbose per-beam output")
 
@@ -90,9 +93,7 @@ def parse_args() -> argparse.Namespace:
                         help="LoRA adapter path (auto-selected if not specified)")
     parser.add_argument("--no-adapter", action="store_true",
                         help="Use base model without LoRA adapter")
-    parser.add_argument("--word-insertion-bonus", type=float, default=0,
-                        help="LLM word insertion bonus")
-    parser.add_argument("--lm-rescore-interval", type=int, default=10,
+    parser.add_argument("--lm-rescore-interval", type=int, default=15,
                         help="LLM rescoring interval in frames (0 = end only)")
     parser.add_argument("--scoring-chunk-size", type=int, default=256,
                         help="Batch size for LLM scoring")
@@ -100,11 +101,9 @@ def parse_args() -> argparse.Namespace:
     # N-gram LM settings
     parser.add_argument("--word-lm-path", type=str, default=DEFAULT_WORD_LM_PATH,
                         help="Path to KenLM file")
-    parser.add_argument("--beta-ngram", type=float, default=0,
-                        help="N-gram word insertion bonus")
 
     # Beam search settings
-    parser.add_argument("--beam-size", type=int, default=1000,
+    parser.add_argument("--beam-size", type=int, default=900,
                         help="CTC beam size")
     parser.add_argument("--num-homophone-beams", type=int, default=3,
                         help="Homophone interpretations per beam")
@@ -158,8 +157,9 @@ def main():
     print(f"[INFO] Tokens: {args.tokens}")
     print(f"[INFO] Lexicon: {args.lexicon}")
     print(f"[INFO] Word LM: {args.word_lm_path}")
-    print(f"[INFO] Alpha (ngram weight): {args.alpha_ngram}")
-    print(f"[INFO] Beta (word insertion bonus): {args.beta_ngram}")
+    print(f"[INFO] Alpha (ngram weight for beam search): {args.alpha_ngram}")
+    print(f"[INFO] LLM weight (rescoring): {args.llm_weight}")
+    print(f"[INFO] N-gram weight (rescoring): {args.ngram_rescore_weight}")
     print(f"[INFO] Scoring chunk size: {args.scoring_chunk_size}")
 
     # Set default logits path based on encoder_model_name if not provided
@@ -182,7 +182,7 @@ def main():
     print(f"[INFO] Logits: {args.logits}")
 
     # Initialize wandb run (before any wandb.log or Table calls)
-    if args.enable_wandb:
+    if not args.no_wandb:
         import wandb
         wandb.init(
             project="brainaudio-neural-lm-fusion",
@@ -272,18 +272,18 @@ def main():
             model=model,
             tokenizer=tokenizer,
             device=device,
-            weight=args.lm_weight,
-            word_insertion_bonus=args.word_insertion_bonus,
+            llm_weight=args.llm_weight,
+            ngram_weight=args.ngram_rescore_weight,
             scoring_chunk_size=args.scoring_chunk_size,
         )
     else:
         print("[INFO] LLM shallow fusion disabled (--disable-llm)")
 
     # Initialize word-level N-gram LM
-    word_ngram_lm = FastNGramLM(args.word_lm_path, alpha=args.alpha_ngram, beta=args.beta_ngram)
+    word_ngram_lm = FastNGramLM(args.word_lm_path, alpha=args.alpha_ngram)
     word_history = WordHistory()
- 
-    print(f"[INFO] Word N-gram LM loaded with alpha={args.alpha_ngram}, beta={args.beta_ngram}")
+
+    print(f"[INFO] Word N-gram LM loaded with alpha={args.alpha_ngram}")
 
     decoder = BatchedBeamCTCComputer(
         blank_index=lexicon.blank_index,
@@ -312,6 +312,7 @@ def main():
     decoded_sentences = []
     ground_truth_sentences = []
     gt_in_beams_count = 0
+    rtf_values = []
 
     total_start_time = time.perf_counter()
 
@@ -327,6 +328,10 @@ def main():
     for trial_idx in args.trial_indices:
         # Load single trial from pre-opened NPZ (much faster than load_log_probs per trial)
         logits = torch.from_numpy(logits_npz[f"arr_{trial_idx}"]).to(device).unsqueeze(0)
+
+        # Calculate trial duration for RTF (80ms per frame, before padding)
+        num_frames_original = logits.shape[1]
+        trial_duration_seconds = num_frames_original * 0.08
 
         # Add 3 frames of padding with uniform probability (all tokens equally likely)
         num_padding_frames = 2
@@ -348,6 +353,10 @@ def main():
         if device.type == "cuda":
             torch.cuda.synchronize()
         trial_elapsed = time.perf_counter() - trial_start
+
+        # Compute Real Time Factor (RTF)
+        rtf = trial_elapsed / trial_duration_seconds
+        rtf_values.append(rtf)
 
         # Select top K beams that do not have -inf score
         scores = result.scores[0].cpu().numpy()
@@ -390,7 +399,7 @@ def main():
 
         # Print Status
         best_score = scores[topk_indices[0]] if topk_indices else 0
-        print(f"Trial {trial_idx:3d} | {trial_elapsed*1000:.1f}ms | Score: {best_score:.2f} | LM Score: {best_lm_score:.2f}")
+        print(f"Trial {trial_idx:3d} | {trial_elapsed*1000:.1f}ms | RTF: {rtf:.3f} | Score: {best_score:.2f} | LM Score: {best_lm_score:.2f}")
         if not args.test_mode:
             print(f"  GT:   {ground_truth}")
         print(f"  Best: {best_text}")
@@ -449,6 +458,10 @@ def main():
     print(f"Peak VRAM: {peak_vram_gb:.2f} GB")
     print(f"Peak CPU Memory: {peak_cpu_memory_gb:.2f} GB")
 
+    # RTF summary statistics
+    rtf_array = np.array(rtf_values)
+    print(f"RTF - Mean: {rtf_array.mean():.3f}, Median: {np.median(rtf_array):.3f}, Min: {rtf_array.min():.3f}, Max: {rtf_array.max():.3f}")
+
     # Compute Metrics (skip in test mode)
     wer = None
     if not args.test_mode:
@@ -465,7 +478,7 @@ def main():
     results_dir.mkdir(parents=True, exist_ok=True)
 
     safe_results_filename = args.results_filename.replace("/", "_")
-    csv_filename = f"{args.encoder_model_name}_{safe_results_filename}.csv"
+    csv_filename = f"{args.encoder_model_name}_{safe_results_filename}_{os.getpid()}.csv"
     csv_path = results_dir / csv_filename
 
     results_df = pd.DataFrame({
@@ -475,8 +488,13 @@ def main():
     results_df.to_csv(csv_path, index=False)
     print(f"\nSaved predictions to {csv_path}")
 
+    # Save RTF values to numpy file (same name as CSV)
+    rtf_path = csv_path.with_suffix('.npy')
+    np.save(rtf_path, rtf_array)
+    print(f"Saved RTF values to {rtf_path}")
+
     # --- wandb logging ---
-    if args.enable_wandb:
+    if not args.no_wandb:
         try:
             import wandb
             if 'wer' in locals() and wer is not None:

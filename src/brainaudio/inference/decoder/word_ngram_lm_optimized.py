@@ -116,7 +116,7 @@ class FastNGramLM:
     - Caches UNK word lookups to avoid repeated `word in model` checks.
     """
     __slots__ = (
-        'model', 'alpha', 'beta', 'unk_score_offset', 'score_boundary',
+        'model', 'alpha', 'unk_score_offset', 'score_boundary',
         'states', 'transition_cache', '_unk_words', '_known_words'
     )
     
@@ -124,13 +124,11 @@ class FastNGramLM:
         self,
         model_path: Union[str, Path],
         alpha: float = 0.5,
-        beta: float = 0.0,
         unk_score_offset: float = -10.0,
         score_boundary: bool = True,
     ):
         self.model = kenlm.Model(str(model_path))
         self.alpha = alpha
-        self.beta = beta
         self.unk_score_offset = unk_score_offset
         self.score_boundary = score_boundary
         
@@ -224,7 +222,6 @@ def apply_word_ngram_lm_scoring(
     
     # Constants
     alpha = word_lm.alpha
-    beta = word_lm.beta
     unk_offset = word_lm.unk_score_offset
     log_conv = LOG10_TO_LN
     
@@ -304,7 +301,7 @@ def apply_word_ngram_lm_scoring(
                     if lm_is_unk(word):
                         log10 += unk_offset
                     
-                    word_score = alpha * (log10 * log_conv) + beta
+                    word_score = alpha * (log10 * log_conv)
                     
                     # Register new state
                     lm_states.append(new_st)

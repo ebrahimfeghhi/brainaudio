@@ -13,9 +13,10 @@ from typing import List, Tuple
 import torch
 import torch.nn.functional as F
 from transformers import AutoModelForCausalLM, AutoTokenizer
+from peft import PeftModel
 from tqdm import tqdm
 
-1
+
 def load_transcripts(file_path: str) -> Tuple[List[str], List[str]]:
     """
     Load transcripts and split into train/val based on marker comment.
@@ -135,17 +136,17 @@ def compute_perplexity(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Evaluate Llama 3.2 3B perplexity on transcripts")
+    parser = argparse.ArgumentParser(description="Evaluate Llama 3.2 1B perplexity on transcripts")
     parser.add_argument(
         "--transcript-file",
         type=str,
-        default="/home/ebrahim/brainaudio/data/transcripts_merged.txt",
+        default="../data/transcripts_merged_normalized.txt",
         help="Path to transcripts file",
     )
     parser.add_argument(
         "--model-name",
         type=str,
-        default="meta-llama/Llama-3.2-3B",
+        default="meta-llama/Llama-3.2-1B",
         help="HuggingFace model name or path",
     )
     parser.add_argument(
@@ -160,6 +161,12 @@ def main():
         default="cuda:1" if torch.cuda.is_available() else "cpu",
         help="Device to use",
     )
+    parser.add_argument(
+        "--lora-path",
+        type=str,
+        default=None,
+        help="Path to LoRA adapter (optional)",
+    )
     args = parser.parse_args()
 
     print(f"Loading model: {args.model_name}")
@@ -169,6 +176,11 @@ def main():
         torch_dtype=torch.float16 if args.device == "cuda" else torch.float32,
         device_map=args.device,
     )
+
+    # Load LoRA adapter if specified
+    if args.lora_path:
+        print(f"Loading LoRA adapter: {args.lora_path}")
+        model = PeftModel.from_pretrained(model, args.lora_path)
 
     # Set pad token if not set
     if tokenizer.pad_token is None:
@@ -208,6 +220,8 @@ def main():
     print("SUMMARY")
     print("=" * 60)
     print(f"Model: {args.model_name}")
+    if args.lora_path:
+        print(f"LoRA Adapter: {args.lora_path}")
     print(f"Train Perplexity: {train_ppl:.2f}")
     print(f"Val Perplexity: {val_ppl:.2f}")
 
