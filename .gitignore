@@ -50,3 +50,14 @@ results/*.csv
 
 # Weights & Biases
 wandb/
+
+# LaTeX build files
+*.aux
+*.log
+*.out
+*.pdf
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+*.toc
+_minted*
