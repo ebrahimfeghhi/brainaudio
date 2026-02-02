@@ -7,13 +7,14 @@ from torch.utils.data import DataLoader, Dataset, ConcatDataset
 class LazySpeechDataset(Dataset):
     """
     Defines a "lazy" Pytorch dataset object.
-    It is initialized with a list of file paths to .npz files.
+    It is initialized with a list of directory paths, each containing
+    individual .npy files and a meta.json for one trial.
     Data is loaded only when __getitem__ is called.
     """
 
-    def __init__(self, file_paths: list[str], transform=None, 
+    def __init__(self, file_paths: list[str], transform=None,
                  return_transcript=False, return_alignments=False):
-        
+
         self.file_paths = file_paths
         self.transform = transform
         self.return_transcript = return_transcript
@@ -23,32 +24,28 @@ class LazySpeechDataset(Dataset):
         return len(self.file_paths)
 
     def __getitem__(self, idx):
+        trial_dir = self.file_paths[idx]
         try:
-            # 1. Load *only* the single trial's .npz file
-            # allow_pickle=True is needed to load string arrays
-            with np.load(self.file_paths[idx], allow_pickle=True) as trial_data:
-                
-                # Load neural data (always present)
-                neural_feats = trial_data['sentenceDat']
-                
-                # Load text, using a dummy array if it's a test file
-                text_seq = trial_data.get('text')
-                
-                # Load metadata
-                day = trial_data['day'].item()
-                transcript = trial_data['transcription'].item()
+            # Load arrays as individual .npy files (no zip layer)
+            neural_feats = np.load(f"{trial_dir}/sentenceDat.npy", mmap_mode='r')
+            text_seq = np.load(f"{trial_dir}/text.npy")
 
-            # 2. Calculate lengths on-the-fly
+            # Load metadata from JSON
+            with open(f"{trial_dir}/meta.json", "r") as f:
+                meta = json.load(f)
+            day = meta['day']
+            transcript = meta['transcription']
+
+            # Calculate lengths
             neural_time_bins = neural_feats.shape[0]
             text_seq_len = len(text_seq)
 
-            # 3. Convert to Tensors
-            neural_feats_tensor = torch.tensor(neural_feats, dtype=torch.float32)
-            
+            # Convert to Tensors
+            neural_feats_tensor = torch.tensor(np.array(neural_feats), dtype=torch.float32)
+
             if self.transform:
                 neural_feats_tensor = self.transform(neural_feats_tensor)
 
-            # 4. Build the output tuple
             items = [
                 neural_feats_tensor,
                 torch.tensor(text_seq, dtype=torch.int32),
@@ -63,8 +60,7 @@ class LazySpeechDataset(Dataset):
             return tuple(items)
 
         except Exception as e:
-            # This print statement will reveal the corrupted file path
-            raise RuntimeError(f"FAILED to load file: {self.file_paths[idx]}") from e
+            raise RuntimeError(f"FAILED to load trial: {trial_dir}") from e
 
 def getDatasetLoaders(
     manifest_paths: list[str],

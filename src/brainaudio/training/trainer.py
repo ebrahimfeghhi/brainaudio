@@ -291,13 +291,16 @@ def trainModel(args, model):
     wandb.finish()
     
     # Log and print results
-    best_mean_wer = np.min(valWER)
-    best_mean_per = np.min(valPER)
+    best_mean_wer = np.min(valWER) if valWER else None
+    best_mean_per = np.min(valPER) if valPER else None
     
-    for pid in best_wer_by_participant.keys():
+    for pid in best_per_by_participant.keys():
         suffix = get_participant_suffix(pid)
-        print(f"Participant {pid}{suffix} - Best WER: {best_wer_by_participant[pid]:.4f}, Best PER: {best_per_by_participant[pid]:.4f}")
+        wer_val = f"{best_wer_by_participant[pid]:.4f}" if pid in best_wer_by_participant else "N/A"
+        print(f"Participant {pid}{suffix} - Best WER: {wer_val}, Best PER: {best_per_by_participant[pid]:.4f}")
     
-    print(f"Mean - Best WER: {best_mean_wer:.4f}, Best PER: {best_mean_per:.4f}")
+    wer_str = f"{best_mean_wer:.4f}" if best_mean_wer is not None else "N/A"
+    per_str = f"{best_mean_per:.4f}" if best_mean_per is not None else "N/A"
+    print(f"Mean - Best WER: {wer_str}, Best PER: {per_str}")
     
     return best_mean_wer, best_mean_per, best_wer_by_participant, best_per_by_participant

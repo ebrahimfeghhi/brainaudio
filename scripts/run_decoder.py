@@ -29,7 +29,7 @@ CTC beam search with word-level N-gram LM fusion and optional LLM shallow fusion
 """
 
 # Default paths (phoneme mode)
-DEFAULT_ENCODER_MODEL_NAME = "pretrained_RNN"
+DEFAULT_ENCODER_MODEL_NAME = "best_chunked_transformer_combined_seed_0" #"pretrained_RNN"
 DEFAULT_TOKENS = "/data2/brain2text/lm/units_pytorch.txt"
 DEFAULT_LEXICON = "/data2/brain2text/lm/vocab_lower_100k_pytorch_phoneme_with_variants.txt"
 DEFAULT_WORD_LM_PATH = "/data2/brain2text/lm/lm_dec19_huge_4gram.kenlm"
