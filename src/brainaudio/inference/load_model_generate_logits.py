@@ -134,7 +134,8 @@ def generate_and_save_logits(model, config, partition, device,
         dataLoaders = valLoaders
     elif partition == "test":
         dataLoaders = testLoaders
-        
+    
+    per_dict = {} if partition == "val" else None
     model.eval()
     with torch.no_grad():
         for dataLoader, participant_id in zip(dataLoaders, participant_ids):
@@ -179,9 +180,12 @@ def generate_and_save_logits(model, config, partition, device,
             print(f"Saving logits for participant {participant_id} to {save_path}")
             np.savez_compressed(save_path, *logits_data)
             print(f"Error Rate for participant {participant_id}: {total_edit_distance/total_seq_length}")
+            if per_dict is not None:
+                per_dict[participant_id] = total_edit_distance/total_seq_length
                 
             
     print("--- Finished: Logit generation complete. ---")
+    return per_dict
 
 def save_transcripts(manifest_paths, partition, save_paths):
     '''
