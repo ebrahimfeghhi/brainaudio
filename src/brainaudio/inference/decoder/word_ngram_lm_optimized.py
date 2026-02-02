@@ -266,12 +266,14 @@ def apply_word_ngram_lm_scoring(
         if len(candidate_words) > 1:
             candidate_words = list(dict.fromkeys(candidate_words))
             
-        #if "please" in candidate_words:
-        #    context_tuples = beam_hyps.context_texts[b][k]
-        #    for score, lm_id, hist_id in context_tuples:
+        #debug_controversial = "controversial" in candidate_words
+        #if debug_controversial:
+        #    beam_score_before = beam_hyps.scores[b, k].item()
+        #    context_tuples_debug = beam_hyps.context_texts[b][k]
+        #    for score, lm_id, hist_id in context_tuples_debug:
         #        text = word_history.get_text(hist_id)
-        #        print(f"please candidate | context: '{text}' | score: {score:.3f}")
-            
+        #        print(f"BEFORE: {candidate_words} | context: '{text}' | lm_score: {score:.3f} | beam_score: {beam_score_before:.3f}")
+
         context_tuples = beam_hyps.context_texts[b][k]
                 
         all_candidates = []
@@ -357,6 +359,10 @@ def apply_word_ngram_lm_scoring(
 
         beam_hyps.scores[b, k] += (new_best_lm_score - old_best_lm_score)
         beam_hyps.context_texts[b][k] = new_tuples
+
+        #if debug_controversial:
+        #    beam_score_after = beam_hyps.scores[b, k].item()
+        #    print(f"AFTER: beam_score: {beam_score_after:.3f} | delta: {new_best_lm_score - old_best_lm_score:.3f} | new_best_lm: {new_best_lm_score:.3f}")
 
         # Increment word count to prevent premature recombination with beams
         # that haven't been LM-scored for this word yet

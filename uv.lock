@@ -333,9 +333,7 @@ dependencies = [
     { name = "hydra-core" },
     { name = "ipykernel" },
     { name = "kaldifst" },
-    { name = "kenlm" },
     { name = "lightning" },
-    { name = "mamba-ssm" },
     { name = "matplotlib" },
     { name = "nemo" },
     { name = "nemo-toolkit", extra = ["asr"] },
@@ -371,9 +369,7 @@ requires-dist = [
     { name = "hydra-core", specifier = ">=1.3.2" },
     { name = "ipykernel", specifier = ">=6.30.1" },
     { name = "kaldifst", specifier = ">=1.7.17" },
-    { name = "kenlm", specifier = ">=0.3.0" },
     { name = "lightning", specifier = ">=2.5.6" },
-    { name = "mamba-ssm", specifier = ">=2.2.6.post3" },
     { name = "matplotlib", specifier = ">=3.10.6" },
     { name = "nemo", specifier = ">=7.3.2" },
     { name = "nemo-toolkit", extras = ["asr"], specifier = ">=2.0.0" },
@@ -1779,13 +1775,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/8d/85/92435e8e62eb3d43e
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ae/e3/6c3b42233225f398f7a72988b524f654ae818cca0d441db847a2761203e9/kaldiio-2.18.1-py3-none-any.whl", hash = "sha256:397a4cd18977acaae7acabfba6807ee0a6978c620064381a266eac15b3c1a0a0", size = 29330, upload-time = "2025-03-06T15:57:50.82Z" },
 ]
-
-[[package]]
-name = "kenlm"
-version = "0.3.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/02/6e/f4e159cef39ea4ef2244b4aa32857d447d60a5d0ee269e1b1f8d3723c03e/kenlm-0.3.0.tar.gz", hash = "sha256:c4628bb9fb63c8a6f9240035b8b037385cfc404cb72e933cf48878291edac1e8", size = 427500, upload-time = "2025-04-07T13:26:38.795Z" }
-
 [[package]]
 name = "kiwisolver"
 version = "1.4.9"
@@ -2150,21 +2139,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/9e/38/bd5b78a920a64d708
 wheels = [
     { url = "https://files.pythonhosted.org/packages/87/fb/99f81ac72ae23375f22b7afdb7642aba97c00a713c217124420147681a2f/mako-1.3.10-py3-none-any.whl", hash = "sha256:baef24a52fc4fc514a0887ac600f9f1cff3d82c61d4d700a1fa84d597b88db59", size = 78509, upload-time = "2025-04-10T12:50:53.297Z" },
 ]
-
-[[package]]
-name = "mamba-ssm"
-version = "2.2.6.post3"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "einops" },
-    { name = "ninja" },
-    { name = "packaging" },
-    { name = "setuptools" },
-    { name = "torch" },
-    { name = "transformers" },
-    { name = "triton" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/b6/0c/9373a469ff7a33bdd0644e55fa45165ba3900274dcf7fe9f10ccc232aef9/mamba_ssm-2.2.6.post3.tar.gz", hash = "sha256:826a3cdb651959f191dac64502f8a29627d9116fe6bb7c57e4f562da1aea7bf3", size = 113913, upload-time = "2025-10-10T06:00:44.939Z" }
 
 [[package]]
 name = "markdown"
