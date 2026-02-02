@@ -13,42 +13,41 @@ import wandb
 # ===================================================================
 
 HPO_PROJECT_NAME = "neural-decoder-qmc"
-DEVICE = "cuda:0"
+DEVICE = "cuda:1"
 N_TRIALS = 50
 
 # Path to run_decoder.py script
 RUN_DECODER_SCRIPT = Path(__file__).parent.parent / "run_decoder.py"
 
-# Encoder model and data paths
-ENCODER_MODEL_NAME = "pretrained_RNN"
+# Model selection (0=transformer, 1=rnn)
+MODEL_IDX = 1
 RESULTS_DIR = Path("/data2/brain2text/hpo/decoder_hpo")
 
 # Define hyperparameter search space
 # Format: "param_name": (min, max) for floats, or (min, max) for ints
-# Fixing the acoustic scale, fixing the beam-prune-threshold
 HPO_RANGES = {
-    "alpha-ngram": (0.4, 1.2),                    # N-gram LM weight    <default: 0.8>
-    "lm-weight": (0.5, 1.5),                      # Neural LM fusion weight  <default: 1.0>
-    "beam-beta": (0.5, 2),                      # Bonus for extending beams    <default: 1.5>
-    "word-boundary-bonus": (0.5, 1.5),            # Bonus for word boundary token   <default: 1.0>
+    "logit-scale": (0.20, 0.7),                    # Acoustic scale (encoder logits)
+    "beam-beta": (1, 3.5),                      # Bonus for extending beams
 }
 
 # Fixed parameters (not being optimized)
+# Values match defaults in run_decoder.py
 FIXED_PARAMS = {
-    "encoder-model-name": ENCODER_MODEL_NAME,
+    "model-idx": MODEL_IDX,
     "device": DEVICE,
-    "model": "meta-llama/Llama-3.2-3B",
-    "lora-adapter": "/home/ebrahim/brainaudio/llama-3.2-3b-hf-finetuned",
-    "load-in-4bit": True,
+    "model": "meta-llama/Llama-3.2-1B",
+    "load-in-4bit": False,
     "word-lm-path": "/data2/brain2text/lm/lm_dec19_huge_4gram.kenlm",
-    "beam-size": 300,
-    "logit-scale": 0.4,  # Fixed to default value to decouple interactions
-    "word-insertion-bonus": 0.0,
+    "beam-size": 1000,
+    "alpha-ngram": 1.0,
+    "llm-weight": 1.0,
+    "ngram-rescore-weight": 0.0,
+    "word-boundary-bonus": 0.0,
     "top-k": 1,
-    "lm-rescore-interval": 10,
-    "beta-ngram": 0,
-    "beam-prune-threshold": 12.0,
-    "homophone-prune-threshold": 4.0,
+    "lm-rescore-interval": 15,
+    "scoring-chunk-size": 256,
+    "beam-prune-threshold": 50.0,
+    "homophone-prune-threshold": 10.0,
     "num-homophone-beams": 3
 }
 
@@ -62,10 +61,8 @@ def run_decoder_with_params(trial):
     """
     # Sample hyperparameters
     params = {}
-    params["alpha-ngram"] = trial.suggest_float("alpha-ngram", *HPO_RANGES["alpha-ngram"])
-    params["lm-weight"] = trial.suggest_float("lm-weight", *HPO_RANGES["lm-weight"])
+    params["logit-scale"] = trial.suggest_float("logit-scale", *HPO_RANGES["logit-scale"])
     params["beam-beta"] = trial.suggest_float("beam-beta", *HPO_RANGES["beam-beta"])
-    params["word-boundary-bonus"] = trial.suggest_float("word-boundary-bonus", *HPO_RANGES["word-boundary-bonus"])
 
     # Generate unique results filename for this trial
     results_filename = f"hpo_trial_{trial.number}"
@@ -190,7 +187,7 @@ if __name__ == "__main__":
         project=HPO_PROJECT_NAME,
         config={
             "n_trials": N_TRIALS,
-            "encoder_model": ENCODER_MODEL_NAME,
+            "model_idx": MODEL_IDX,
             "fixed_params": FIXED_PARAMS,
             "search_ranges": HPO_RANGES
         },
@@ -251,7 +248,7 @@ if __name__ == "__main__":
         "hpo_config": {
             "project_name": HPO_PROJECT_NAME,
             "n_trials": N_TRIALS,
-            "encoder_model": ENCODER_MODEL_NAME,
+            "model_idx": MODEL_IDX,
             "fixed_params": {k: v for k, v in FIXED_PARAMS.items() if not isinstance(v, bool) or v},
             "search_ranges": HPO_RANGES
         },

@@ -8,10 +8,14 @@ from edit_distance import SequenceMatcher
 import re
 
 def clean_string(transcript):
-    
+    # Remove punctuation (keep only letters, hyphens, spaces, apostrophes)
     transcript = re.sub(r"[^a-zA-Z\- \']", "", transcript)
-    transcript = transcript.replace("--", "").lower().strip()
-
+    transcript = transcript.replace("- ", " ").lower()
+    transcript = transcript.replace("--", "").lower()
+    transcript = transcript.replace(" '", "'").lower()
+    transcript = transcript.strip()
+    # Normalize whitespace (collapse multiple spaces)
+    transcript = ' '.join([word for word in transcript.split() if word != ''])
     return transcript
 
 

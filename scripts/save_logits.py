@@ -7,17 +7,17 @@ from typing import Optional, Dict
 # --- Configuration ---
 MODEL_NAME = "best_chunked_transformer_combined_seed_0"
 local_model_folder = "b2t_combined" # folder the model is stored
-modelWeightsFiles = "modelWeights_PER_24" # "modelWeights_PER_24"
+modelWeightsFiles = "modelWeights_PER_25" # "modelWeights_PER_24"
 
 
 LOAD_MODEL_FOLDER = f"/data2/brain2text/{local_model_folder}/outputs/{MODEL_NAME}"  
-DEVICE = "cuda:1"   
+DEVICE = "cuda:0"   
 PARTITION = 'val'
 
 # Optionally evaluate multiple chunk configs per run. Use None to keep the
 # checkpoint's stored eval config. Add dicts like {"chunk_size": 5, "context_chunks": 50}.
 EVAL_CONFIGS = [
-    {"chunk_size": None, "context_sec": None},
+    {"chunk_size": 5, "context_sec": 20},
 ]
 
 

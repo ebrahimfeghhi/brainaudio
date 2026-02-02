@@ -31,7 +31,7 @@ from .cuda_python_utils import (
 )
 from .enum import PrettyStrEnum
 from .nemo_stubs import logging
-from .neural_lm_rescoring import apply_llm_rescoring_full, apply_llm_eos_scoring, apply_llm_eos_scoring_with_pending, LLMRescorer
+from .neural_lm_rescoring import apply_llm_rescoring_full, apply_llm_eos_scoring, LLMRescorer
 from .word_ngram_lm_optimized import WordHistory, apply_word_ngram_lm_scoring, apply_word_ngram_eos_scoring, FastNGramLM
 
 HAVE_LM_FUSION = False
@@ -191,7 +191,8 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         num_homophone_beams: int = 1,
         homophone_prune_threshold: Optional[float] = 10.0,
         lm_rescore_interval: int = 10,
-        word_boundary_bonus: float = 0.0
+        word_boundary_bonus: float = 0.0,
+        score_combination: str = "max",
     ):
         """
         Init method.
@@ -249,6 +250,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
         self.word_ngram_lm = word_ngram_lm
         self.word_history = word_history
         self.lm_rescore_interval = lm_rescore_interval
+        self.score_combination = score_combination
 
     def force_cuda_graphs_mode(self, mode: Optional[Union[str, CudaGraphsMode]]):
         """
@@ -346,7 +348,7 @@ class BatchedBeamCTCComputer(WithOptionalCudaGraphs, ConfidenceMethodMixin):
             float_dtype=decoder_outputs.dtype,
             model_type='ctc',
             num_homophone_beams=self.num_homophone_beams,
-            score_combination='max',
+            score_combination=self.score_combination,
         )
 
         # Main decoding loop: process one acoustic frame at a time
