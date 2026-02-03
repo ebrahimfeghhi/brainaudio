@@ -15,10 +15,11 @@ Example usage:
     # Run test only without LLM
     python scripts/run_batch_decode.py --mode test --disable-llm --no-wandb
 
-    # Run custom seeds
+    # Run custom seeds (val and test)
     python scripts/run_batch_decode.py \
         --base-path /data2/brain2text/b2t_25/logits/baseline_rnn_ucd_npl_seed_ \
         --seeds 1 2 3 4 5 6 7 8 9 \
+        --mode both \
         --acoustic-scale 0.4 --temperature 1.0
 """
 
@@ -59,8 +60,10 @@ def parse_args():
                         help="Base path prefix for custom runs (seed number will be appended)")
     parser.add_argument("--seeds", type=int, nargs="+", default=None,
                         help="List of seeds to run (e.g., --seeds 1 2 3 4 5)")
-    parser.add_argument("--logits-filename", type=str, default="logits_val.npz",
-                        help="Logits filename within each seed directory (default: logits_val.npz)")
+    parser.add_argument("--logits-val-filename", type=str, default="logits_val.npz",
+                        help="Val logits filename within each seed directory (default: logits_val.npz)")
+    parser.add_argument("--logits-test-filename", type=str, default="logits_test.npz",
+                        help="Test logits filename within each seed directory (default: logits_test.npz)")
     parser.add_argument("--encoder-name-prefix", type=str, default="seed",
                         help="Prefix for encoder model name in output files (default: seed)")
 
@@ -249,13 +252,24 @@ def main():
     # Custom seed mode
     if args.base_path and args.seeds:
         for seed in args.seeds:
-            logits_path = Path(f"{args.base_path}{seed}") / args.logits_filename
+            seed_dir = Path(f"{args.base_path}{seed}")
             encoder_name = f"{args.encoder_name_prefix}_{seed}"
+
+            # Determine which logits files to use based on mode
+            if args.mode == "val":
+                logits_val = seed_dir / args.logits_val_filename
+                logits_test = None
+            elif args.mode == "test":
+                logits_val = None
+                logits_test = seed_dir / args.logits_test_filename
+            else:  # both
+                logits_val = seed_dir / args.logits_val_filename
+                logits_test = seed_dir / args.logits_test_filename
 
             returncode = run_decoder(
                 decoder_script, args,
-                logits_val_path=logits_path,
-                logits_test_path=None,
+                logits_val_path=logits_val,
+                logits_test_path=logits_test,
                 encoder_name=encoder_name,
             )
 

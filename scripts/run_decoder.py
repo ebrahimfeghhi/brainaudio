@@ -24,24 +24,12 @@ from brainaudio.inference.decoder.word_ngram_lm_optimized import FastNGramLM, Wo
 CTC beam search with word-level N-gram LM fusion and optional LLM shallow fusion.
 """
 
-<<<<<<< HEAD
-# Default paths (phoneme mode)
-DEFAULT_ENCODER_MODEL_NAME = "best_chunked_transformer_combined_seed_0" #"pretrained_RNN"
-=======
-# Default paths
-<<<<<<< Updated upstream
->>>>>>> 4112d88840496a933a5cfcf4eaac44a5100b5700
-DEFAULT_TOKENS = "/data2/brain2text/lm/units_pytorch.txt"
-DEFAULT_LEXICON = "/data2/brain2text/lm/vocab_lower_100k_pytorch_phoneme_with_variants.txt"
-DEFAULT_WORD_LM_PATH = "/data2/brain2text/lm/lm_dec19_huge_4gram.kenlm"
-TRANSCRIPTS_PKL = Path("/data2/brain2text/b2t_25/transcripts_val_cleaned.pkl")
-=======
-BASE_PATH = "/home/ebrahim"
+
+BASE_PATH = ""
 DEFAULT_TOKENS = f"{BASE_PATH}/data2/brain2text/lm/units_pytorch.txt"
 DEFAULT_LEXICON = f"{BASE_PATH}/data2/brain2text/lm/vocab_lower_100k_pytorch_phoneme_with_variants.txt"
 DEFAULT_WORD_LM_PATH = f"{BASE_PATH}/data2/brain2text/lm/lm_dec19_huge_4gram.kenlm"
 TRANSCRIPTS_PKL = Path(f"{BASE_PATH}/data2/brain2text/b2t_25/transcripts_val_cleaned.pkl")
->>>>>>> Stashed changes
 
 # LoRA adapter paths (auto-selected based on model)
 LORA_ADAPTER_1B = "/home/ebrahim/brainaudio/finetune_llm/llama-3.2-1b-hf-finetuned-normalized"
