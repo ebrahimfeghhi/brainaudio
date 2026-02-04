@@ -45,8 +45,9 @@ creating_n_gram_lm/in_domain_n_gram.py
 creating_n_gram_lm/interpolate_lm.py
 creating_n_gram_lm/search_lambda.py
 
-# Results
-results/*.csv
+# Results archives
+results/archive/
+results/test_files/archive/
 
 # Weights & Biases
 wandb/

@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import time
 from pathlib import Path
@@ -310,9 +311,48 @@ def run_decode_pass(
     results_df.to_csv(csv_path, index=False)
     print(f"\nSaved predictions to {csv_path}")
 
-    rtf_path = csv_path.with_suffix('.npy')
-    np.save(rtf_path, rtf_array)
-    print(f"Saved RTF values to {rtf_path}")
+    # Save metrics to JSON
+    metrics = {
+        "encoder_model_name": args.encoder_model_name,
+        "mode": "test" if is_test_mode else "val",
+        "hyperparameters": {
+            "acoustic_scale": args.acoustic_scale,
+            "temperature": args.temperature,
+            "beam_size": args.beam_size,
+            "num_homophone_beams": args.num_homophone_beams,
+            "beam_prune_threshold": args.beam_prune_threshold,
+            "homophone_prune_threshold": args.homophone_prune_threshold,
+            "beam_beta": args.beam_beta,
+            "word_boundary_bonus": args.word_boundary_bonus,
+            "alpha_ngram": args.alpha_ngram,
+            "llm_weight": args.llm_weight,
+            "ngram_rescore_weight": args.ngram_rescore_weight,
+            "lm_rescore_interval": args.lm_rescore_interval,
+            "score_combination": args.score_combination,
+            "disable_llm": args.disable_llm,
+            "model": args.model,
+            "lora_adapter": args.lora_adapter,
+        },
+        "per_trial": {
+            "trial_indices": trial_indices,
+            "rtf": rtf_array.tolist(),
+        },
+        "aggregate": {
+            "peak_vram_gb": peak_vram_gb,
+            "peak_cpu_memory_gb": peak_cpu_memory_gb,
+            "total_time_seconds": total_elapsed,
+            "mean_rtf": float(rtf_array.mean()),
+            "median_rtf": float(np.median(rtf_array)),
+            "num_trials": len(trial_indices),
+        }
+    }
+    if not is_test_mode and wer is not None:
+        metrics["aggregate"]["wer"] = wer
+
+    metrics_path = csv_path.with_suffix('.json')
+    with open(metrics_path, 'w') as f:
+        json.dump(metrics, f, indent=2)
+    print(f"Saved metrics to {metrics_path}")
 
     return {
         "decoded_sentences": decoded_sentences,
@@ -409,7 +449,7 @@ def main():
         wandb.init(
             project="brainaudio-neural-lm-fusion",
             config=vars(args),
-            name=args.results_filename,
+            name=f"{args.encoder_model_name}_{args.results_filename}",
             mode="online",
         )
     else:

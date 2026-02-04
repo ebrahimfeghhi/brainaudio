@@ -47,7 +47,7 @@ PRESETS = {
 def parse_args():
     parser = argparse.ArgumentParser(description="Run decoder across multiple seeds/models")
 
-    # =========================================================================
+    # =======================================================ffffvfff==================
     # BATCH MODE SETTINGS
     # =========================================================================
     parser.add_argument("--preset", type=str, choices=list(PRESETS.keys()), default="transformer",
@@ -80,9 +80,9 @@ def parse_args():
                         help="End index (exclusive)")
 
     # =========================================================================
-    # LLM SETTINGS
+    # LLM SETTINGS (defaults in run_decoder.py)
     # =========================================================================
-    parser.add_argument("--model", default="meta-llama/Llama-3.2-1B",
+    parser.add_argument("--model", default=None,
                         help="HuggingFace model ID")
     parser.add_argument("--disable-llm", action="store_true",
                         help="Disable LLM shallow fusion")
@@ -92,47 +92,47 @@ def parse_args():
                         help="LoRA adapter path (auto-selected if not specified)")
     parser.add_argument("--no-adapter", action="store_true",
                         help="Use base model without LoRA adapter")
-    parser.add_argument("--lm-rescore-interval", type=int, default=15,
-                        help="LLM rescoring interval in frames (default: 15)")
-    parser.add_argument("--scoring-chunk-size", type=int, default=256,
-                        help="Batch size for LLM scoring (default: 256)")
+    parser.add_argument("--lm-rescore-interval", type=int, default=None,
+                        help="LLM rescoring interval in frames")
+    parser.add_argument("--scoring-chunk-size", type=int, default=None,
+                        help="Batch size for LLM scoring")
     parser.add_argument("--length-normalize", action="store_true",
                         help="Apply length normalization at EOS scoring")
 
     # =========================================================================
-    # KEY HYPERPARAMETERS
+    # KEY HYPERPARAMETERS (defaults in run_decoder.py)
     # =========================================================================
-    parser.add_argument("--llm-weight", type=float, default=1.2,
-                        help="LLM score weight for rescoring (default: 1.2)")
-    parser.add_argument("--ngram-rescore-weight", type=float, default=0.0,
-                        help="N-gram score weight during LLM rescoring (default: 0.0)")
-    parser.add_argument("--alpha-ngram", type=float, default=1.0,
-                        help="N-gram LM weight during beam search (default: 1.0)")
-    parser.add_argument("--temperature", type=float, default=1.0,
-                        help="Temperature for scaling logits (default: 1.0)")
-    parser.add_argument("--acoustic-scale", type=float, default=0.4,
-                        help="Scale factor for acoustic log-probs (default: 0.4)")
+    parser.add_argument("--llm-weight", type=float, default=None,
+                        help="LLM score weight for rescoring")
+    parser.add_argument("--ngram-rescore-weight", type=float, default=None,
+                        help="N-gram score weight during LLM rescoring")
+    parser.add_argument("--alpha-ngram", type=float, default=None,
+                        help="N-gram LM weight during beam search")
+    parser.add_argument("--temperature", type=float, default=None,
+                        help="Temperature for scaling logits")
+    parser.add_argument("--acoustic-scale", type=float, default=None,
+                        help="Scale factor for acoustic log-probs")
 
     # =========================================================================
-    # BEAM SEARCH SETTINGS
+    # BEAM SEARCH SETTINGS (defaults in run_decoder.py)
     # =========================================================================
-    parser.add_argument("--beam-size", type=int, default=900,
-                        help="CTC beam size (default: 900)")
-    parser.add_argument("--num-homophone-beams", type=int, default=3,
-                        help="Homophone interpretations per beam (default: 3)")
-    parser.add_argument("--beam-prune-threshold", type=float, default=18,
-                        help="Beam pruning threshold (default: 18)")
-    parser.add_argument("--homophone-prune-threshold", type=float, default=4,
-                        help="Homophone pruning threshold (default: 4)")
-    parser.add_argument("--beam-beta", type=float, default=1,
-                        help="Extension bonus (default: 1)")
-    parser.add_argument("--word-boundary-bonus", type=float, default=0.5,
-                        help="Word boundary token bonus (default: 0.5)")
-    parser.add_argument("--top-k", type=int, default=10,
-                        help="Top beams to display (default: 10)")
-    parser.add_argument("--score-combination", type=str, default="max",
+    parser.add_argument("--beam-size", type=int, default=None,
+                        help="CTC beam size")
+    parser.add_argument("--num-homophone-beams", type=int, default=None,
+                        help="Homophone interpretations per beam")
+    parser.add_argument("--beam-prune-threshold", type=float, default=None,
+                        help="Beam pruning threshold")
+    parser.add_argument("--homophone-prune-threshold", type=float, default=None,
+                        help="Homophone pruning threshold")
+    parser.add_argument("--beam-beta", type=float, default=None,
+                        help="Extension bonus")
+    parser.add_argument("--word-boundary-bonus", type=float, default=None,
+                        help="Word boundary token bonus")
+    parser.add_argument("--top-k", type=int, default=None,
+                        help="Top beams to display")
+    parser.add_argument("--score-combination", type=str, default=None,
                         choices=["max", "logsumexp"],
-                        help="Score combination method (default: max)")
+                        help="Score combination method")
 
     # =========================================================================
     # OUTPUT SETTINGS
@@ -175,37 +175,53 @@ def build_decoder_args(args, logits_val_path, logits_test_path, encoder_name):
     if args.end_trial_idx is not None:
         cmd.extend(["--end-trial-idx", str(args.end_trial_idx)])
 
-    # LLM settings
-    cmd.extend(["--model", args.model])
+    # LLM settings (only pass if explicitly set)
+    if args.model is not None:
+        cmd.extend(["--model", args.model])
     if args.disable_llm:
         cmd.append("--disable-llm")
     if args.load_in_4bit:
         cmd.append("--load-in-4bit")
-    if args.lora_adapter:
+    if args.lora_adapter is not None:
         cmd.extend(["--lora-adapter", args.lora_adapter])
     if args.no_adapter:
         cmd.append("--no-adapter")
-    cmd.extend(["--lm-rescore-interval", str(args.lm_rescore_interval)])
-    cmd.extend(["--scoring-chunk-size", str(args.scoring_chunk_size)])
+    if args.lm_rescore_interval is not None:
+        cmd.extend(["--lm-rescore-interval", str(args.lm_rescore_interval)])
+    if args.scoring_chunk_size is not None:
+        cmd.extend(["--scoring-chunk-size", str(args.scoring_chunk_size)])
     if args.length_normalize:
         cmd.append("--length-normalize")
 
-    # Key hyperparameters
-    cmd.extend(["--llm-weight", str(args.llm_weight)])
-    cmd.extend(["--ngram-rescore-weight", str(args.ngram_rescore_weight)])
-    cmd.extend(["--alpha-ngram", str(args.alpha_ngram)])
-    cmd.extend(["--temperature", str(args.temperature)])
-    cmd.extend(["--acoustic-scale", str(args.acoustic_scale)])
+    # Key hyperparameters (only pass if explicitly set)
+    if args.llm_weight is not None:
+        cmd.extend(["--llm-weight", str(args.llm_weight)])
+    if args.ngram_rescore_weight is not None:
+        cmd.extend(["--ngram-rescore-weight", str(args.ngram_rescore_weight)])
+    if args.alpha_ngram is not None:
+        cmd.extend(["--alpha-ngram", str(args.alpha_ngram)])
+    if args.temperature is not None:
+        cmd.extend(["--temperature", str(args.temperature)])
+    if args.acoustic_scale is not None:
+        cmd.extend(["--acoustic-scale", str(args.acoustic_scale)])
 
-    # Beam search settings
-    cmd.extend(["--beam-size", str(args.beam_size)])
-    cmd.extend(["--num-homophone-beams", str(args.num_homophone_beams)])
-    cmd.extend(["--beam-prune-threshold", str(args.beam_prune_threshold)])
-    cmd.extend(["--homophone-prune-threshold", str(args.homophone_prune_threshold)])
-    cmd.extend(["--beam-beta", str(args.beam_beta)])
-    cmd.extend(["--word-boundary-bonus", str(args.word_boundary_bonus)])
-    cmd.extend(["--top-k", str(args.top_k)])
-    cmd.extend(["--score-combination", args.score_combination])
+    # Beam search settings (only pass if explicitly set)
+    if args.beam_size is not None:
+        cmd.extend(["--beam-size", str(args.beam_size)])
+    if args.num_homophone_beams is not None:
+        cmd.extend(["--num-homophone-beams", str(args.num_homophone_beams)])
+    if args.beam_prune_threshold is not None:
+        cmd.extend(["--beam-prune-threshold", str(args.beam_prune_threshold)])
+    if args.homophone_prune_threshold is not None:
+        cmd.extend(["--homophone-prune-threshold", str(args.homophone_prune_threshold)])
+    if args.beam_beta is not None:
+        cmd.extend(["--beam-beta", str(args.beam_beta)])
+    if args.word_boundary_bonus is not None:
+        cmd.extend(["--word-boundary-bonus", str(args.word_boundary_bonus)])
+    if args.top_k is not None:
+        cmd.extend(["--top-k", str(args.top_k)])
+    if args.score_combination is not None:
+        cmd.extend(["--score-combination", args.score_combination])
 
     # Output settings
     cmd.extend(["--results-filename", args.results_filename])
