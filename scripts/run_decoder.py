@@ -21,38 +21,29 @@ from brainaudio.inference.decoder import (
 from brainaudio.inference.decoder.beam_helpers import pick_device
 from brainaudio.inference.decoder.word_ngram_lm_optimized import FastNGramLM, WordHistory
 
+import decoder_config as config
+
 """
 CTC beam search with word-level N-gram LM fusion and optional LLM shallow fusion.
 """
-
-
-BASE_PATH = ""
-DEFAULT_TOKENS = f"{BASE_PATH}/data2/brain2text/lm/units_pytorch.txt"
-DEFAULT_LEXICON = f"{BASE_PATH}/data2/brain2text/lm/vocab_lower_100k_pytorch_phoneme_with_variants.txt"
-DEFAULT_WORD_LM_PATH = f"{BASE_PATH}/data2/brain2text/lm/lm_dec19_huge_4gram.kenlm"
-TRANSCRIPTS_PKL = Path(f"{BASE_PATH}/data2/brain2text/b2t_25/transcripts_val_cleaned.pkl")
-
-# LoRA adapter paths (auto-selected based on model)
-LORA_ADAPTER_1B = "/home/ebrahim/brainaudio/finetune_llm/llama-3.2-1b-hf-finetuned-normalized"
-LORA_ADAPTER_3B = "/home/ebrahim/brainaudio/finetune_llm/llama-3.2-3b-hf-finetuned-normalized"
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser("CTC beam search + word N-gram LM + optional LLM fusion")
 
     # =========================================================================
-    # COMMONLY USED ARGUMENTS
+    # LOGITS PATHS (required)
     # =========================================================================
-
-    # Logits paths (required)
     parser.add_argument("--logits-val-path", type=Path, default=None,
                         help="Path to validation logits NPZ file")
     parser.add_argument("--logits-test-path", type=Path, default=None,
                         help="Path to test logits NPZ file (if provided, runs val then test)")
 
-    # Trial selection
+    # =========================================================================
+    # TRIAL SELECTION
+    # =========================================================================
     parser.add_argument("--random", type=int, default=None,
-                        help="Randomly select N trials (fixed seed=42 for reproducibility), e.g. --random 300")
+                        help="Randomly select N trials (fixed seed=42 for reproducibility)")
     parser.add_argument("--trial-indices", type=int, nargs="*", default=None,
                         help="List of trial indices to decode (e.g., --trial-indices 0 5 10)")
     parser.add_argument("--start-trial-idx", type=int, default=None,
@@ -60,82 +51,87 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--end-trial-idx", type=int, default=None,
                         help="End index (exclusive). Use with --start-trial-idx for a range.")
 
-    # LLM model
-    parser.add_argument("--model", default="meta-llama/Llama-3.2-1B",
-                        help="HuggingFace model ID (e.g., meta-llama/Llama-3.2-1B)")
+    # =========================================================================
+    # LLM SETTINGS (defaults from config.LLM)
+    # =========================================================================
+    parser.add_argument("--model", default=config.LLM["model"],
+                        help="HuggingFace model ID")
     parser.add_argument("--disable-llm", action="store_true",
                         help="Disable LLM shallow fusion (n-gram LM only)")
     parser.add_argument("--load-in-4bit", action="store_true",
                         help="Load model in 4-bit quantization")
-
-    # Key hyperparameters
-    parser.add_argument("--llm-weight", type=float, default=1.2,
-                        help="LLM score weight for rescoring")
-    parser.add_argument("--ngram-rescore-weight", type=float, default=0.0,
-                        help="N-gram score weight during LLM rescoring (interpolation)")
-    parser.add_argument("--alpha-ngram", type=float, default=1.0,
-                        help="N-gram LM weight (during beam search)")
-    parser.add_argument("--temperature", type=float, default=1.0,
-                        help="Temperature for scaling logits before softmax (lower = sharper)")
-    parser.add_argument("--acoustic-scale", type=float, default=0.4,
-                        help="Scale factor for acoustic log-probs after softmax")
- 
-    # Output
-    parser.add_argument("--results-filename", type=str,
-                        default=datetime.now().strftime("%m_%d_%H%M"),
-                        help="Results filename (saved to /home/ebrahim/brainaudio/results/)")
-    parser.add_argument("--no-wandb", action="store_true",
-                        help="Disable W&B logging (enabled by default)")
-    parser.add_argument("--verbose", action="store_true", default=False,
-                        help="Verbose per-beam output")
-
-
-    # LLM settings
     parser.add_argument("--lora-adapter", type=str, default=None,
                         help="LoRA adapter path (auto-selected if not specified)")
     parser.add_argument("--no-adapter", action="store_true",
                         help="Use base model without LoRA adapter")
-    parser.add_argument("--lm-rescore-interval", type=int, default=15,
+    parser.add_argument("--llm-weight", type=float, default=config.LLM["llm_weight"],
+                        help="LLM score weight for rescoring")
+    parser.add_argument("--ngram-rescore-weight", type=float, default=config.LLM["ngram_rescore_weight"],
+                        help="N-gram score weight during LLM rescoring (interpolation)")
+    parser.add_argument("--lm-rescore-interval", type=int, default=config.LLM["lm_rescore_interval"],
                         help="LLM rescoring interval in frames (0 = end only)")
-    parser.add_argument("--scoring-chunk-size", type=int, default=256,
+    parser.add_argument("--scoring-chunk-size", type=int, default=config.LLM["scoring_chunk_size"],
                         help="Batch size for LLM scoring")
     parser.add_argument("--length-normalize", action="store_true", default=False,
                         help="Apply length normalization (divide score by word count) at EOS scoring")
 
-    # N-gram LM settings
-    parser.add_argument("--word-lm-path", type=str, default=DEFAULT_WORD_LM_PATH,
-                        help="Path to KenLM file")
+    # =========================================================================
+    # ACOUSTIC / CTC SETTINGS (defaults from config.ACOUSTIC)
+    # =========================================================================
+    parser.add_argument("--temperature", type=float, default=config.ACOUSTIC["temperature"],
+                        help="Temperature for scaling logits before softmax (lower = sharper)")
+    parser.add_argument("--acoustic-scale", type=float, default=config.ACOUSTIC["acoustic_scale"],
+                        help="Scale factor for acoustic log-probs after softmax")
 
-    # Beam search settings
-    parser.add_argument("--beam-size", type=int, default=900,
+    # =========================================================================
+    # BEAM SEARCH SETTINGS (defaults from config.BEAM_SEARCH)
+    # =========================================================================
+    parser.add_argument("--beam-size", type=int, default=config.BEAM_SEARCH["beam_size"],
                         help="CTC beam size")
-    parser.add_argument("--num-homophone-beams", type=int, default=3,
+    parser.add_argument("--num-homophone-beams", type=int, default=config.BEAM_SEARCH["num_homophone_beams"],
                         help="Homophone interpretations per beam")
-    parser.add_argument("--beam-prune-threshold", type=float, default=18,
+    parser.add_argument("--beam-prune-threshold", type=float, default=config.BEAM_SEARCH["beam_prune_threshold"],
                         help="Beam pruning threshold (log-prob)")
-    parser.add_argument("--homophone-prune-threshold", type=float, default=4,
+    parser.add_argument("--homophone-prune-threshold", type=float, default=config.BEAM_SEARCH["homophone_prune_threshold"],
                         help="Homophone pruning threshold (log-prob)")
-    parser.add_argument("--beam-beta", type=float, default=1.5,
+    parser.add_argument("--beam-beta", type=float, default=config.BEAM_SEARCH["beam_beta"],
                         help="Extension bonus (non-blank/repeat)")
-    parser.add_argument("--word-boundary-bonus", type=float, default=1,
+    parser.add_argument("--word-boundary-bonus", type=float, default=config.BEAM_SEARCH["word_boundary_bonus"],
                         help="Word boundary token bonus")
-    parser.add_argument("--top-k", type=int, default=10,
+    parser.add_argument("--alpha-ngram", type=float, default=config.BEAM_SEARCH["alpha_ngram"],
+                        help="N-gram LM weight (during beam search)")
+    parser.add_argument("--top-k", type=int, default=config.BEAM_SEARCH["top_k"],
                         help="Top beams to display")
-    parser.add_argument("--score-combination", type=str, default="max",
+    parser.add_argument("--score-combination", type=str, default=config.BEAM_SEARCH["score_combination"],
                         choices=["max", "logsumexp"],
-                        help="Method for combining scores of equivalent hypotheses: 'max' (faster) or 'logsumexp' (sums probabilities)")
+                        help="Method for combining scores of equivalent hypotheses")
 
-    # Paths
-    parser.add_argument("--encoder-model-name", type=str, default="model",
-                        help="Encoder model name (used for output CSV naming)")
-    parser.add_argument("--tokens", type=Path, default=Path(DEFAULT_TOKENS),
+    # =========================================================================
+    # PATHS (defaults from config.PATHS)
+    # =========================================================================
+    parser.add_argument("--encoder-model-name", type=str, default=None,
+                        help="Encoder model name (auto-derived from logits path if not set)")
+    parser.add_argument("--tokens", type=Path, default=Path(config.PATHS["tokens"]),
                         help="Units file")
-    parser.add_argument("--lexicon", type=Path, default=Path(DEFAULT_LEXICON),
+    parser.add_argument("--lexicon", type=Path, default=Path(config.PATHS["lexicon"]),
                         help="Lexicon file")
-    parser.add_argument("--device", default="cuda:0",
+    parser.add_argument("--word-lm-path", type=str, default=config.PATHS["word_lm"],
+                        help="Path to KenLM file")
+    parser.add_argument("--device", default=config.DEVICE["device"],
                         help="Torch device")
     parser.add_argument("--hf-token", default=None,
                         help="HuggingFace token")
+
+    # =========================================================================
+    # OUTPUT SETTINGS
+    # =========================================================================
+    parser.add_argument("--results-filename", type=str,
+                        default=datetime.now().strftime("%m_%d_%H%M"),
+                        help="Results filename prefix")
+    parser.add_argument("--no-wandb", action="store_true",
+                        help="Disable W&B logging (enabled by default)")
+    parser.add_argument("--verbose", action="store_true", default=False,
+                        help="Verbose per-beam output")
 
     return parser.parse_args()
 
@@ -293,10 +289,10 @@ def run_decode_pass(
 
     # Save results
     if is_test_mode:
-        results_dir = Path("/home/ebrahim/brainaudio/results/test_files")
+        results_dir = Path(config.PATHS["results_test_dir"])
         cleaned_sentences = [clean_string(sent) for sent in decoded_sentences]
     else:
-        results_dir = Path("/home/ebrahim/brainaudio/results")
+        results_dir = Path(config.PATHS["results_dir"])
         cleaned_sentences = decoded_sentences
     results_dir.mkdir(parents=True, exist_ok=True)
 
@@ -429,6 +425,12 @@ def main():
     if args.logits_val_path is None and args.logits_test_path is None:
         raise ValueError("At least one of --logits-val-path or --logits-test-path is required")
 
+    # Auto-derive encoder name from logits path if not explicitly set
+    if args.encoder_model_name is None:
+        logits_path = args.logits_val_path or args.logits_test_path
+        args.encoder_model_name = logits_path.parent.name
+        print(f"[INFO] Auto-derived encoder name: {args.encoder_model_name}")
+
     device = pick_device(args.device)
     process = psutil.Process()
 
@@ -439,9 +441,9 @@ def main():
     if args.lora_adapter is None and not args.no_adapter and not args.disable_llm:
         model_lower = args.model.lower()
         if "1b" in model_lower:
-            args.lora_adapter = LORA_ADAPTER_1B
+            args.lora_adapter = config.PATHS["lora_adapter_1b"]
         elif "3b" in model_lower:
-            args.lora_adapter = LORA_ADAPTER_3B
+            args.lora_adapter = config.PATHS["lora_adapter_3b"]
 
     # Initialize wandb
     if not args.no_wandb:
@@ -490,10 +492,11 @@ def main():
 
     # Load transcripts for validation
     transcripts = None
-    if TRANSCRIPTS_PKL.exists():
-        transcripts = pd.read_pickle(TRANSCRIPTS_PKL)
+    transcripts_path = Path(config.PATHS["transcripts_val"])
+    if transcripts_path.exists():
+        transcripts = pd.read_pickle(transcripts_path)
     else:
-        print(f"Warning: Transcripts file not found at {TRANSCRIPTS_PKL}")
+        print(f"Warning: Transcripts file not found at {transcripts_path}")
 
     val_results = None
 
