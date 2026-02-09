@@ -48,6 +48,7 @@ creating_n_gram_lm/search_lambda.py
 # Results archives
 results/archive/
 results/test_files/archive/
+results/*.pkl
 
 # Weights & Biases
 wandb/
