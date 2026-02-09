@@ -136,11 +136,11 @@ def compute_perplexity(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Evaluate Llama 3.2 1B perplexity on transcripts")
+    parser = argparse.ArgumentParser(description="Evaluate LLM perplexity on transcripts")
     parser.add_argument(
         "--transcript-file",
         type=str,
-        default="../data/transcripts_merged_normalized.txt",
+        default= "/home/ebrahim/data2/brain2text/transcripts_merged_normalized.txt", #"../data/transcripts_merged_normalized.txt",
         help="Path to transcripts file",
     )
     parser.add_argument(
@@ -173,7 +173,7 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
     model = AutoModelForCausalLM.from_pretrained(
         args.model_name,
-        torch_dtype=torch.float16 if args.device == "cuda" else torch.float32,
+        dtype=torch.float16 if args.device == "cuda" else torch.float32,
         device_map=args.device,
     )
 

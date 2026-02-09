@@ -158,9 +158,9 @@ class PerplexityCallback(TrainerCallback):
 
 def main():
     parser = argparse.ArgumentParser(description="Fine-tune Llama 3.2 3B Base via HF")
-    parser.add_argument("--transcript-files", type=str, nargs="+", default=["../data/transcripts_merged_normalized.txt"])
-    parser.add_argument("--output-dir", type=str, default="./llama-3.2-3b-hf-finetuned-normalized")
-    parser.add_argument("--model-name", type=str, default="meta-llama/Llama-3.2-3B")
+    parser.add_argument("--transcript-files", type=str, nargs="+", default=["/home/ebrahim/data2/brain2text/transcripts_merged_normalized.txt"])
+    parser.add_argument("--output-dir", type=str, default="./llama-3.2-1b-hf-finetuned-normalized")
+    parser.add_argument("--model-name", type=str, default="meta-llama/Llama-3.2-1B")
     parser.add_argument("--max-seq-length", type=int, default=512)
     parser.add_argument("--num-epochs", type=int, default=1)
     parser.add_argument("--eval-every", type=float, default=0.25, help="Evaluate every N epochs")
@@ -212,7 +212,7 @@ def main():
         # Standard bfloat16 for smaller models
         model = AutoModelForCausalLM.from_pretrained(
             args.model_name,
-            torch_dtype=torch.bfloat16,
+            dtype=torch.bfloat16,
             device_map="auto",
             use_cache=False,
         )
@@ -232,6 +232,7 @@ def main():
         print("Calculating baseline perplexity...")
         ppl_before = compute_perplexity(model, tokenizer, all_val, desc="Baseline PPL")
         print(f"Baseline Perplexity: {ppl_before:.2f}")
+        breakpoint()
 
     # 5. Format Dataset
     # We add EOS token to every sample
