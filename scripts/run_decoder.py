@@ -437,14 +437,6 @@ def main():
     if device.type == "cuda":
         torch.cuda.reset_peak_memory_stats(device)
 
-    # Auto-select LoRA adapter based on model
-    if args.lora_adapter is None and not args.no_adapter and not args.disable_llm:
-        model_lower = args.model.lower()
-        if "1b" in model_lower:
-            args.lora_adapter = config.PATHS["lora_adapter_1b"]
-        elif "3b" in model_lower:
-            args.lora_adapter = config.PATHS["lora_adapter_3b"]
-
     # Initialize wandb
     if not args.no_wandb:
         import wandb

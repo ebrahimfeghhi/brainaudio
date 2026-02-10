@@ -21,7 +21,11 @@ PATHS = {
 # LLM SETTINGS
 # =============================================================================
 LLM = {
+<<<<<<< HEAD
     "model": "meta-llama/Llama-3.2-1B",
+=======
+    "model": "ibm-granite/granite-3.3-2b-base",
+>>>>>>> 8cb0abc3db7dd3a90779638f98440405795fec25
     "llm_weight": 1.2,
     "ngram_rescore_weight": 0.0,
     "lm_rescore_interval": 10,
