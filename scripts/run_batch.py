@@ -18,17 +18,17 @@ from pathlib import Path
 # =============================================================================
 # EDIT THESE LISTS (must be same length, use None to skip val or test)
 # =============================================================================
-VAL_PATHS = [
-    "/data2/brain2text/b2t_25/logits/pretrained_RNN/logits_val.npz",
+TEST_PATHS = [
+    "/data2/brain2text/b2t_25/logits/pretrained_RNN/logits_test.npz",
 ] + [
-    f"/data2/brain2text/b2t_25/logits/baseline_rnn_ucd_npl_seed_{i}/logits_val.npz"
+    f"/data2/brain2text/b2t_25/logits/baseline_rnn_ucd_npl_seed_{i}/logits_test.npz"
     for i in range(1, 10)
 ]
 
-TEST_PATHS = [None] * 10
+VAL_PATHS = [None] * 10
 
 SAVE_NAMES = [
-   f"new_hparams_granite_3.3_2b_seed_{i}" for i in range(10)
+   f"llama_3b_seed_{i}" for i in range(10)
 ]
 # =============================================================================
 
