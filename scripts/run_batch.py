@@ -23,14 +23,10 @@ VAL_PATHS = [
     for i in range(0, 10)
 ] # + ["/data2/brain2text/b2t_24/logits/pretrained_RNN/logits_val.npz",]
 
-TEST_PATHS = [None] * 10
+VAL_PATHS = [None] * 10
 
 SAVE_NAMES = [
-<<<<<<< HEAD
    f"no_delayed_fusion" for _ in range(0,10)
-=======
-   f"granite_3.3_2b_seed_{i}" for i in range(10)
->>>>>>> 8cb0abc3db7dd3a90779638f98440405795fec25
 ]
 # =============================================================================
 
