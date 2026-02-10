@@ -63,21 +63,22 @@ def load_transcripts(file_path: str) -> Tuple[List[str], List[str]]:
 def compute_perplexity(
     model,
     tokenizer,
-    sentences: List[str],
-    batch_size: int = 16,
-    max_length: int = 512,
-    desc: str = "Computing perplexity",
-) -> float:
+    sentences,
+    batch_size=16,
+    max_length=512,
+    device="cuda",
+    desc="Computing Perplexity",
+):
     """
-    Standard HF Perplexity calculation.
+    Standard HF Perplexity calculation (matches finetune_llama.py).
     """
     model.eval()
-    total_loss = 0.0
-    total_tokens = 0
 
-    # Ensure pad token is set for the tokenizer before this runs
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
+
+    total_loss = 0.0
+    total_tokens = 0
 
     for i in tqdm(range(0, len(sentences), batch_size), desc=desc):
         batch = sentences[i:i + batch_size]
@@ -88,33 +89,25 @@ def compute_perplexity(
             padding=True,
             truncation=True,
             max_length=max_length,
-        ).to(model.device)
+        ).to(device)
 
-        # Labels are input_ids, but masked where input is padding
         labels = inputs.input_ids.clone()
         if tokenizer.pad_token_id is not None:
             labels[labels == tokenizer.pad_token_id] = -100
 
-        outputs = model(**inputs, labels=labels)
-        
-        # CrossEntropyLoss averages over the batch tokens by default
-        # We multiply by number of tokens to get total loss
-        loss = outputs.loss
-        
-        # Calculate number of non-ignored tokens in this batch
-        # (labels != -100).sum()
-        num_valid_tokens = (labels != -100).sum().item()
+        outputs = model(**inputs, labels=labels, use_cache=False)
 
+        num_valid_tokens = (labels != -100).sum().item()
         if num_valid_tokens > 0:
-            total_loss += loss.item() * num_valid_tokens
+            total_loss += outputs.loss.item() * num_valid_tokens
             total_tokens += num_valid_tokens
-        
-        del inputs, outputs, labels, loss
+
+        del inputs, outputs, labels
         torch.cuda.empty_cache()
 
     if total_tokens == 0:
-        return float('inf')
-        
+        return float('inf'), float('-inf'), 0
+
     avg_loss = total_loss / total_tokens
     perplexity = math.exp(avg_loss)
 
@@ -157,9 +150,9 @@ class PerplexityCallback(TrainerCallback):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Fine-tune Llama 3.2 3B Base via HF")
-    parser.add_argument("--transcript-files", type=str, nargs="+", default=["/home/ebrahim/data2/brain2text/transcripts_merged_normalized.txt"])
-    parser.add_argument("--output-dir", type=str, default="./llama-3.2-1b-hf-finetuned-normalized")
+    parser = argparse.ArgumentParser(description="")
+    parser.add_argument("--transcript-files", type=str, nargs="+", default=["/home/ebrahim/brainaudio/data/transcripts_merged_normalized.txt"])
+    parser.add_argument("--output-dir", type=str, default="/data2/brain2text/finetuned_llms/llama-3.2-1b-hf-finetuned-normalized")
     parser.add_argument("--model-name", type=str, default="meta-llama/Llama-3.2-1B")
     parser.add_argument("--max-seq-length", type=int, default=512)
     parser.add_argument("--num-epochs", type=int, default=1)
@@ -232,7 +225,6 @@ def main():
         print("Calculating baseline perplexity...")
         ppl_before = compute_perplexity(model, tokenizer, all_val, desc="Baseline PPL")
         print(f"Baseline Perplexity: {ppl_before:.2f}")
-        breakpoint()
 
     # 5. Format Dataset
     # We add EOS token to every sample
