@@ -28,7 +28,7 @@ VAL_PATHS = [
 TEST_PATHS = [None] * 10
 
 SAVE_NAMES = [
-   f"llama_3b_seed_{i}" for i in range(10)
+   f"granite_3.3_2b_seed_{i}" for i in range(10)
 ]
 # =============================================================================
 

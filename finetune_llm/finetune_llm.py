@@ -1,21 +1,23 @@
 #!/usr/bin/env python3
 """
-Fine-tune IBM Granite text models using standard Hugging Face Transformers & PEFT.
-
-NOTE: This script is for Granite TEXT models (causal LMs), not Granite Speech models.
-Use models like: ibm-granite/granite-3.0-2b-base or ibm-granite/granite-3.0-8b-base
+Fine-tune Llama models using standard Hugging Face Transformers & PEFT.
 
 Optimized for RTX 5090:
-- Uses Bfloat16 for 2B-8B models
-- Uses Official IBM Granite weights
+- Uses Bfloat16 for smaller models
+- Uses 4-bit quantization for 70B models (auto-detected)
+- Uses Official Meta weights
 - Standard LoRA (Low-Rank Adaptation)
 """
 
 import argparse
+import json
 import math
 import os
-import torch
+from datetime import datetime
+from pathlib import Path
 from typing import List, Tuple
+
+import torch
 from datasets import Dataset
 from tqdm import tqdm
 
@@ -23,6 +25,7 @@ from tqdm import tqdm
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
+    BitsAndBytesConfig,
     TrainerCallback,
 )
 from peft import LoraConfig, get_peft_model, TaskType
@@ -53,7 +56,7 @@ def load_transcripts(file_path: str) -> Tuple[List[str], List[str]]:
                     val_sentences.append(line)
                 else:
                     train_sentences.append(line)
-
+                    
     except FileNotFoundError:
         print(f"Error: Transcript file not found at {file_path}")
         return [], []
@@ -64,21 +67,22 @@ def load_transcripts(file_path: str) -> Tuple[List[str], List[str]]:
 def compute_perplexity(
     model,
     tokenizer,
-    sentences: List[str],
-    batch_size: int = 16,
-    max_length: int = 512,
-    desc: str = "Computing perplexity",
-) -> float:
+    sentences,
+    batch_size=16,
+    max_length=512,
+    device="cuda",
+    desc="Computing Perplexity",
+):
     """
-    Standard HF Perplexity calculation.
+    Standard HF Perplexity calculation (matches finetune_llama.py).
     """
     model.eval()
-    total_loss = 0.0
-    total_tokens = 0
 
-    # Ensure pad token is set for the tokenizer before this runs
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
+
+    total_loss = 0.0
+    total_tokens = 0
 
     for i in tqdm(range(0, len(sentences), batch_size), desc=desc):
         batch = sentences[i:i + batch_size]
@@ -89,32 +93,24 @@ def compute_perplexity(
             padding=True,
             truncation=True,
             max_length=max_length,
-        ).to(model.device)
+        ).to(device)
 
-        # Labels are input_ids, but masked where input is padding
         labels = inputs.input_ids.clone()
         if tokenizer.pad_token_id is not None:
             labels[labels == tokenizer.pad_token_id] = -100
 
-        outputs = model(**inputs, labels=labels)
+        outputs = model(**inputs, labels=labels, use_cache=False)
 
-        # CrossEntropyLoss averages over the batch tokens by default
-        # We multiply by number of tokens to get total loss
-        loss = outputs.loss
-
-        # Calculate number of non-ignored tokens in this batch
-        # (labels != -100).sum()
         num_valid_tokens = (labels != -100).sum().item()
-
         if num_valid_tokens > 0:
-            total_loss += loss.item() * num_valid_tokens
+            total_loss += outputs.loss.item() * num_valid_tokens
             total_tokens += num_valid_tokens
 
-        del inputs, outputs, labels, loss
+        del inputs, outputs, labels
         torch.cuda.empty_cache()
 
     if total_tokens == 0:
-        return float('inf')
+        return float('inf'), float('-inf'), 0
 
     avg_loss = total_loss / total_tokens
     perplexity = math.exp(avg_loss)
@@ -158,12 +154,12 @@ class PerplexityCallback(TrainerCallback):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Fine-tune IBM Granite Text Models via HF")
-    parser.add_argument("--transcript-files", type=str, nargs="+", default=["/home/ebrahim/data2/brain2text/transcripts_merged_normalized.txt"])
-    parser.add_argument("--output-dir", type=str, default="./granite-3.0-2b-finetuned-normalized")
-    parser.add_argument("--model-name", type=str, default="ibm-granite/granite-3.0-2b-base")
+    parser = argparse.ArgumentParser(description="")
+    parser.add_argument("--transcript-files", type=str, nargs="+", default=["/home/ebrahim/brainaudio/data/transcripts_merged_normalized.txt"])
+    parser.add_argument("--output-dir", type=str, default=None)
+    parser.add_argument("--model-name", type=str, default=None)
     parser.add_argument("--max-seq-length", type=int, default=512)
-    parser.add_argument("--num-epochs", type=int, default=3)
+    parser.add_argument("--num-epochs", type=int, default=1.5)
     parser.add_argument("--eval-every", type=float, default=0.25, help="Evaluate every N epochs")
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--learning-rate", type=float, default=2e-4)
@@ -174,28 +170,49 @@ def main():
 
     print(f"Loading Model: {args.model_name}")
 
+    # Detect if using a 70B model
+    is_70b = "70b" in args.model_name.lower()
+    if is_70b:
+        print("Detected 70B model - enabling 4-bit quantization, multi-GPU, and memory optimizations")
+
     # Set CUDA device(s)
     if args.device is not None:
         os.environ["CUDA_VISIBLE_DEVICES"] = args.device
+    elif is_70b:
+        os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"  # Use 2 GPUs for 70B
     else:
-        os.environ["CUDA_VISIBLE_DEVICES"] = "1"  # Single GPU for 2B model
+        os.environ["CUDA_VISIBLE_DEVICES"] = "1"  # Single GPU for smaller models
 
     # 1. Load Tokenizer
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name, trust_remote_code=True)
-    # Granite may not have a pad token by default. We use EOS.
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
+    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+    # Llama 3 does not have a pad token by default. We use EOS.
+    tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "right" # Important for training stability
 
     # 2. Load Model
-    # Standard bfloat16 for 2B model
-    model = AutoModelForCausalLM.from_pretrained(
-        args.model_name,
-        dtype=torch.bfloat16,
-        device_map="auto",
-        use_cache=False,
-        trust_remote_code=True,
-    )
+    if is_70b:
+        # 4-bit quantization for 70B to fit in VRAM
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_compute_dtype=torch.bfloat16,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_use_double_quant=True,
+        )
+        model = AutoModelForCausalLM.from_pretrained(
+            args.model_name,
+            quantization_config=bnb_config,
+            device_map="auto",
+            use_cache=False,
+        )
+        model.gradient_checkpointing_enable()
+    else:
+        # Standard bfloat16 for smaller models
+        model = AutoModelForCausalLM.from_pretrained(
+            args.model_name,
+            dtype=torch.bfloat16,
+            device_map="auto",
+            use_cache=False,
+        )
 
     # 3. Load Data
     all_train = []
@@ -221,14 +238,13 @@ def main():
     train_ds = Dataset.from_dict({"text": all_train})
     train_ds = train_ds.map(formatting_func)
     train_ds = train_ds.shuffle(seed=args.seed)
-
+    
     val_ds = None
     if all_val:
         val_ds = Dataset.from_dict({"text": all_val})
         val_ds = val_ds.map(formatting_func)
 
     # 6. LoRA Configuration
-    # Granite models typically use the same attention/MLP structure as Llama
     peft_config = LoraConfig(
         r=16,
         lora_alpha=32, # alpha usually 2x rank
@@ -238,21 +254,33 @@ def main():
         target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
     )
 
-    # 7. Calculate eval steps for 0.25 epoch intervals
-    per_device_batch_size = args.batch_size
-    gradient_accumulation = 1
+    # 7. Adjust batch size, learning rate, and optimizer for 70B models
+    if is_70b:
+        effective_batch_size = args.batch_size
+        per_device_batch_size = 1
+        gradient_accumulation = effective_batch_size  # Accumulate to match original batch size
+        learning_rate = 5e-5  # Lower LR for 70B
+        optim = "paged_adamw_8bit"  # Paged 8-bit optimizer - handles memory spikes
+        print(f"70B mode: per_device_batch_size=1, gradient_accumulation={gradient_accumulation}, lr={learning_rate}, optim={optim}")
+    else:
+        per_device_batch_size = args.batch_size
+        gradient_accumulation = 1
+        learning_rate = args.learning_rate
+        optim = "adamw_torch"
+
+    # 8. Calculate eval steps for 0.25 epoch intervals
     steps_per_epoch = len(train_ds) // (per_device_batch_size * gradient_accumulation)
     eval_steps = max(1, int(steps_per_epoch * args.eval_every))
     print(f"Steps per epoch: {steps_per_epoch}, Eval every {eval_steps} steps ({args.eval_every} epochs)")
 
-    # 8. Training Arguments (using SFTConfig for trl 0.12.0+)
+    # 9. Training Arguments (using SFTConfig for trl 0.12.0+)
     training_args = SFTConfig(
         output_dir=args.output_dir,
         per_device_train_batch_size=per_device_batch_size,
         gradient_accumulation_steps=gradient_accumulation,
         num_train_epochs=args.num_epochs,
-        learning_rate=args.learning_rate,
-        optim="adamw_torch",
+        learning_rate=learning_rate,
+        optim=optim,
         weight_decay=0.001,
         logging_steps=10,
         bf16=True,  # Enable bfloat16
@@ -267,16 +295,16 @@ def main():
         packing=False,  # Set to True if you want to pack multiple short sentences into one sequence
     )
 
-    # 9. Create perplexity callback
+    # 10. Create perplexity callback
     ppl_callback = PerplexityCallback(
         tokenizer=tokenizer,
         val_sentences=all_val,
         output_dir=args.output_dir,
-        batch_size=16,
+        batch_size=4 if is_70b else 16,
         max_length=args.max_seq_length,
     )
 
-    # 10. Initialize Trainer
+    # 11. Initialize Trainer
     trainer = SFTTrainer(
         model=model,
         processing_class=tokenizer,
@@ -290,7 +318,8 @@ def main():
     print("Starting Training...")
     trainer.train()
 
-    # 11. Final summary
+    # 12. Final summary
+    ppl_after = None
     if all_val:
         model.eval()
         print("\nCalculating final perplexity...")
@@ -299,6 +328,27 @@ def main():
         print(f"Best perplexity during training: {ppl_callback.best_perplexity:.2f}")
 
     print(f"\nBest model saved to {args.output_dir}")
+
+    # 13. Log results to shared results file
+    results_file = Path("/data2/brain2text/finetuned_llms/finetuning_results.jsonl")
+    result_entry = {
+        "timestamp": datetime.now().isoformat(),
+        "model_name": args.model_name,
+        "output_dir": args.output_dir,
+        "transcript_files": args.transcript_files,
+        "num_epochs": args.num_epochs,
+        "learning_rate": learning_rate,
+        "batch_size": args.batch_size,
+        "seed": args.seed,
+        "train_samples": len(all_train),
+        "val_samples": len(all_val),
+        "baseline_ppl": round(ppl_before, 2) if ppl_before else None,
+        "final_ppl": round(ppl_after, 2) if ppl_after else None,
+        "best_ppl": round(ppl_callback.best_perplexity, 2) if ppl_callback.best_perplexity < float('inf') else None,
+    }
+    with open(results_file, "a") as f:
+        f.write(json.dumps(result_entry) + "\n")
+    print(f"Results logged to {results_file}")
 
 if __name__ == "__main__":
     main()
