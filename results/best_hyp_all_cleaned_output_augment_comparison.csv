@@ -1,0 +1,56 @@
+# ERROR ANALYSIS
+# Metric                  LLM Beam Search       RNN Baseline   Difference
+# ----------------------------------------------------------------------
+# Substitutions                       560                545          +15
+# Insertions                           31                 31           +0
+# Deletions                            20                 21           -1
+# ----------------------------------------------------------------------
+# Total Errors                        611                597          +14
+# Hits (Correct)                     8865               8879          -14
+# ----------------------------------------------------------------------
+# WER                              6.47%             6.32%       +0.15%
+#
+# WER ON WORSE TRIALS ONLY (15 trials):
+# LLM WER                         22.70%
+# Baseline WER                     6.38%
+#
+# (Fewer than 50 worse trials, skipping random subset)
+
+
+#
+
+
+
+# (Fewer than 25 worse trials, skipping random subset)
+
+
+#
+
+
+
+# WER ON RANDOM SUBSET OF 10 WORSE TRIALS (seed=42):
+# LLM WER                         22.11%
+# Baseline WER                     6.32%
+#
+# RANDOM 10 SUBSET INDICES (10 trials):
+332 336 343 380 381 385 483 522 530 542
+#
+# WORSE TRIAL INDICES (15 trials):
+332 336 343 380 381 385 430 432 435 483 522 530 542 868 1391
+#
+id,llm_wer,baseline_wer,category,ground_truth,llm_prediction,baseline_prediction
+332,0.17,0.08,WORSE,this is the price paid for counting eggs rather than chicken embryos,this is the price paid for counting is rather than chicken habeas,this is the price paid for counting eggs rather than chicken habeas
+336,0.14,0.0,WORSE,a dog is featured below the text,a dog is pictured below the text,a dog is featured below the text
+343,0.38,0.0,WORSE,and hurricane jose had not turned north yet,and oregon also had not turned north that,and hurricane jose had not turned north yet
+380,0.27,0.18,WORSE,pasquale thinks a similar argument should be made for search engines,swell things a similar argument could be made for search engines,swell things a similar argument should be made for search engines
+381,0.44,0.11,WORSE,the hercules and rainbow stag beetles are highlights here,the hercules and rebel stack models are headlines here,the hercules and rainbow stag beetles are headlines here
+385,0.08,0.0,WORSE,which amiga games impressed you in terms of gameplay or technical tricks,which amiga games impressed you in terms of gameplay or technical trick,which amiga games impressed you in terms of gameplay or technical tricks
+430,0.3,0.1,WORSE,there are no more vehicle tokens spread across the map,there are no more vehicle talking straight at the map,there are no more vehicle tokens spread out the map
+432,0.22,0.0,WORSE,nevertheless i roll my eyes as i get up,nevertheless i grow my house as i get up,nevertheless i roll my eyes as i get up
+435,0.22,0.11,WORSE,they send off emissaries to start new cancer colonies,they said of emissaries to start new cancer colonies,they set off emissaries to start new cancer colonies
+483,0.67,0.33,WORSE,ice hairs blooming coming opinion take,i have been coming a take,is blooming coming opinion take
+522,0.11,0.0,WORSE,details of this plot were reported two years ago,details of this plant were reported two years ago,details of this plot were reported two years ago
+530,0.08,0.0,WORSE,a man with a small pension is a ward of the government,a man with a small person is a ward of the government,a man with a small pension is a ward of the government
+542,0.11,0.0,WORSE,the small pup gnawed a hole in the sock,the small pup tore a hole in the sock,the small pup gnawed a hole in the sock
+868,0.22,0.11,WORSE,do you know that i've never seen a monkey,do you know that have never seen a puppy,do you know that i've never seen a puppy
+1391,0.22,0.0,WORSE,my father is the man in the corduroy jacket,my father is the man in the garden dragon,my father is the man in the corduroy jacket

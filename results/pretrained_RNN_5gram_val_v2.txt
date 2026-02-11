@@ -1,0 +1,1426 @@
+0	zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.9989
+1	zsa zsa zsa zsa zsa zsa zsa	0.9527
+2	sure jacques chirac	0.4216
+3	damping measure measure measure measure measure	0.3994
+4	zhao zhou jack zhang sheesh	0.1381
+5	dhiraj cashmere hammer zhu shirt zhu zhu back	0.5695
+6	zsa zsa zsa zsa zsa zsa zsa jan	0.3919
+7	dear xiao xiao xiao zhu packing	0.2350
+8	garage rab zsa zsa zsa zsa match	0.2907
+9	shenzhen rouge	0.5096
+10	zsa zsa zsa zsa zsa zsa zsa yam	0.3877
+11	zsa zsa zsa catch play pal	0.3320
+12	vision zsa zsa zsa dead	0.6718
+13	garage jam zsa zsa zsa zsa zsa zsa zsa	0.8740
+14	zsa zsa zsa zsa zsa shit	0.4712
+15	giroux azure pleasure	0.2065
+16	zsa zsa zsa zsa zsa zsa zsa zsa azure azure	0.4770
+17	xiao xiao xiao xiao xiao zhu zhu zhu zhu	0.8646
+18	zsa zsa zsa zsa zsa raj	0.9483
+19	which azure azure which	0.4512
+20	zhang shocking josh zhang xuan xuan am	0.2052
+21	patch zsa zsa zsa zsa zsa zsa zsa zsa ham	0.2614
+22	shape zsa zsa zsa zsa zsa zsa	0.9857
+23	rip im sure hack	0.2864
+24	cam such measure cam	0.1261
+25	zhao zhou xuan	0.7636
+26	like measure	0.2588
+27	imam chuck zsazsa chair beige	0.2496
+28	heywood collage	0.3382
+29	chao xiong zhao or xiao xiao zhu zhu zhu	0.6352
+30	zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.9983
+31	a pleasure zsa zsa zsa zsa zsa zsa zsa	0.7445
+32	dr zsa zsa zsa	0.2745
+33	zsa zsa kill cam	0.3504
+34	vim xiao zhu zhu premier zhao ziyang zhang zhang xiao zhu	0.6157
+35	persian cashmere shawl	0.5286
+36	am xuan zhang qin zhou asia zhu qing	0.2715
+37	sram giroux measure	0.8912
+38	zhang sheng xiao xiao xiao xiao xiao zhu zhu	0.6924
+39	closure they are	0.1768
+40	version xiao xiao zhang zhou xiao zhou up	0.1327
+41	you're sugar jacque measure mash	0.1366
+42	der zsa zsa zsa zsa zsa zsa zsa beige	0.8134
+43	rouge xio ever zhou xiao xiao	0.0759
+44	zhao zhou zsa zsa lacking	0.2088
+45	fetch asia pay pal would	0.3991
+46	zhang sheng zhu zhu zhu zhu zhu	0.1582
+47	vouch wolf zsa zsa zsa	0.3018
+48	patch would mishmash	0.1794
+49	pearl zhu zhu zhu zhu	0.3538
+50	gore pleasure	0.4240
+51	azure azure azure	0.4852
+52	azure joy pier	0.4393
+53	zsa zsa zsa zsa zsa zsa zsa	0.9319
+54	zsa zsa xuan zhou xiao min zhu zhu h	0.2815
+55	zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.6403
+56	xiao feng zhang zhou share in	0.0763
+57	version azure azure azure hue	0.6915
+58	zsa zsa zsa cham	0.9362
+59	da zhang xiao shi	0.3924
+60	the zsa zsa zsa zsa zsa bashing you	0.1516
+61	zhao chang zhao zhao zhao	0.1589
+62	xiao zhu zhu zhu zhu push	0.5547
+63	lao zhang xiao xiao lin xuan xuan zhang sha sha	0.2579
+64	peer peer sure xiao azure xio xio	0.2633
+65	zhang zhou beige rouge rouge	0.5455
+66	zhu zhu zhu yan zhu	0.2994
+67	ish asia asia asia asia asia persia	0.5572
+68	give hashish raj	0.2672
+69	zsa zsa zsa zsa zack zhang slash	0.4021
+70	zsa zsa crack zsa zsa zsa	0.4955
+71	zhang zhu as am	0.1703
+72	zsa zsa zsa zsa raj	0.7776
+73	who is azure azure azure	0.1954
+74	zsa zsa zsa zsa kim zsa zsa zsa zsa zsa	0.6454
+75	parish man they'll kill	0.1865
+76	gilles mac zsa zsa zsa	0.2401
+77	in zsa zsa zsa zsa zsa	0.9999
+78	reischauer zhu zhu zhu parisian am	0.1589
+79	xiao xiao xuan zhang shrill transient	0.4594
+80	da zhao chang zhou zhou qi	0.2198
+81	give sure zsa zsa zsa	0.1804
+82	xiao xiao shrine xio xio	0.3473
+83	zhou xiao zhang xuan zhang zhao	0.2027
+84	zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.9993
+85	zsa zsa zsa back	0.6316
+86	azure rouge for zsa zsa zsa hack slash	0.2320
+87	zhao zhang zhou zhou rape azure azure pain	0.1457
+88	mirage rouge ravage	0.3963
+89	xuan zhang zhang xiao xiao xuan zhang h	0.4509
+90	vere measure net	0.6554
+91	xuan zhang zhou up zhou xuan zhang zhao roesch	0.2839
+92	pam clear azure azure azure edge	0.1848
+93	the jacque zsa zsa zsa zsa zsa zsa	0.9294
+94	jacque jacque zsa zsa up azure azure zsa zsa zsa	0.3056
+95	im zsa zsa zsa zsa	0.9566
+96	japan should azure azure raj	0.5942
+97	h azure azure azure which zhu	0.3602
+98	jack rouge church zsa zsa zsa zsa	0.3617
+99	jacque zsa zsa kilgore	0.2933
+100	dosh rush rouge rouge	0.4657
+101	zsa zsa zsa zsa zsa zsa zsa zsa zsa ash	0.8117
+102	vision should jack rouge	0.2727
+103	zsa zsa zsa zsa zsa zsa zsa	0.9998
+104	cham zsa zsa cashmere	0.5576
+105	xiao zhu am zhang xiao xiao i am	0.5515
+106	zsa zsa zsa zsa zsa zhang h	0.2840
+107	raj raj shah zhang zhao zhou	0.0822
+108	azure azure keep measure measure	0.4782
+109	risk should azure show pip rouge	0.1410
+110	lin zhao zhao	0.2241
+111	zsa zsa zsa zsa may	0.6492
+112	xiao zhang parish zhu zhu zhu zhu zhu zhu zhu zhu	0.2830
+113	oi azure cache a min	0.1531
+114	oi zsa zsa zsa	0.9659
+115	hui zhao zhao zhou zhou rattan	0.1068
+116	zsa zsa zsa raj up zsa zsa	0.4816
+117	xiao jia xiao xiao yi car	0.2539
+118	sram sram chuck	0.4652
+119	here azure azure azure	0.4476
+120	tania jacque jacques asia	0.1112
+121	zhang xiao xiao xiao xiao xiao xiao zhang min	0.2485
+122	up zsa zsa zsa zsa	0.9784
+123	pleasure ma'am zsa zsa zsa zsa	0.6541
+124	shrek persia maplewood	0.4470
+125	zsa zsa zsa zsa zsa sam up xuan yu	0.2069
+126	raj raj i can hear zsa zsa zsa	0.7121
+127	dagenais you lack vision you	0.2438
+128	zhang zhou zhou zhou zhou mitten	0.1258
+129	would xiao xiong sheng xiao	0.2370
+130	zhou jack zhao xiao qin xiao xiao xiao	0.1482
+131	the zhu zhu zhu or zsa zsa zsa zsa	0.1962
+132	color measure raj azure measure raj	0.4216
+133	chip rouge	0.9220
+134	here xiao xiao xiao measure pass	0.6138
+135	vision azure azure in shape azure azure azure	0.8617
+136	zhu zhu zhu	0.7737
+137	mitten zsa zsa	0.3278
+138	zhou xiao zhang ver	0.8601
+139	jacques chirac film dagenais	0.1080
+140	sam zhang taj jacque zhao j	0.1590
+141	zhou xiao qin zhou and azure azure	0.3329
+142	zhu zhu zhu zhu mitnick rouge	0.1127
+143	depth ching zhu zhu zhu zhu zhu	0.9497
+144	zsa zsa zsa h	0.7276
+145	zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.9997
+146	rouge rock fan	0.3244
+147	zhou zhou xiao che woody ash josh moon	0.2458
+148	their chairman jacques	0.1065
+149	zsa zsa zsa zsa zsa zsa zsa zsa malin	0.4924
+150	xiao xiao zhu zhu cashmere	0.1778
+151	bash xiao xiao xiao xiao xiao zhu zhu	0.2054
+152	weapon should fish	0.4545
+153	cham zhao zhou ran	0.2482
+154	vim zhu zhu zhu xi zhu xiao zheng xuan	0.1588
+155	zhu yan zhu zhu zhu marsh asia zsa zsa zsa	0.3029
+156	zhengzhou rouge map sample	0.2053
+157	zsa zsa zsa zsa zsa	1.0000
+158	azure measure	0.2246
+159	zsa zsa zsa h	0.5674
+160	zhao zhao zhang zhang xing	0.1805
+161	azure zhang	0.6365
+162	azure azure azure arch	0.4319
+163	der xiao xiao xiao show she can	0.3393
+164	zsa zsa gabor	0.2649
+165	zsa zsa zsa	0.9973
+166	we're zsa zsa zsa zsa zsa l	0.1747
+167	zhang zhao zhou lin zhao zhou	0.1901
+168	azure xio shirt	0.1536
+169	da zhao zhao zhang zhao et al	0.1898
+170	zsa zsa zsa zsa zsa zsa zsa zsa zsa am	0.5153
+171	xiao zhu zhu zhu zhu	0.3175
+172	the xiao zhang xiao zhou paragraph	0.1637
+173	leo zhang xiao q	0.2167
+174	measure year	0.4389
+175	punch pleasure kick	0.1912
+176	map alabama zhengzhou church rally azure	0.1311
+177	dr qin zhou zhou zhang zhou shosh	0.3349
+178	zhang shoot and pam zhang zhang repair	0.2081
+179	azure azure azure azure	0.9999
+180	pap rehash zhao ziyang shan zhang measured regime	0.3570
+181	in zsa zsa zsa zsa zsa zsa zsa zsa lie	0.1262
+182	measure zhu zhu zhu zhu xi zhao xiao xiao che	0.2051
+183	hren zsa zsa zsa zsa zsa zsa	0.1778
+184	al gore jacque zhu zhu raj	0.1152
+185	occasion joie parish jean-pierre	0.5765
+186	zhou xuan xuan xuan zhang xiao xiao xiao yi	0.2107
+187	dosh potion shop girl	0.5171
+188	dark azure raj	0.5861
+189	sharp zhu zhu zhu am	0.2969
+190	dark azure from zsa zsa zsa zsa zsa	0.5740
+191	zsa zsa zsa zsa zsa zsa zsa	0.9454
+192	cheddar jacques zsa zsa zsa zsa	0.2992
+193	zhou xiao xiao xiao xiao xiao des rouge	0.3362
+194	josh who zsa zsa zsa	0.5896
+195	taj cashmere jesuit rouge	0.7153
+196	vision cherish zhengzhou rouge	0.4157
+197	ash garage wood trim	0.3701
+198	ash xuan xiao xiao xiao xiao xiao zhu zhu zhu	0.7085
+199	rich ashmore zsa zsa zsa zsa	0.4764
+200	zhu zhu zhu zsa zsa	0.2270
+201	the zhou zhang zhang xiao ram xiao yao k	0.3404
+202	would my garage sure xiao xiao xiao dead	0.2041
+203	raj zsa zsa zsa zsa zsa zsa	0.7456
+204	outage azure lash	0.1500
+205	dar mac	0.2964
+206	vision zsa zsa zsa zsa zsa zsa zsa	0.4776
+207	zsa zsa zsa zsa zsa zsa zsa	0.9011
+208	xiao xiao xiao xiao zhang sha zhou at	0.2013
+209	zsa zsa zsa zsa zsa zsa zsa	0.9832
+210	azure ham zhu zhu make rouge	0.1584
+211	vision of gilmour	0.9977
+212	azure or azure lash	0.2754
+213	josh ham	0.1855
+214	dark beige cashmere	0.6407
+215	zsa zsa zsa zsa zsa zsa zsa zsa pan	0.1254
+216	dram zhu zhu zhu hash value rim	0.5619
+217	zsa zsa zsa zsa zsa zsa zsa zsa zsa ram	0.4721
+218	zsa zsa zsa zsa sure	0.6216
+219	azure azure azure project	0.7444
+220	zhang xuan sham xiaoping	0.3950
+221	zhao zhu zhu zhu zhu zhu	0.2260
+222	would back in zsa zsa zsa where they	0.2417
+223	xiao xiao xiao xiao xiao xuan	0.2926
+224	arch porn should	0.2777
+225	zhu zhu had rouge	0.1239
+226	garage fashion zsa zsa zsa zsa of zsa zsa	0.3988
+227	he ran xiao xiao xiao zhou cheng xiao xiao	0.2402
+228	vision xiao xiao zhang xuan zhang zhang zhou zhou	0.1476
+229	would john zhang zhang zhang zsa zsa zsa car	0.2564
+230	woody ash xiao xiao shi	0.0990
+231	min zsa zsa zsa zsa john gilmour zsa zsa	0.6358
+232	would zsa zsa zsa ship	0.3751
+233	zsa zsa zsa zsa taj	0.7952
+234	azure azure azure	0.8540
+235	incursion ship deck	0.2732
+236	zhang zhou cortege such	0.1958
+237	zsa zsa zsa zsa zsa maj am sam	0.3434
+238	zsa zsa zsa zsa zsa zsa zsa zsa marsh	0.4163
+239	zsa zsa zsa zsa zsa map rouge	0.9026
+240	zhengzhou rouge	0.2937
+241	ari ashe azure shen zhou xuan zhang xiao xiao	0.4377
+242	would help	0.7821
+243	zsa zsa zsa zsa zsa zsa	0.6427
+244	azure azure shell	0.7047
+245	r raj zhang asia zhang zhang	0.2117
+246	zsa zsa zsa zsa zsa zsa	0.9965
+247	zsa zsa zsa zsa zsa zsa	0.9576
+248	zsa zsa zsa zsa care	0.5120
+249	zsa zsa zsa zhou mash	0.6063
+250	three more shopping	0.4971
+251	the zhu zhu zhu zhu zhu zhu ensure urge	0.1680
+252	zsa zsa zsa zsa zsa marin	0.2442
+253	ashes to ashes	0.5565
+254	zsa zsa zsa zsa zsa zsa zsa ham i can	0.2778
+255	zsa zsa zsa h	0.2933
+256	zsa zsa mosher osh	0.1896
+257	raj raj	0.9912
+258	xiao zhu zhu put xiao zhu zhu	0.4470
+259	like zsa zsa zsa zsa	0.2255
+260	sram schmidt on xiao xiao yan zhu	0.1350
+261	pittman xiao rouge	0.1523
+262	zsa zsa zsa zsa zsa zsa k	0.4070
+263	are azure azure sam	0.5606
+264	zhao zhou persia or azure finish	0.1392
+265	xiao yao xiao xiao xiao	0.4804
+266	zsa zsa zsa zsa zsa zsa zsa	0.4723
+267	measure measure measure	0.7672
+268	the zsa zsa zsa zsa zsa get up	0.2153
+269	yup zsa zsa zsa zsa	0.7692
+270	xiao xiao zhu zhu attached	0.2760
+271	zhu zhu hash zhang	0.6693
+272	zhou zhou ping	0.1937
+273	in zsa zsa zsa zsa zsa	0.3881
+274	vision am sure zhao zhou zhao zhou	0.4243
+275	arm zsa zsa zsa mitt invasion ash	0.3656
+276	der zsa zsa zsa zsa zsa oop i chip	0.2012
+277	garage the zhou occupy cham chu in	0.1614
+278	kim regime dip	0.2821
+279	zhu zhu zhu	0.1766
+280	zsa zsa zsa zsa zsa it	0.7555
+281	beijing han surer zhang l	0.1964
+282	xiao xiao xiao clan zsa zsa zsa zsa raj	0.1802
+283	jacques yao zhou zhao zhou	0.1458
+284	xiao xiao lin xiao xiao liu	0.2587
+285	work zsa zsa zsa zsa zsa zsa zsa zsa	0.3336
+286	ash zhang xuan zhang xuan xuan	0.3194
+287	xiao xiao xiao qing xiao jin zhu zhu	0.1319
+288	fu measure azure azure azure show zhang zhou fish	0.1857
+289	rouge up right now zsa zsa	0.4839
+290	team zsa zsa	0.1931
+291	zsa zsa zsa raj	0.5944
+292	zhang measure measure measure measure raj	0.4251
+293	am charge each azure azure xiao zhu zhu persia	0.1174
+294	zsa zsa zsa zsa zsa zsa zsa xio xio xio xio	0.5587
+295	would xiao xiong shi	0.1819
+296	mac zsa zsa zsa zsa zsa	0.3558
+297	zhao ziyang sam	0.3008
+298	cashmere	0.7677
+299	dagenais zsa zsa zsa zsa	0.9352
+300	asia gilmour zsa zsa zsa zsa zsa zsa rouge	0.4000
+301	if you are kim	0.8060
+302	lingerie jacque xiao xiao zhu sasha match	0.1058
+303	vision how much surer	0.7896
+304	the zhang zhang zhang rucksack	0.5763
+305	zhang xiao xiao i am	0.1460
+306	chitwood zsa zsa zsa zsa zsa	0.4672
+307	jacques gilles e o jacques gilles	0.3075
+308	zsa zsa zsa zsa zsa zsa zsa	0.9424
+309	zsa zsa zsa zsa zsa zsa zsa h	0.3066
+310	zsa zsa zsa zsa zsa h	0.7901
+311	dark azure azure hey ash sharp	0.3987
+312	measure zsa zsa zsa	0.4278
+313	i use azure rouge could you	0.3280
+314	zhang xiao xiao xiao xiao in	0.4303
+315	xiao xiao cashmere look	0.1807
+316	zhang zhou zhou zhou zhou scallop xiao che	0.4229
+317	sasha zhou hash zhou qi zhou	0.3300
+318	persia charge mh	0.3781
+319	jam access zsa zsa zsa	0.5437
+320	joyce kim schmal zsa zsa zsa zsa raj	0.6906
+321	zsa zsa zsa zsa cashmere	0.7387
+322	cashmere hangul	0.8952
+323	frank zsa zsa zsa zsa	0.2714
+324	zhang sheng zhu zhu zhu zhu zhu zhu	0.7406
+325	ash pond zhao ziyang dev collision repair zsa zsa zsa	0.2304
+326	zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa roy passion jacque	0.1526
+327	xiao xiao xiao luo xiao xiao	0.5704
+328	vision zsa zsa zsa sam crook zsa zsa zsa of persia azure azure raj	0.1959
+329	measure u zsa zsa zsa patch zsa zsa zsa raj	0.9622
+330	vision xiong zhao cashmere beige	0.2452
+331	taj would appear on zhang zhao	0.1779
+332	dear zsa zsa zsa zsa zsa upjohn zsa zsa zsa zsa zsa clear	0.1629
+333	sarkisian zsa zsa zsa zsa lacking zsa zsa zsa zsa raj raj	0.3070
+334	vision rouge sure zsa zsa zsa	0.6446
+335	azure division chimed zsa zsa zsa zsa zsa zsa zsa zsa hey up	0.5433
+336	zsa zsa zsa zsa zsa zsa r	0.3364
+337	measure measure measure zsa zsa zsa	0.8852
+338	zhang zhou xiao zhu zhu shan version zhu jam cherry pick	0.2220
+339	do it in zhang xiao zhu zhu zhu troop in zhang xiao zhu zhu zhu	0.4766
+340	measure zsa zsa zsa zsa zsa zsa measure janelle	0.1171
+341	gaw zhang xiao xiao xiao dare they	0.2166
+342	zhu zhu mature and azure arc zhu zhu zhu m	0.3543
+343	measure measure measure measure measure measure up wash	0.8281
+344	zsa zsa zsa zsa jam rouge rouge rush apple flash	0.2215
+345	zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa challenge zsa zsa	0.4522
+346	xio xio xio xio q xiao liu	0.2939
+347	zhang rouge rouge regime patch russia asia zhang zhao	0.1874
+348	draft xiao xiao xiao xiao patch	0.6850
+349	zsa zsa zsa raj	0.3860
+350	moore xiao xuan zhang xiao xiao	0.1045
+351	zsa zsa zsa zsa zsa zsa min	0.2015
+352	although zsa zsa zsa zsa	0.5702
+353	xiong xiong xiong xuan xuan xuan yea rouge	0.4756
+354	dagenais composure measure azure azure	0.2093
+355	zsa zsa zsa zsa zsa zsa zsa	1.0000
+356	azure back xiao xiong zhao zhou pulled up	0.1360
+357	zhu am zhu zhu zhu qing	0.1846
+358	rouge kirin zsa zsa zsa zsa rouge	0.4255
+359	up azure m sram	0.1780
+360	the zhang xiao xuan zhang xiao liu	0.3937
+361	vacuum zsa zsa zsa pri shares am	0.2333
+362	legette xuan zhang h	0.8235
+363	jacques is sure patch	0.2370
+364	asia cup match persia pattern	0.8074
+365	zsa zsa zsa zsa zsa	0.7368
+366	vision gilmour alloy iq	0.2484
+367	zsa zsa zsa zsa zsa zsa	0.8744
+368	workshop critic	0.3442
+369	zsa zsa zsa zsa zsa zsa lash	0.6216
+370	zhang chao zhou q	0.2508
+371	zsa zsa zsa zsa zsa zsa	0.4652
+372	memory azure rouge members azure azure	0.3908
+373	vicky zhao zhao zhou ming zhou chao xiong zhao	0.1924
+374	zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.8463
+375	dr raj zsa zsa zsa zsa zsa m	0.1540
+376	zsa zsa racketeer up zhang xiao li zhou zhou zhou xiaoping aqua zsa zsa zsa zsa	0.3589
+377	dear zsa zsa zsa you hash	0.2231
+378	amraam and azure azure rouge	0.2165
+379	zsa zsa zsa zsa zsa zsa zsa zsa check	0.5401
+380	large version zsa zsa zsa flash chiller asia pleasure match	0.3600
+381	azure stack azure cheaper azure raj que jacques yip	0.2168
+382	zhou have azure lam zhou zhou ping zhu or rouge	0.1551
+383	zhao chip zhao zhao rock chip in	0.2557
+384	damn yeah cheer up in zsa zsa measure measure measure measure	0.1950
+385	zhang measure yelp rouge would you like xiao xiao jie jack zhao persia	0.1359
+386	the wrong zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.3082
+387	zhou xiao zhang zhao your measure measure measure measure measure measure	0.1691
+388	cham cham jack zhou jack lam zhou	0.1839
+389	zsa zsa zsa zsa version	0.4070
+390	azure azure azure azure from azure azure azure azure	0.7259
+391	hashem zsa zsa zsa champagne zhang zhao raj hoosier like	0.3389
+392	zsa zsa zsa zsa zsa	0.9508
+393	zsa zsa zsa zsa zsa zsa zsa zsa zsa le cher	0.3040
+394	a measure measure measure	0.3888
+395	vision shake asia asia cam	0.1929
+396	zsa zsa zsa zsa zsa zsa zsa	0.9837
+397	punish zhao ziyang of zsa zsa girl	0.2956
+398	zsa zsa zsa zsa rami people	0.1646
+399	xiong xiong xiong vision change asia jacque zhou	0.2043
+400	measure measure measure	0.8664
+401	zsa zsa shane zsa zsa zsa zsa	0.6712
+402	aisha patch patch patch zhang zhao	0.5190
+403	visually pleasure in zsa zsa zsa zsa zsa zsa you	0.7446
+404	zsa zsa zsa zsa zsa zsa rouge	0.8687
+405	zhou xiao zhao chang zhou j am	0.1770
+406	i hope joie jacques measure mitt zsa zsa zsa zsa	0.3357
+407	zsa zsa zsa zsa	0.8658
+408	zsa zsa zsa zsa zsa measure	0.9890
+409	zhu zhu zhu zhu zhu jam jam	0.4824
+410	air coin zsa zsa zsa zsa	0.3544
+411	vision zsa zsa zsa	0.8072
+412	zsa zsa zsa zsa	1.0000
+413	vision should zhu zhu zhu return	0.2393
+414	zhu rash picking	0.1542
+415	vision genre	0.9064
+416	zsa zsa zsa flash version royale ham	0.3101
+417	zsa zsa qin xiao zhang xiao	0.1832
+418	zsa zsa zsa zsa zsa	0.7066
+419	lore zhao zhang qin zhou	0.1188
+420	zsa zsa zsa zsa zsa zsa zsa zsa	1.0000
+421	jourdan genre	0.6332
+422	zhu yu zhu zhu zhu zhu	0.2287
+423	hue zsa zsa zsa zsa zsa jacque zsa zsa	0.1802
+424	xiao zhu zhu zhu zhu zhu zhu	0.8837
+425	xiao xuan xuan zhang xiao zhang xiao xiao xiao	0.1573
+426	azure shack pull zhang zhou xiao rouge	0.4833
+427	marjoram zsa zsa zsa zsa zsa	0.4611
+428	cashmere zhu zhu airship zhao zhao taj collage	0.3254
+429	premier zhou xiao xiao xiao xiao roy rouge	0.2099
+430	dapp persia zhou jack jean-pierre persia azure beige	0.2619
+431	the zsa zsa zsa zsa zsa zsa zsa massage	0.4019
+432	that xiao zhang xiao xiao xiao xiao xiao zhang zhao	0.2872
+433	excursion ship shenzhen asia palace am	0.1567
+434	package premier zsa zsa zsa shenzhen beige	0.1729
+435	zsa zsa zsa less pure zsa zsa zsa q	0.6653
+436	zhao jack zhu zhu zhu zhu raj up zhang ye persia persia persia	0.5741
+437	april azure azure xiao xiao xiao jack zhu shan xiao xuan zhang xiao xiao	0.6951
+438	zhou zhou am sure would zsa zsa zsa zsa zsa catch	0.4343
+439	xio xio xio scratch demo xiao rupture q	0.6112
+440	raj asia pleasure cashmere zsa zsa zsa zsa reappear zsa zsa zsa shin	0.4837
+441	ab genre zsa zsa sam zhou zhang xiao cheng	0.2496
+442	measure rouge lash	0.7261
+443	zsa zsa zsa gin measure measure measure up azure rouge	0.4132
+444	version zsa zsa like sam zhu zhu kai zhu	0.2688
+445	zhao chuang zhao zhao zhao zhao	0.1592
+446	zsa zsa zsa zhang measure up	0.8830
+447	zhang yan zhang chuck zhang xiao xiao	0.2129
+448	zsa zsa pleasure pleasure ayyash edge	0.1219
+449	zhao jie zhao jin zsa zsa zsa zsa	0.1412
+450	darpa zhou xiao min rush	0.1359
+451	xiao xiao xiao xiao xiao	0.6253
+452	lam wretch	0.1952
+453	azure azure azure azure pay up azure azure azure	0.9251
+454	raj would cameo zhu shan	0.3662
+455	civic zsa zsa zsa zsa zsa she	0.5797
+456	darla pippin zsa zsa zsa	0.6396
+457	vision zsa zsa choi azure zsa zsa raj	0.2933
+458	azure azure asia asia	0.6473
+459	jun zhang zhou xuan xuan zhang xiong genre zhou	0.2474
+460	zhu zhu pet back in	0.1825
+461	that zhu am	0.2411
+462	zhou zhang zhao zhou zhang r	0.1791
+463	xio ash sham xio rouge	0.1763
+464	r zhao zhou zhou shen zhou measure measure measure	0.2473
+465	zsa zsa zsa zsa zsa zsa ham zhang measure	0.1516
+466	zhu min zhu zhu zhu zhu	0.2110
+467	erik zhang zhao zhang shi	0.0748
+468	raj raj pick zsa zsa zsa zsa zsa	0.3976
+469	version more hash power make	0.1954
+470	giron zhang zhou cashmere azure	0.2240
+471	zhou fusion cashmere or zhou q	0.4632
+472	raj koch zsa zsa zsa zsa	0.3986
+473	zack zhang massage piaget rouge par blackjack	0.1893
+474	roy persian zsa zsa zsa zsa	0.5693
+475	can she back which cash	0.1036
+476	jesuit jacques huge ramps as you like it	0.2195
+477	zhang ye zhang xiao feng xiao xiao raj	0.1783
+478	asian jacques asian zhou give am	0.2789
+479	zhang xiao min zhao zhang lam zhou	0.6931
+480	parmalat xiong zhao raj	0.4543
+481	occasional jacque gilmour xiao liu	0.2290
+482	airship jacque rouge am	0.4987
+483	xiao zhang lin zhang lin zhang damage	0.1972
+484	la rouge cashmere jacques jacque measure measure	0.4314
+485	persian azure azure raj shown	0.3702
+486	raj lin zhang xiao qin zhou	0.0654
+487	rock genre pier chairman zhu pack	0.1123
+488	champ jack zhang rouge lamp church	0.6736
+489	vision are like am	0.6568
+490	zsa zsa zsa zsa zsa qin zhou zsa zsa zsa	0.6554
+491	zsa zsa zsa zsa zsa zsa zsa zsa	1.0000
+492	sharon zhao zhao asia asia asia raj raj	0.2041
+493	measure xiao zhou flash	0.1638
+494	they choose azure azure zsa zsa zsa zsa	0.8515
+495	cashmere xiao xiao xiao xiao xiao xiao zhu hash	0.5678
+496	cash xio zsa zsa zhu zhu have cash	0.5038
+497	here zhao zhao ziyang zhao zhao zhang zhao	0.2836
+498	they envision zhou pitch vision h	0.2568
+499	rouge hush hush up zhang shi shi	0.1951
+500	zhang zhang zhao philip zhao	0.2747
+501	zhu zhu zhu jack jack zhu	0.9516
+502	bougie zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.4033
+503	shrill zhao zhu zhu zhu zhu zhu zhu	0.6055
+504	der zhu zhu pick zhu xi	0.2136
+505	zhao ziyang shan	0.1878
+506	vic zhao zhang yan zhou zhang xuan zhang h	0.3326
+507	xiao zhou xiao qing xiao zhu zhu zhu zhu	0.1669
+508	lam rouge in azure rash xiong zhao	0.3009
+509	parisian passion zsa zsa zsa	0.3233
+510	in azure azure zsa zsa azure rouge	0.5007
+511	viv sure persia rouge	0.2725
+512	asia reader zsa zsa zsa zhu zhu zhu h	0.3646
+513	zsa zsa relish zsazsa shaq zhu zhu persia camp in zhengzhou match	0.1176
+514	schuck zsa zsa zsa depaolo is zsa zsa	0.1957
+515	the zsa zsa zsa	0.5468
+516	zsa zsa zsa zsa posh hacking nam cha schenk zsa raj	0.1549
+517	damn pleasure royale	0.0960
+518	xiao xiao xiao xiao xiao parisian zhu zhu zhu zhu rouge	0.4026
+519	measure measure measure measure measure up zhengzhou zhengzhou	0.1506
+520	zhou zhou chin zsa zsa zsa zsa shen zhou	0.3915
+521	zsa zsa zsa back	0.9299
+522	shock zsa zsa zsa zsa zsa zsa zsa yang zhu	0.2935
+523	vision racket zsa zsa french zhang sure zsa zsa zsa	0.5338
+524	azure dev team you sure	0.2957
+525	raj ash ash azure matthew azure raj raj	0.4118
+526	harsh zhou kayak zhao ziyang jacques chirac regime xiaoping	0.2074
+527	che xiao zhang jacque r xiao zhang xiao zhu zhu zhu jacques zhang xiao	0.5501
+528	a platinum zhu zhu zhu zhu like zhou zhang xuan yi	0.1476
+529	qin zhou zhou xiao xiao li zhou	0.1655
+530	zsa zsa zsa zsa regime zsa zsa zsa zsa zsa zsa shell	0.5113
+531	dear zsa zsa zsa zsa zsa zsa zsa zsa measure zhang zhao	0.5014
+532	wash zsa zsa zsa zsa zsa zsa zsa zsa flash zsazsa each	0.3265
+533	zsa zsa zsa zsa zsa zsa rouge car	0.3281
+534	zsa zsa zsa zsa zsa jake zsa zsa	0.5311
+535	british zsa zsa zsa zsa zsa jacque	0.2675
+536	future zsa zsa zsa zsa zsa zsa zsa zsa	0.5077
+537	asia asia asia asia xio xio q	0.2466
+538	azure zhu zhu cashmere beige beige	0.6198
+539	azure rouge zhang xiao xiao zhu shan xiao	0.4963
+540	zsa zsa zsa zsa zsa zsa zsa zsa	0.7385
+541	a zhengzhou rich in zhengzhou rich rouge	0.6157
+542	darroch zsa zsa zsa zsa zsa zsa zsa zsa	0.3813
+543	azure measure measure measure measure measure measure edge	0.5392
+544	pour zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.8129
+545	xiao xiao zhu zhu zhu xi zhu zhu xi	0.1488
+546	zhou zhou zhang zhou zhou rong zhang xuan zhou zhou	0.2206
+547	jacque jacque rouge realm azure edge	0.2248
+548	zhu zhu zhu zhu zhu wool cashmere beige	0.4825
+549	zhang zhao champ zhang zhao zhao zhao	0.1506
+550	zsa zsa zsa zsa zsa zsa men	0.3157
+551	pitch where xio xio xio up measure	0.4028
+552	zsa zsa zsa zsa zsa zsa zsa	0.9979
+553	zhu jack zhu patch	0.2539
+554	jacques jacques read jacque	0.3904
+555	zhu zhu pickett shoe zsa zsa zsa zsa	0.3320
+556	zhang sheng zhu zhu zhu zhu zhu zhu up	0.7408
+557	zhao zhou xing	0.4147
+558	vision szymczak raj hoosier jesuit hoosier	0.7498
+559	mirage sham marriage	0.7251
+560	the zhang xiong zhao	0.1265
+561	gilmour then	0.1400
+562	superior beige	0.6600
+563	zsa zsa sam	0.4338
+564	azure rouge chapman zhou rouge	0.1697
+565	pucker jacques rouge sugar kush	0.3880
+566	zhang zhou shen zhou	0.8087
+567	zsa zsa zsa of k	0.7691
+568	dark azure zhao jacque	0.2638
+569	xiao zhu zhu xiao zhu zhu zhu zhu	0.4197
+570	zhang xuan george sha zhou persia	0.4863
+571	garage measure measure measure	0.4171
+572	xuan zhu zhu zhu zhu zhu zhu dear jack zhu	0.4857
+573	zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa	1.0000
+574	zsa zsa zsa zsa zsa	0.9091
+575	zhang zhao zhang should zhang zhang zhao	0.7482
+576	azure azure jacque zhu zhu zhu zhu rouge	0.4213
+577	in zsa zsa zsa zsa zsa al	0.5722
+578	zhu zhu zhu zhu kai zhang zhang zhou appear shy	0.4052
+579	zsa zsa zsa zsa zsa zsa up no more	0.3032
+580	azure zhou xiao xiao coach jacque rouge	0.1764
+581	zsa zsa zsa zsa zsa rouge garage	0.9103
+582	zhu zhu zhu xiao rouge regime	0.2009
+583	cur rouge azure lab zhu zhu zhu rouge rouge	0.5635
+584	right zsa zsa zsa zsa zsa zsa raj raj	0.3321
+585	vision zsa zsa zsa zsa zsa zsa zsa zsa	0.9479
+586	watch zhang yan zhu zhu zhu zhu airship rouge	0.2690
+587	vision zsa zsa zsa zsa zsa persia persia	0.1727
+588	xiao zhang xiao xiao zhang xiao xiao in	0.2522
+589	xiao xiao xiao xiao xiao zhu h	0.5350
+590	zhang zhou rouge regime regime here	0.1617
+591	zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.9856
+592	zsa zsa zsa patch ramp up zsa zsa zsa zsa zsa	0.4641
+593	zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.9674
+594	cashmere zhou zhang zhou zhou up azure measure zhou zhou	0.2995
+595	zsa zsa zsa zsa zsa she should zsa zsa	0.3132
+596	zhu zhu zhu zhu zsa zsa zsa zsa	0.2203
+597	azure edge raj pouch made azure fishery	0.5256
+598	azure occasion xiao xiao xiao xiao xiao xiao	0.7406
+599	dagenais zsa zsa zsa marin giroux	0.3633
+600	shri raj bijur zsa zsa zsa zsa back	0.4496
+601	version in zsa zsa zsa zsa zsa zsa zsa	0.9368
+602	zhu zhu measure measure measure measure hue	0.2768
+603	azure ad ensure azure	0.1699
+604	zhang zhang zhang dead	0.3803
+605	zsa zsa zsa zsa zsa zsa	0.0833
+606	raj k raj raj jackie	0.3304
+607	persian rich yeah chew it nor	0.1681
+608	zsa zsa zsa zsa zsa	0.9900
+609	zhang xuan xuan zhang zhao zhao chuang	0.1336
+610	ranking up parisian rouge	0.1751
+611	zhu zhu zhu pitch zhu zhu asian	0.4271
+612	zhang zhao shi zhao zhou zhang zhou zhang zhao zhao	0.1467
+613	deng xiao xiao xiao xiao rapping	0.3046
+614	real vision should be beige	0.1893
+615	dhiraj elysia pleasure	0.5787
+616	here zsa zsa zsa zsa	0.7038
+617	heywood sheepish zsa zsa	0.1574
+618	lingerie up in	0.3577
+619	alco zhou zhang zhou rouge march	0.0821
+620	zhang lash up zhang zhang zhao	0.1691
+621	raj jacques zsa zsa	0.1475
+622	ashley zhao zhang zhou zhou chuck zsazsa iq	0.2161
+623	version sram	0.0911
+624	here xiao chen xiao xiao xiao	0.3744
+625	garage xuan xuan	0.3229
+626	xuan xuan xuan xiao xiao xiao	0.4609
+627	dear xiao xiao xiao yan xiao xiao	0.5099
+628	zsa zsa rouge and rouge	0.3796
+629	jacque zsa zsa zsa zsa zsa zsa	0.9969
+630	ash zhu zhu zhu zhu zhu	0.7917
+631	zsa zsa zsa	0.7346
+632	xuan zhang xiao zhang xiao xiao	0.2154
+633	lyric cashmere	0.3300
+634	zsa zsa zsa pal zhu zhu	0.7895
+635	dhiraj picking pitch	0.5959
+636	vision zsa zsa zsa zsa zsa zsa	0.9744
+637	zsa zsa zsa zsa pitch	0.4379
+638	jacques zsa zsa zsa edge	0.7824
+639	zhao ji vision zhao zhao zhao	0.3095
+640	zhou fashioned and k	0.2582
+641	zsa zsa zsa zsa pay up you	0.1973
+642	zhu zhu zhu zhu ship	0.4110
+643	ash zhou xiao xiao xiao che	0.2621
+644	version zsa zsa zsa zsa zsa zsa	0.8322
+645	xiao xiao zhu jun zhu up joie zhu	0.3433
+646	xiao zhou ping xiao xiao zhang xiao xiao xiao	0.2599
+647	zhu permit insurer zhu zhu zhu	0.4503
+648	zsa zsa zsa zsa zsa zsa zsa zsa	0.3884
+649	pleasure should enjoy act persia esh	0.3372
+650	zhu zhu zhu zhu zhu zhu	0.7557
+651	zsa zsa cashmere zsa zsa zsa	0.8510
+652	zhou which pleasure	0.2551
+653	xiao xiao xiao shi zhou xiao zhu zhu	0.1170
+654	zsa zsa zsa zsa m	0.2206
+655	jacques raj had zhao zhou backing up azure edge	0.3684
+656	zhou sha zhou xuan zhang xuan yi	0.1207
+657	ratner shelia asia measure	0.1806
+658	zhu zhu zhu zhu zhu zhu	0.9317
+659	xiao xiao xiao li xiao xiao xiao zhang zhang xing	0.5243
+660	jourdan xiao zhang shi zhu zhu	0.2043
+661	zsa zsa zsa zsa zsa zsa zsa zsa zsa	1.0000
+662	xiao zhang trick xiao auch	0.1479
+663	zsa zsa zsa zsa zsa zsa zsa cashmere zsa zsa	0.7425
+664	with zhang zhao xiao	0.2446
+665	raj visuals zsa zsa zsa at n	0.1739
+666	zsa zsa zsa zsa zsa zsa zsa	0.9285
+667	zsa zsa zsa zsa zsa zsa zsa	0.9622
+668	zsa zsa zsa zsa zsa zsa	0.9975
+669	vision zsa zsa zsa zsa zsa zsa	0.6871
+670	zhu zhu zhu zhu zhu zhu zhu zhu zhu	0.9977
+671	harper should zsa zsa zsa zsa up	0.3913
+672	zsa zsa zsa zsa zsa zsa	0.9593
+673	ram xiao xiao xiong zhao zhou ping zhu	0.1144
+674	zsa zsa zsa zsa dead	0.4742
+675	zhu zhu zhu zhu zhu zhu zhu	0.9951
+676	zsa zsa action zsa zsa zsa zsa ridge	0.2276
+677	raj wolf zsa zsa zsa zsa	0.6308
+678	equation zsa zsa ridge	0.2267
+679	rouge hash bash rouge	0.3127
+680	dear xio zhao zhou ping zhu	0.3026
+681	asia zhou oesch	0.2187
+682	alec zsa zsa zsa zsa zsa	0.9716
+683	ash zhou zhou xiao zhu zhu zhu rouge	0.2007
+684	zhu zhu zhu zhu zhu zhu zhu zhu zhu	0.9619
+685	pleasure zhengzhou rationale the zhou	0.2772
+686	rouge lamb in shock as am	0.2540
+687	cashmere bouygues cashmere usher in	0.4654
+688	azure or azure cache measure each	0.1741
+689	coach philip zhao zhao zhao co	0.0982
+690	azure arch ham jacques rouge weapon	0.4068
+691	shin xuan zhang qin xiao xiao jam	0.1709
+692	cho zhou car jack zhang xiao zhu	0.3316
+693	regime ally version was azure rouge rouge	0.2053
+694	george zhao ya shim zhu ban	0.2792
+695	azure azure azure badger sam xiao xiao	0.2061
+696	dejarnette jamming zhou palpable zhang leisure	0.1875
+697	jan zhang xuan zhu chen zhu h	0.1631
+698	zsa zsa zsa rankin zhu zhu	0.5267
+699	asia tour match asian men	0.6708
+700	taj judge zsa zsa zsa zsa	0.7785
+701	leisure il reale al measure rouge	0.6932
+702	regime xio yin shape u	0.1567
+703	xiao xiao zhang yan zhu ich	0.1269
+704	zhang zhou xiao li qin zhou bourgeois rouge rouge	0.1380
+705	draper pollock jacques xiong zhang zhao zhou	0.2028
+706	leisure if zhang xiao xiao xiao xiao rouge rouge rouge	0.1527
+707	deroy carriage hoosier lush am shapes azure mash	0.2096
+708	zsa zsa zsa zsa zsa zsa zsa zsa rash	0.4035
+709	cashmere sam cracking coy	0.2085
+710	dear zhang zhao zhang qi zhou zhou jacques jacques	0.6738
+711	der zhu zhu zhu zhu cashier should play carry	0.5630
+712	vision xiao xiao zhu min zhang zhou zhang zhou	0.4716
+713	hey am sure azure marsh may well	0.5417
+714	dear jacque jacque xio mim	0.2022
+715	cal jam shelia jacque zsa zsa am	0.0836
+716	matthau jacques gilles zsa zsa zsa zsa zsa	0.2980
+717	sieve zhang zhou zhang zhou zhou zhou	0.3981
+718	zsa zsa zsa zsa cheshire	0.6020
+719	rook zhou xiao xiao cham chai rouge rouge regime	0.5588
+720	pam rouge regime pam zhao zhang zhao rouge	0.7607
+721	zsa zsa zsa zsa zsa zsa zsa zsa j	0.5282
+722	zhou cashmere cashmere zhao zhou zhou zhou	0.4262
+723	zhu zhu zhu zhu rouge	0.6920
+724	ruskin haywood planned hoosier gym	0.1852
+725	vision zhou ram zhou xiaoping raj	0.4807
+726	zhu zhu zhu zhu zhu a paper zhu	0.5840
+727	zsa zsa zsa zsa zsa zsa	0.3102
+728	corrosion measure measure measure asia zhou give azure	0.1623
+729	zhang yi xiao xiao qing zsa zsa zsa zsa yan zhao zhao	0.4602
+730	zhang zhou zhou perch zsa zsa zsa cham	0.1700
+731	reykjavik value mirage rich zsa zsa moir	0.2379
+732	zhou zhang xing zhu zhu cam car zhu zhu	0.4802
+733	azure backup like azure	0.3197
+734	ship zhu damn pitch zhu zhu zhu zhu	0.4326
+735	dram zhang xiao xiao zhang	0.1938
+736	shrill xiao xuan xuan xuan	0.3630
+737	azure azure sheepish	0.6339
+738	persia persian sure people	0.2800
+739	zhang zhou pam zhang lin zhu zhu	0.5012
+740	zsa zsa zsa zsa zsa zsa closure	0.2416
+741	bourgeois zhao zhou where they measure	0.0960
+742	zsa zsa zsa zsa you pinch hash	0.3735
+743	jimmy sam	0.5705
+744	pick xiao xiao xuan	0.2748
+745	xiao xiao xiao zhang zhou m	0.3292
+746	zsa zsa zsa zsa qing zhu zhu	0.1660
+747	da zhu zhu zhu zhu	0.2919
+748	xiao zhu zhang zhao q	0.0967
+749	ash asia zsa zsa zsa zsa zsa zsa measure	0.1457
+750	asia xiao xiao xiao	0.3363
+751	lb azure should act	0.0901
+752	here zhao zhou rouge	0.1810
+753	azure azure azure hampshire	0.8287
+754	sac rouge regime rouge like oh yeah	0.1395
+755	zsa zsa journal zsa zsa zsa zsa zsa zsa zsa zsa	0.4335
+756	dear zsa zsa zsa zsa raj	0.2524
+757	eppich jacques xuan jessup zhang xiao che	0.1638
+758	zack zhang zhou zhang xuan xuan xuan zhang zhou	0.4875
+759	ash goddamn jourdan roach	0.2496
+760	collision zhejiang sam pin	0.2995
+761	da yi xuan zhang church h	0.1624
+762	ash zsa zsa zsa zsa zsa zsa zsa zsa raj	0.2395
+763	zsa zsa zsa zsa zsa zsa check wage	0.1847
+764	zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.9999
+765	leisure leisure josh kim xiao xiao xiao	0.6319
+766	zsa zsa zsa zsa zsa zsa	0.9967
+767	a proper measure zhou ping xiao che and xiao xiao	0.1833
+768	zsa zsa zsa zsa zsa zhu choi iq	0.3852
+769	zsa zsa zsa zsa zsa zsa hamm zhang zhao zhou qi	0.3842
+770	coach jack zhang slash	0.2922
+771	hoosier pitch zsa zsa zsa zsa zsa	0.1792
+772	ash yam cha sheng xiao xiao zhu	0.3098
+773	carla xiao zhang philip hue	0.1854
+774	cache cortege zsa zsa	0.3231
+775	gall milk zhu zhu zhu snatcher	0.2208
+776	flash version azure azure azure azure him	0.3757
+777	director jack zhao jack zhang xiao xiao zhao	0.1004
+778	lao zhu zhu zhu pick mirage	0.2195
+779	zsa zsa zsa zsa zsa zsa zsa zsa zsa j	0.6638
+780	tonya plush am sure zsa zsa zsa n	0.1194
+781	zhao zhou zhou edge zsa zsa zsa zsa zsa	0.2114
+782	dupree samuel zsa zsa zsa	0.6989
+783	dear hoosier measure measure measure	0.5791
+784	secure him zsa zsa badger sam	0.4902
+785	drake zhou shen zhang xiao zhang xiao xiao	0.2380
+786	zhao zhang zsa zsa zsa zsa zsa zsa zsa	0.4186
+787	zsa zsa zsa or azure azure shape	0.2561
+788	zsa zsa zsa zsa lived zsa zsa q	0.3409
+789	azure zhou zhou xuan zhang xiao xiao	0.1441
+790	raj should pay them xiao xiao xiao	0.5548
+791	azure azure azure azure	0.7232
+792	zsa zsa zsa zsa zsa zsa	0.5306
+793	gall midge zsa zsa zsa zsa zsa zsa	0.9993
+794	vision xiao zhu zhu zhu zhu cham	0.3170
+795	drill zhao jack p job	0.3586
+796	zsa zsa zsa zsa zsa zsa	0.7995
+797	dan zhang zhao zhou zhao ridge	0.2362
+798	zsa zsa zsa zsa cameo zsa zsa car	0.3727
+799	shaq as azure azure asia asia whip	0.2409
+800	zhou ping zhang shirley zsa zsa zsa	0.1716
+801	zsa zsa zsa zsa raj rookie back in	0.3264
+802	jack zhao zhang ye may appear in	0.2482
+803	zhou bin zhao xiao yi jam	0.2162
+804	zsa zsa zsa zsa future	0.6606
+805	dear leisure lala sham xio xio	0.4392
+806	jim hjelm kim sharon	0.1059
+807	taj raj cashmere zsa zsa zsa cashmere	0.8014
+808	a provision zsa zsa zsa philip	0.3522
+809	dear xiao xiao xiao xiao xiao	0.8042
+810	backpack zhou zhou xiao zhu zhou	0.1708
+811	zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.9730
+812	zsa zsa zsa zsa zsa zsa zsa zsa raj	0.8273
+813	visually rich zsa zsa xiao zhu amnesia zhang zhao	0.3220
+814	zsazsa pup zhao zhou pitch zhang min	0.3513
+815	zhu zhu zhu zhang zhou beige	0.4517
+816	zhu min zhao zhao zhao zhao zhao	0.5242
+817	lao giselle zhu zhu parisian back	0.5223
+818	hoosier rouge roget plan rouge	0.3484
+819	asia zhou char xuan zhang h	0.6563
+820	zsa zsa zsa zsazsa carriage	0.3071
+821	asia measure treasure xio crouch xiao zhang xiao che	0.6650
+822	jacques jean-pierre melville xiao xiao xiao xiao xiao	0.8320
+823	all visuals yep	0.4509
+824	as measure zsa zsa zsa zsa zsa croix rouge	0.1379
+825	xiao xiao xiao zhang xiao rouge zhang xiong rouge	0.2044
+826	amnesia giraud xiao zhu up xiao chen	0.1735
+827	mattern zsa zsa zsa zsa zsa zsa zsa	0.1886
+828	civic zsa zsa zsa zsa zsa	0.3683
+829	room in jacque joie u	0.2221
+830	alec zhou zhang shenzhen zsa zsa at nor	0.4179
+831	raj azure crushing asia azure cashmere	0.2316
+832	remick mosher zhao chu xuan zhou	0.2208
+833	join you on a giroux rouge	0.5677
+834	zsa zsa zsa zsa make xiao xiao	0.2580
+835	gallup xiao xiao xiao xiao min zhou xiao xiao xiao	0.1822
+836	azure azure azure josh zsa zsa zsa azure	0.9416
+837	vision asia version xiao jin zhu pleasure	0.0823
+838	jack zsa zsa zsa zsa esh	0.2782
+839	zhu zhu zhu zhu zhu zhu zhu zhu	0.9891
+840	xiao xiao xiao xiong scram	0.0786
+841	jacques philip zhao zhang xiong chip	0.2242
+842	dash cam vision zsa zsa she	0.4649
+843	zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.9906
+844	asia asia asia asia asia asia asia asia in	0.6264
+845	adagio zsa zsa zsa cashmere beige	0.4797
+846	zsa zsa zsa zsa zsa zsa zsa	0.7165
+847	lao zhou yan zhang xiao zhang should return	0.2941
+848	azure azure cringe zsa zsa zsa zsa zsa zsa	0.5510
+849	gong yan zhu zhu zhu zhu package version zhu	0.5150
+850	vis cheap zsa zsa zsa zsa zsa zsa zsa zsa	0.3405
+851	zsa zsa zsa zsa zsa zsa zsa	0.9898
+852	dirty asian j zsa zsa zsa zsa zsa zsa ham	0.2841
+853	zsa zsa zsa zsa zsa zsa zsa zsa map raj should azure hue	0.4889
+854	dash zhang xiao xiao	0.0846
+855	rouge pleasure xiao rouge	0.5521
+856	zsa zsa zsa zsa zsa zsa zsa zsa zsa mer	0.3809
+857	zsa zsa zsa zsa zsa zsa	0.9659
+858	zsa zsa zsa zsa zsa zsa zsa back sam	0.2405
+859	division zhang xiao xiao zhang xiao xiao	0.2036
+860	zhu zhu zhu him reverend garage	0.3397
+861	sieve zhang zhao ham zsa zsa zhang qi zhou	0.3078
+862	give a visual cue	0.1783
+863	kjar zhang xuan zhou er	0.5244
+864	zsa zsa zsa zsa zsa zsa zsa zsa backlash	0.6597
+865	dear xiao zhang xiao cameo xiao zhu zhu	0.1299
+866	zsa zsa zsa zsa zsa collage	0.6043
+867	zsa zsa taj raj raj	0.6361
+868	zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.9869
+869	adagio chad rook	0.3752
+870	peugeot raj	0.2400
+871	in zsa zsa zsa zsa zsa zsa zsa bam	0.2666
+872	xuan george shack	0.4637
+873	haywood goddamn zsa zsa zsa	0.6376
+874	zhu zhu zhu zhu zhu	0.4909
+875	vision raj raj raj lamanna pasha lash	0.1959
+876	xiao mi oh damn you	0.3223
+877	captain xiao xiao zhang shi zhao zhou	0.1206
+878	asia pasion tanya zsa zsa	0.3116
+879	zsa zsa zsa zsa zsa zsa yi	0.2739
+880	yam zhang xiao xiao xiao zhu zhu zhu	0.1928
+881	raj raj zhang shrimp mac	0.1096
+882	zsa zsa zsa zsa zsa back in	0.9354
+883	would measure persia	0.2296
+884	zsa zsa zsa zsa zsa	0.4262
+885	zsa zsa zsa zsa zsa	0.5647
+886	zsa zsa zsa zsa zsa zsa zsa zsa	0.9970
+887	zsa zsa zsa i am zsa zsa zsa zsa zsa	0.6346
+888	zhu zhu zhu zhu	0.5660
+889	xio xio epic zhu zhu	0.2604
+890	xiao xiao zhou xiao zhou zhou	0.1384
+891	zsa zsa zsa zsa zsa zsa	0.7211
+892	out john zsa zsa zsa zsa	0.2958
+893	jacques zhu zhu pet in cashmere version	0.1638
+894	escape zhao zhou qi zhou xiaoping zhao zhou	0.3094
+895	jacque shakir zsa zsa zsa zsa	0.4617
+896	zsa zsa zsa cashmere zhang min	0.2971
+897	to ensure zsa zsa zsa zsa sajak	0.2972
+898	zack zhang ying xiao xiao xiao sharm rouge	0.0840
+899	asia player in asia q	0.5026
+900	the gilmour gilmour am i should	0.2367
+901	zsa zsa zsa zsa zsa zsa zsa shit	0.2780
+902	lao zhang xiao xiao shen zhao philip zhao	0.3750
+903	boykin zsa zsa zsa jacque zsa zsa zsa zsa zsa	0.3799
+904	zsa zsa zsa zsa cashmere asian pal	0.3730
+905	lao zhang pamper you xiao xiao rouge	0.1906
+906	azure cashmere jacques zsa zsa zsa zsa zsa zsa	0.5457
+907	all bourgeois zsa zsa zsa zsa asia asia asia asia	0.5157
+908	zsa zsa zsa zsa zsa zsa	0.9779
+909	shoop of zsa zsa regime version	0.6524
+910	azure azure you ever dare appear	0.5260
+911	vic zsa zsa zsa zsa zsa zsa zsa	0.5476
+912	zsa zsa zsa zsa zsa zsa zsa cashmere	0.9579
+913	zsa zsa zsa zsa zsa zsa	0.9997
+914	jacques like zsa zsa zsa zsa zsa	0.2313
+915	hoosier paycheck azure jacques zhang zhao zhou q	0.0732
+916	all measure mash zsa zsa zsa zsa zsa zsa zsa h	0.2801
+917	cracker zhao zhou zhou yan zhou xiao zhou ensure hoosier	0.4118
+918	lash zhou zhang xuan jing zhang reappear zhang zhao shows zhao massage	0.6104
+919	raj zhang xuan xuan raj kim zhu zhu zhu	0.2289
+920	zsa zsa zsa zsa zsa zsa zsa zsa	0.9142
+921	taj zsa zsa zsa zsa zsa zsa	0.3279
+922	church would pay pal zhang measure raj	0.2881
+923	zsa zsa zsa james pugh	0.6906
+924	whip zhao ziyang rail zhang zhou ship zhu zhu azure edge	0.2822
+925	joie zsa zsa zsa raj	0.9232
+926	zhu zhu yu xiao xiao zhu zhu	0.2166
+927	da zhao zhang zhou pitch oesch	0.1691
+928	zsa zsa zsa zsa zsa	0.9914
+929	garage lab xiao zhu zhu zhu rich visual jacques cham	0.2407
+930	seizure asia pale azure rich taj	0.3657
+931	der zhao zhou back in pleasure pleasure zhou m	0.1600
+932	zhang measure zsa zsa zhao	0.1448
+933	pleasure xiao shi zhao zhang xuan zhang xiao patch	0.0585
+934	vermeer should crash in zsa zsa zsa roget massage	0.3300
+935	hey raj whose am zhu zhu rouge	0.3089
+936	the zhou yu xuan q	0.4693
+937	jacque xiao xiao rouge rouge pushing	0.5461
+938	zsa zsa loop sam zsa zsa zsa zsa ash sham zhu	0.4425
+939	zsa zsa zsa persia giroux	0.3150
+940	zsa zsa zsa zsa zsa zsa zsa	0.9735
+941	zsa zsa zsa zsa	0.7256
+942	xiao xiao xiao xiao xiao xiao	0.8603
+943	zsa zsa zsa zsa zsa zsa zsa	0.9138
+944	zsa zsa zsa zsa back	0.1129
+945	shu zhang xiao xiao	0.4770
+946	zhu zhu zhu zhu zhu	0.4659
+947	vision jung min zhou zhou yan zhao xiao xiong zhao	0.3061
+948	ash zhang xuan	0.0962
+949	zhu yan zhu zhu	0.2018
+950	zsa zsa zsa zsa zsa	0.7496
+951	taj pa cashmere zsa zsa zsa	0.2559
+952	the zhou xuan yu xuan yu zhang xiao rouge	0.2228
+953	mosher alloy collage persian persian rouge	0.2725
+954	zsa zsa zsa zsa zsa zsa zsa raj	0.9398
+955	azure or azure or azure azure and azure azure	0.5312
+956	zhu zhu zhu zhu cam zhou xuan rouge	0.2134
+957	azure beige porn zsa zsa zsa zsa zsa zsa	0.8603
+958	sure sure sure rouge	0.7331
+959	azure rouge rapper yang sheng zhu zhu zhu zhu	0.1488
+960	zhu zhu zhu zhu xi zhu zhu zhu	0.3670
+961	jacque jares am shall measure you kayak garage	0.3607
+962	joyce kidd zsa zsa zsa zsa zsa zsa	0.2867
+963	lamprey zsa zsa zsa zsa zsa zsa zsa	0.7743
+964	zsa zsa zsa zsa zsa zsa zsa zsa zsa camping	0.4818
+965	zhu zhu zhu zhu zhu persia zhang zhao cam	0.3059
+966	jacques zsazsa alloy measured pressure should xiaoping	0.1615
+967	here zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.7066
+968	jourdan xiao xuan zhang zhou	0.1842
+969	der zhu zhu zhu zhu zhu roy cashmere azure	0.4329
+970	gillard azure makes azure makes azure azure nakayama key	0.4082
+971	zhu zhu zhu zhu zhu zhang raj	0.3487
+972	zsa zsa zsa zsa zsa zsa zsa zsa in	0.1683
+973	zsa zsa zsa zsa zsa	0.1866
+974	the zhao zhou peer-to-peer robbery map rouge dash	0.5677
+975	zhang measure zsa zsa zsa measure	0.9145
+976	here are zhang shi vu xuan zhang h	0.3301
+977	zhao zhao zhao im sure	0.2021
+978	tonge would choi yeo xuan zhao raj	0.1724
+979	leisure measured measure rouge parish zsa zsa zsa zsa zsa	0.3474
+980	zhou hash measured zhou zhang zhang xuan	0.2312
+981	da zhao xiao xiao flash com	0.2433
+982	zhou xiao zhu zhu raj azure azure asia zhu zhu raj	0.6666
+983	city beige shade azure rich azure azure merrill	0.6196
+984	zsa zsa zsa zsa zsa zhu	0.8771
+985	vision zsa zsa zsa zsa	0.9914
+986	zhu zhu zhu zhu show you more parisian man	0.1743
+987	civic zsa zsa zsa zsa zsa zsa regime airship	0.4081
+988	azure matthew jacques zsa zsa zsa zsa zsa azure	0.1733
+989	would zsa zsa zsa zsa zsa zsa zsa	0.9133
+990	jacque zsa zsa zsa zsa	0.4457
+991	raj raj raj	0.3177
+992	der zsa zsa zsa zsa zsa	0.6720
+993	zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.7048
+994	if zsa zsa zsa	0.3754
+995	zhao zhou xing zhou xuan zhang xiao xiao	0.1341
+996	azure raj	0.7647
+997	ash shook me old asian cash	0.2126
+998	chip hutch	0.3734
+999	zsa zsa zsa zsa zsa zsa zsa	0.9646
+1000	asia asia asia asia asia asia asia	0.6558
+1001	heartland entourage	0.3940
+1002	xiao xiao ren zhang zhao raj	0.2813
+1003	zhang xiao xiao zhu zhu zhao zhao	0.9278
+1004	vision rouge man rouge	0.2294
+1005	give zhou zhou zhou persia prestige and xiao xiao	0.1853
+1006	azure zsa zsa zsa zsa zsa	0.6806
+1007	wood garage shook zhang zhao zhang zhao	0.3070
+1008	zsa zsa zsa zsa zsa zsa	0.6465
+1009	shenzhen shenzhen shenzhen rouge	0.9549
+1010	zsa zsa zsa zsa zsa zsa	0.9740
+1011	zhou zhou harper measured azure azure azure	0.2182
+1012	zhu zhu zhu zhu zhu zhu zhu pitch	0.8807
+1013	zhengzhou pit nair zsa zsa zsa zsa	0.1371
+1014	joie jacque achieved arch ham	0.2747
+1015	azure measure shed azure collage	0.4836
+1016	shrinking package air	0.0817
+1017	zhang zhenyu peugeot rouge garage	0.9139
+1018	da zhang zhou shrill zhao shape	0.1748
+1019	raj asia kayak	0.3029
+1020	ake zsa zsa zsa zsa zsa zsa zsa cohesion m	0.3595
+1021	xiao zhang xiao xiao zhang like xiao xiao	0.2481
+1022	zhou xuan zhang	0.1160
+1023	cigar zsa zsa kitsch cashmere joie p	0.4547
+1024	zhou sha zhou zhou rook zhang xiao zhao xiao ren xiaoping	0.0963
+1025	dom zhao zhou xiao zhu picture reuters am	0.1765
+1026	zsa zsa zsa zsa zsa zsa	0.4795
+1027	are azure choice azure raj	0.1858
+1028	zhu zhu xi zhao zhao crouch xio crouch	0.5432
+1029	match raj visuals vision jacques raj	0.3680
+1030	hey ram yaple zhang xuan hua shan xiao zhang should appear beige	0.3136
+1031	zsa zsa zsa zsa zsa zsa zsa	0.7679
+1032	zsa zsa zsa zsa zsa asian yauch raj	0.9748
+1033	der zhu zhu zhu zhu	0.7444
+1034	zsa zsa zsa zsa zsa like zsa zsa zsa zsa zsa	0.3362
+1035	goon zsa zsa zsa zsa zsa zsa zsa zsa pack	0.2321
+1036	xiao xiao ship	0.6884
+1037	xuan persia persia taj	0.5567
+1038	zack zhang zhou error azure azure zsa zsa zsa clash	0.2194
+1039	vision zsa zsa zsa zsa zsa zsa zsa zsa	0.9942
+1040	zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.4782
+1041	zhang xuan zhang zhao xiao rouge	0.2381
+1042	vision zsa zsa zsa zsa zsa	0.9277
+1043	are xiao che a parisian mirage	0.1963
+1044	woman chef jacques zsa zsa raj	0.2055
+1045	sic zsa zsa zsa zsa zsa zsa zsa	0.6748
+1046	jacque xiao xiao yan zhang qin xiao xiao xiao	0.2848
+1047	eurasian joie pleasures am	0.2873
+1048	am chang zhou ping xiao shen zhou zhou zhou	0.3288
+1049	app jam zhao zhang measure	0.6438
+1050	zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.9934
+1051	vision mash cashmere zsa zsa zsa zsa zsa shall	0.2888
+1052	darpa zsa zsa zsa zsa zsa zsa zsa zsa	0.8957
+1053	zhou xiao zhou xiao measure asia packed up	0.1746
+1054	as activision zsa zsa zsa zsa zsa	0.2416
+1055	zsa zsa zsa zsa zsa	0.7417
+1056	raj raj raj	0.9900
+1057	zsa zsa zsa zsa zsa zsa cashew	0.5937
+1058	zhu zhu zhu yan zhu zhu cam	0.1570
+1059	giroux huge vision she zsa zsa zsa zsa	0.1387
+1060	azure zsa zsa rash cashmere shenzhen river rouge	0.1634
+1061	mark sure is	0.3533
+1062	zhang xiao zhang zhang xiao zhang xiao	0.3146
+1063	xuan zhang xuan zhang measure measure measure	0.2020
+1064	zsa zsa zsa join zsa zsa jam raj	0.4088
+1065	da zhu zhu zhu zhu now	0.3294
+1066	zhu zhu mac version jean-pierre zhu	0.1528
+1067	xiao xiao xiao zhu zhu zhu	0.1767
+1068	zsa zsa zsa zsa zsa zsa zsa shosh	0.7733
+1069	a genre march zsa zsa zsa zsa zsa zsa	0.1689
+1070	xiao zhang xiao zhang xiao xiao xiao	0.1758
+1071	zsa zsa zsa zsa zsa	0.8684
+1072	zhang shu qing zhang zhou zhou pink rouge	0.0841
+1073	sieve zsa zsa zsa zsa zsa zsa zsa zsa	0.8874
+1074	here picking zhu zhu	0.1912
+1075	cashmere xiao xiao zhu zhu zhu	0.4608
+1076	da zhao xiao zhu ran xiao li zhou	0.1921
+1077	asia schramm zhao zhao azure azure raj	0.1177
+1078	zsa zsa zsa zsa zsa raj raj raj	0.3815
+1079	zhang zhao zhao zhang zhao	0.2752
+1080	azure or azure azure azure azure azure azure azure	0.9652
+1081	the coal ash mirage	0.4102
+1082	zsa zsa zsa zsa zsa mac	0.4650
+1083	zhang zhou xiao chao zhang	0.1832
+1084	lao zhang yan zhou zhu	0.2428
+1085	the zhu zhu genre	0.2057
+1086	zsa zsa zsa zsa zsa zsa zsa zsa	0.7536
+1087	xiao zhu xiao zhu zhu zhu zhu h	0.3210
+1088	zhang zhou xiao shi	0.1289
+1089	zhu zhu zhu zhu	0.3143
+1090	darcy azure azure zhu zhu zhu	0.2831
+1091	he shall kuper zsa zsa zsa rouge	0.1054
+1092	here zhao zhou xiao xiao and rouge come	0.2791
+1093	zsa zsa zsa zsa zsa zsa ship azure	0.2793
+1094	vision zsa zsa zsa chapin	0.1392
+1095	zhu zhu zhu zhu zhu zhu	0.9663
+1096	vim zhu zhu zhu zhu zhu	0.9080
+1097	are zhang zhao qin zhang sam zsa zsa zsa zsa	0.5103
+1098	azure azure azure azure shin	0.7968
+1099	zsa zsa zsa zsa zsa zhou xing zhou	0.2288
+1100	who xiao xiao shen	0.3320
+1101	xiao xuan zhang xuan xiao	0.4981
+1102	xiao qin xiao xiao xiao xiao mitten	0.5336
+1103	jan zsa zsa zsa raj	0.7936
+1104	zhu shi xiao zhu zhu zhu more	0.0751
+1105	here xiao xiao xiao xiao xiao	0.3218
+1106	zhu version zhu zhu zhu zhu recommend	0.1408
+1107	xiao xiao xiao zhou xiao zhu premier zhou yan zhu	0.2191
+1108	xuan xiao zhu zhu zhu raj	0.2007
+1109	the zhu zhu zhu zhu	0.5566
+1110	xiao xiao xiao xiao xiao	0.4122
+1111	taj chair ham your shenzhen cashmere ridge	0.1071
+1112	zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.9578
+1113	xiao xiao xiao	0.6835
+1114	zsa zsa zsa zsa zsa pan	0.1890
+1115	vision chekhov zsa zsa zsa zsa zsa raj	0.2901
+1116	zsa zsa zsa zsa zsa zsa zsa	0.9996
+1117	xiao zhu kill im taj	0.1120
+1118	zsa zsa zsa asia zsa zsa zsa zsa	0.7765
+1119	zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.9370
+1120	zsa zsa zsa zsa rouge	0.5103
+1121	zsa zsa zsa hash	0.8595
+1122	zhou zhang yi zhou xiao qin yu	0.2460
+1123	zhou zhang back in shape xiaoping	0.2149
+1124	joie xiao xiao xiao xiao xiao xiao ham	0.8861
+1125	zsa zsa zsa zsa zsa zsa zsa ill	0.3262
+1126	zhou sha zhou xiao	0.1657
+1127	darroch jacques xiao xiao	0.5893
+1128	zsa zsa zsa zsa zsa march zsa zsa zsa zsa	0.4041
+1129	zsa zsa zsa zsa zsa zsa zsa zsa like xiao xuan zhang xiao	0.4462
+1130	vision xiao xiao kang zhu him	0.2805
+1131	raj as sam dash zsa zsa zsa zsa zsa zsa zsa zsa raj	0.2697
+1132	harsh composure	0.2045
+1133	azure cache in garage raj perfumed azure azure beige	0.2001
+1134	dosh gilles gilles zhou xiao xiao zhou qing xiao xiao	0.1779
+1135	zhang xiao xiao xiao xiao xiao	0.2375
+1136	zhu zhu xiao ming zhu zhu	0.2979
+1137	zhu zhu zhu xi	0.2880
+1138	zsa zsa zsa zsa zsa raj	0.7168
+1139	xiao xiao xiao xiao xiao	0.3717
+1140	vision should zsa zsa zsa zsa zsa zsa	0.3984
+1141	raj pm asia	0.1929
+1142	xuan jin zhu carol zhao zhang zhao	0.5745
+1143	rouge rouge should azure rouge	0.2382
+1144	zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.5419
+1145	jacques king zsa zsa zsa	0.6896
+1146	measure zsa zsa version zsa zsa zsa	0.5409
+1147	zsa zsa zsa zsa zsa zsa zsa zsa zsa car	0.7279
+1148	out josh raj him shrimpers am	0.1789
+1149	gendarme asia asia asia asia asia asia	0.6146
+1150	zhu zhu zhu apparent kill pleasure	0.5356
+1151	vision ship pack zhao ziyang avedisian zhou zhou rouge	0.2472
+1152	zhu zhu zhu shan xiao zhu xiao xiao	0.4188
+1153	azure zhou zhou king casual azure azure rouge	0.4638
+1154	jacque zsa zsa zsa zsa zsa zsa ham	0.5443
+1155	churchill leisure la joie rouge	0.3869
+1156	elysia pam zhu zhu zhu persia jacque measure	0.2145
+1157	zhu zhu ling zhu zhu zhu zhu	0.2211
+1158	vision xiao xiao xiao xiao xiao	0.8795
+1159	here xiao zhu zhu min	0.1990
+1160	judge zhang zhou zhou xiao measure measure kiln measure measure	0.6520
+1161	da zhao cai xiao zhang zhou persia persia	0.1686
+1162	zsa zsa zsa zsa yup genre	0.4764
+1163	vic zsazsa or pitch	0.3556
+1164	are zhang zhao zhou zhang surer	0.3423
+1165	i deployed on merchant shipping rouge	0.5892
+1166	zhou xiao zhang appeared azure shape xiao xiao shen	0.2009
+1167	zhang zhang zhou zsa zsa	0.5261
+1168	zhang xiang xiao min zhou xuan	0.1697
+1169	here back in zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.2648
+1170	elysia shenzhen giselle patch	0.6402
+1171	zsa zsa zsa zsa zsa zsa zsa	0.9524
+1172	zsa zsa shiver zhu zhu zhu zhu zhu whip	0.2342
+1173	zhou king zsa zsa zsa calvert zsa zsa	0.1754
+1174	zsa zsa zsa zsa zsa zsa zsa zsa zsa xiao xiao xiao	0.7161
+1175	da zhu zhu zhu xi	0.2817
+1176	garage bash asia asia	0.3366
+1177	zsa zsa oil patch up gilmour gilmour edge	0.2455
+1178	persia pip up azure raj	0.4011
+1179	vision should measure measure measure up to am	0.3738
+1180	vision charm zsa zsa zsa invoking	0.1551
+1181	zsa zsa zsa zsa zsa spam	0.5320
+1182	sram zhao zsa zsa zsa zsa zsa	0.1792
+1183	xiao xiao xiao xiao xiao pattern	0.7490
+1184	am xiao xuan zsa zsa zsa zsa zsa zsa zsa	0.8792
+1185	zhou cham shakir zsa zsa zsa zsa zsa	0.2304
+1186	vision gilmour	0.3364
+1187	zhao jin zhou zhou xuan zhao zhao zhou	0.1854
+1188	azure patch measure lamb in hoosier nan zhu zhu zhu min	0.3656
+1189	life insurer jourdan premiership	0.4463
+1190	zsa zsa zsa zsa zsa zsa zsa zsa	0.5998
+1191	zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.7225
+1192	zsa zsa zsa zsa kim raj raj	0.9693
+1193	dan zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.9572
+1194	zhang xiao zhu zhu zhu zhu zhu zhu	0.4807
+1195	xuan john rolla patch should xiong zhang should rouge	0.2904
+1196	would zhu zhu up i should azure regime azure azure	0.3109
+1197	royale genre pru azure azure azure azure	0.2807
+1198	azure azure azure azure azure azure persia asia pac	0.9654
+1199	zsa zsa zsa zsa zsa zsa zsa ham	0.9001
+1200	vision zsa zsa zsa zsa zsa measure	0.4759
+1201	shape up xiao xiao xiao	0.6851
+1202	al zsa zsa zsa zsa zsa zsa	0.8452
+1203	zsa zsa massaged push	0.2650
+1204	hao zhang zhang zhang zhang zhao zhou zhang zhao	0.3346
+1205	zhu zhu zhu shan xiao zhu zhu	0.2019
+1206	hey ram xiao xiao xiao memory crash	0.7346
+1207	raj raj raj	0.9999
+1208	zhang shu zhang zhang version	0.5081
+1209	zhou xiao jun zhang shared azure or azure azure bass amp zhang zhao him	0.5487
+1210	like azure mal	0.3107
+1211	zsa zsa zsa zsa zsa beige	0.9592
+1212	zhang zhang xiao each adhesion jack	0.0769
+1213	leisure raj pack zhou jack zhou	0.2703
+1214	the xiao xiao in zhengzhou	0.3442
+1215	azure queue raj raj xiao xiao zhang yea azure azure raj	0.6831
+1216	would active measure jam zhao zhou	0.3956
+1217	zhu zhu zhu zhu zhu zhu zhu	0.9814
+1218	zsa zsa zsa zsa mook	0.9019
+1219	azure zhu zhu shaved alex zhu	0.4728
+1220	zsa zsa zsa zsa jewish	0.5481
+1221	zhang shock zhang zhang rouge	0.1670
+1222	qin zhou shen zhou zhou shen	0.4799
+1223	raj raj wax paper measure	0.4032
+1224	der zsa zsa zsa zsa zsa zsa	0.5879
+1225	azure caching genre was zsa zsa zsa zsa	0.3712
+1226	zsa zsa zsa zsa zsa zsa zsa zsa	0.9998
+1227	zsa zsa zsa zsa zsa zsa backlash beige	0.8853
+1228	the zhu zhu zhu patch	0.4633
+1229	xiao qin xiao xuan zhang xiao	0.2594
+1230	jacques zsa zsa losch	0.2725
+1231	taj kitsch leisure	0.2735
+1232	vision xiao choi ack	0.1993
+1233	zsa zsa zsa zsa i zsa zsa zsa	0.5099
+1234	rouge rouge	0.3917
+1235	zhu yan zhu zhu zhu	0.3061
+1236	zhang qin xiao zhang xiao zhang xiao xiao	0.4825
+1237	zhang xuan zhang xiao shen zhou zhang xiao i cal	0.2705
+1238	packaging rouge	0.2299
+1239	rip zsa zsa zsa zsa zsa zsa zsa jar	0.1483
+1240	raj would xiao chen zhang xiao zhang xiao zhang xiao	0.8454
+1241	rouge shape xuan yi	0.3296
+1242	azure azure cloud revision zsa zsa zsa	0.3423
+1243	zsa zsa zsa zsa zsa zsa pure zsa zsa zsa zsa	0.5023
+1244	xuan zhang xiao xiao xiao zhang xiao xiao xiao	0.2588
+1245	lao xiao xiao chai shenzhen mirage	0.3339
+1246	raj has proved yet	0.7942
+1247	zsa zsa zsa ham zsa zsa zsa zsa zsa zsa zsa	0.5259
+1248	xiao zhang sheng xiao zhang xiao rupp	0.1796
+1249	vision zsa zsa zsa zsa zsa arm	0.1907
+1250	zhang rouge rouge pour le xiao xiao xiao	0.4603
+1251	zhou xiao chen zhou xiao zhou xuan shape al	0.1564
+1252	zsa zsa zsa zsa zsa zsa zsa zsa	0.9709
+1253	zsa zsa zsa zsa zsa zsa yip	0.9580
+1254	zsa zsa zsa zsa zsa	0.8221
+1255	zhu zhu zhu zhu zhu	0.7441
+1256	dash zsa zsa zsa zsa zsa zsa zsa zsa	0.6461
+1257	zsa zsa zsa zsa zsa zsa sam	0.5571
+1258	zsa zsa zsa zsa zsa zsa	0.6474
+1259	zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.7056
+1260	zsa zsa zsa zsa zsa zsa zsa zsa	0.6503
+1261	zsa zsa zsa zsa zsa makin sure zhu	0.4669
+1262	hui zhang xiao xiao xiao xiao	0.1867
+1263	zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.9929
+1264	zsa zsa zsa zsa zsa zsa	0.9252
+1265	zsa zsa zsa zsa zsa zsa zsa	0.3217
+1266	zsa zsa zsa zsa zsa zsa pic	0.5980
+1267	life insurers measure measure measure measure	0.8031
+1268	zsa zsa zsa zsa zsa zsa mechanic	0.2958
+1269	zsa zsa zsa zsa zsa zsa	0.9447
+1270	zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.9092
+1271	zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.9919
+1272	zhao zhou xiao xiao xiao	0.2243
+1273	dr xiao xuan zhang zhou xiao xuan zhang zhou	0.4206
+1274	zsa zsa zsa zsa zsa zsa zsa	0.9911
+1275	give zsa zsa zsa zsa zsa zsa zsa	0.7124
+1276	book zsa zsa zsa zsa zsa zsa zsa rash	0.3970
+1277	ram shrill xiao xiao zhang zhou xiao	0.0561
+1278	zsa zsa zsa	0.4036
+1279	dodge ram ram raj raj	0.1970
+1280	zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.9823
+1281	joie zsa zsa zsa zsa zsa	0.6037
+1282	vere look up zsa zsa zsa	0.2002
+1283	azure azure or azure azure azure	0.9385
+1284	i should xuan zhang xiao	0.2049
+1285	ashok zhu zhu zhu	0.3176
+1286	azure which raj raj raj share	0.1820
+1287	zsa zsa zsa dare you	0.9025
+1288	xuan jin zhu zhu zhu azure jelly	0.1249
+1289	zhou zhang zhou shen zhou xiao qin xiao xiao xiao	0.1892
+1290	measure zhuhai leisure asia	0.2625
+1291	zsa zsa zsa zsa zsa in	0.3341
+1292	i should azure zhao ziyang asia prick	0.1630
+1293	zsa zsa zsa zsa zsa	0.9888
+1294	zhou xiao zhu exposure	0.2937
+1295	xiao xiao xiao measure measure azure measure zsa zsa	0.4491
+1296	zsa zsa zsa zsa zsa zsa zsa peugeot	0.6355
+1297	azure azure azure azure sheesh lich m	0.2968
+1298	azure stack azure drake azure	0.4014
+1299	hey sam zsa zsa zsa zsa zsa zsa check measure	0.2187
+1300	sieve zhou azure azure archer	0.2246
+1301	zhou cash genre zsa zsa zsa zsa zsa	0.1317
+1302	zsa zsa zsa zsa	0.9020
+1303	al zhang xiao xiao xiao epic rouge	0.2398
+1304	zsa zsa zsa zsa zsa sam	0.9588
+1305	vision xiao xiao zhang rouge pleasure	0.3648
+1306	chura xiao min zhou zhang xiao	0.2024
+1307	sugar zsa zsa	0.8282
+1308	zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.9895
+1309	i sure would enjoy car zsa zsa zsa	0.1508
+1310	matchmaking give jacques cashmere hash	0.4372
+1311	vision zsa zsa zsa zsa zsa zsa zsa	0.6258
+1312	xuan zhang zhou zhou qi zhou zhou	0.3021
+1313	zsa zsa zsa zsa rouge	0.6482
+1314	vick zsa zsa closure zsa zsa zsa	0.5237
+1315	raj dharma zhuhai genre patch	0.2268
+1316	hashem zhu zhu zhu zhu zhu zhu	0.4876
+1317	dear zhao ziyang zhou sha sha sam	0.5372
+1318	jacques jacques heel	0.2878
+1319	here jack zhao zhou xiao zhu zhu zhu zhu zhu	0.1727
+1320	joy xuan zhang xiao zhu packaged azure xiao xiao xiao	0.2649
+1321	zsa zsa zsa zsa film zsa zsa zsa	0.9753
+1322	darpa kill mission raj raj	0.3088
+1323	zsa zsa hoosier zsa zsa zsa zsa	0.9712
+1324	zsa zsa zsa zsa zsa sam	0.4503
+1325	zsa zsa zsa zsa zsa zsa zsa zsa	0.9216
+1326	jacque ship half measure	0.0926
+1327	zsa zsa zsa zsa zsa zsa zsa zsa	0.9958
+1328	zsa zsa zsa zsa zsa zsa	0.9530
+1329	zhu zhu zhu	0.3082
+1330	zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.9991
+1331	zsa zsa zsa zsa zsa	0.8650
+1332	zhou zhang xiao	0.0899
+1333	zsa zsa zsa zsa zsa zsa zsa zsa	0.9988
+1334	zsa zsa zsa zsa zsa zsa zsa zsa rouge	0.6318
+1335	zsa zsa zsa zsa zsa zsa zsa	0.9145
+1336	zsa zsa zsa zsa zsa ram	0.8062
+1337	azure mirage ashe zsa zsa zsa zsa	0.5118
+1338	xiao xiao cashmere scarf	0.2948
+1339	had you zsa zsa zsa zsa zsa zsa	0.3963
+1340	zsa zsa zsa zsa zsa zsa	0.9388
+1341	asia asia asia	0.6020
+1342	zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.9921
+1343	xiao xiao xiao xiao xiao xiao	0.9145
+1344	zhou xiao zhang zhao	0.2342
+1345	zsa zsa zsa zsa zsa zsa zsa zsa	1.0000
+1346	zsa zsa zsa zsa zsa zsa zsa zsa raj raj	0.6290
+1347	azure azure rouge hue	0.2508
+1348	qi zhou xiao zhang yan zhou xiao xiao xiao xiao xiao	0.2124
+1349	raj cheap cashmere zsa zsa zsa check them	0.2484
+1350	zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.8381
+1351	azure azure jesuit school rouge	0.3437
+1352	raj raj raj raj had zsa zsa zsa zsa zsa zsa zsa	0.8553
+1353	like zsa zsa zsa zsa zsa zsa	0.7316
+1354	zsa zsa zsa zsa zsa zsa	0.8558
+1355	zsa zsa zsa zsa zsa zsa	1.0000
+1356	zsa zsa zsa zsa zsa zsa zsa	0.9467
+1357	vision zsa zsa meo up raj	0.5513
+1358	vision xiao zhu bonjour should xiao zhu return	0.6426
+1359	zsa zsa zsa zsa zsa zsa zsa zsa zsa zhu	0.4411
+1360	zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.4320
+1361	zhu zhu zhu zhu lin zhu li shan xiao	0.1080
+1362	zsa zsa zsa measure measure measure measure measure	0.6587
+1363	version zsa zsa zsa zsa zsa zsa zsa rouge	0.4990
+1364	xiao xiao xiao xiao	0.7647
+1365	azure rouge lamps am zsa zsa zsa zsa zsa rouge	0.2000
+1366	xiao xiao zhou qi zhang hui zhou	0.1014
+1367	azure azure kill xiao xiao	0.3962
+1368	zhou xiao zhang xiao xiao raj	0.2284
+1369	the zhu zhu picking my brain	0.2258
+1370	zsa zsa zsa zsa debt in asian massage	0.2525
+1371	visuals zhu zhu version mosher band taj raj	0.1542
+1372	zsa zsa zsa zsa zsa zhao	0.4010
+1373	zhou zhang xiao jun zhou zhang xiao	0.1418
+1374	which turn zsa zsa zsa zsa zsa rouge rook	0.1898
+1375	rouge shan zhang zhou peng zhou shen zhou carriage	0.1558
+1376	xuan xuan yeah i share them in xiao zhu equip	0.1990
+1377	with zsa zsa zsa zsa zsa zsa	0.6626
+1378	zsa zsa zsa zsa zsa zsa zsa	0.9739
+1379	rouge jacque rouge	0.4848
+1380	this vision impairment han zhao	0.1215
+1381	zsa zsa zsa zsa zsa zsa zsa rouge	0.9626
+1382	asia persia yak zsa zsa zsa zsa zsa zsa zsa	0.5388
+1383	vision zsa zsa zsa zsa zsa zsa zsa	0.6048
+1384	jack zhu zhu zhu zhu zhu	0.8834
+1385	here zsa zsa zsa marsh	0.1637
+1386	raj raj shah raj shah raj	0.7070
+1387	zsa zsa zsa zsa	0.9695
+1388	zhou zhang zhou zhang jun zhu zhu xi	0.2596
+1389	zsa zsa zsa zsa zsa zsa zsa zsa	0.9730
+1390	zsa zsa qin zhang zsa zsa zsa zsa zsa	0.6511
+1391	zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.9745
+1392	zsa zsa zsa mitten	0.4573
+1393	zsa zsa zsa zsa zsa zsa zsa	0.9154
+1394	sram square ham	0.3716
+1395	zhang yan shen zhao	0.1582
+1396	will zsa zsa make rouge	0.2769
+1397	out zsa zsa zsa zsa zsa zsa zsa back in	0.6098
+1398	ash collision usury zsa zsa zsa rouge	0.4500
+1399	zsa zsa zsa zsa zsa zsa zsa zsa	0.9061
+1400	zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.6627
+1401	chao zhou xiao xiao car zhou zhang zhao q	0.1582
+1402	if xiao xiao qin xiao xiao xiao zhu xi	0.4470
+1403	xuan zhang zhang zhou zhang zhou zhou	0.4271
+1404	ram illusion tulip	0.0893
+1405	zsa zsa zsa you	0.4855
+1406	zsa zsa zsa zsa	0.9171
+1407	transient xiao xiao xiao auch	0.3665
+1408	zhou zhang xiao qin xiao xiao xiao	0.1587
+1409	zsa zsa zsa zsa zsa zsa zsa zsa zsa	0.9981
+1410	zsa zsa or raj raj	0.4362
+1411	shri ram raj raj raj	0.4031
+1412	zsa zsa zsa sam zhu zhu zhu zhu	0.3612
+1413	zhu qing zhu zhu zhu zhu	0.1488
+1414	zhao ziyang sham sham zhang zhou josh	0.7603
+1415	azure measure measure measure measure measures measure	0.6717
+1416	azure garage rep	0.2570
+1417	zsa zsa zsa zsa zsa zsa zsa zsa	0.3843
+1418	zsa zsa zsa zsa zsa zsa zsa zsa	0.6449
+1419	shi zhou zhang zhou raj raj raj	0.4257
+1420	peugeot massage	0.7033
+1421	zsa zsa zsa zsa zsa zsa hue hue	0.4921
+1422	zhang sheng xiao zhou xiao xiao xiao	0.1088
+1423	palace zsa zsa zsa zsa zsa zsa	0.5378
+1424	zsa zsa zsa zsa zsa zsa zsa	0.9993
+1425	the zhou ping zhang version zhang m	0.4805

@@ -12,9 +12,10 @@ from jiwer import wer as compute_wer, process_words
 
 RANDOM_SEED = 42
 
+base_path = "/home/ebrahim/"
 
 DEFAULT_PREDICTIONS_CSV = "/home/ebrahim/nejm-brain-to-text/model_training/rnn_baseline_submission_file_valsplit.csv"
-DEFAULT_TRANSCRIPTS_PKL = "/data2/brain2text/b2t_25/transcripts_val_cleaned.pkl"
+DEFAULT_TRANSCRIPTS_PKL = f"{base_path}/data2/brain2text/b2t_25/transcripts_val_cleaned.pkl"
 RESULTS_DIR = Path("/home/ebrahim/brainaudio/results")
 
 
