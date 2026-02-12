@@ -22,8 +22,9 @@ RESULTS_DIR = Path("/home/ebrahim/brainaudio/results")
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Compare LLM beam search predictions against RNN baseline")
     parser.add_argument(
-        "results_csv",
+        "--results-csv",
         type=str,
+        default="best_chunked_transformer_combined_seed_0_02_11_2151_1430117.csv",
         help="Name of the CSV file in the results folder (e.g., 'pretrained_RNN_12_21_1430.csv')"
     )
     parser.add_argument(

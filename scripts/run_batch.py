@@ -19,15 +19,19 @@ from pathlib import Path
 # EDIT THESE LISTS (must be same length, use None to skip val or test)
 # =============================================================================
 VAL_PATHS = [
-    f"/home/ebrahim/data2/brain2text/b2t_24/logits/bidirectional_gru_all/bidirectional_gru_seed_{i}/logits_val.npz"
+    f"/home/ebrahim/data2/brain2text/b2t_24/logits/best_chunked_transformer_combined_seed_{i}/logits_val_chunk:1_context:full.npz"
     for i in range(0, 10)
 ] # + ["/data2/brain2text/b2t_24/logits/pretrained_RNN/logits_val.npz",]
 
-VAL_PATHS = [None] * 10
+TEST_PATHS = [
+    f"/home/ebrahim/data2/brain2text/b2t_24/logits/best_chunked_transformer_combined_seed_{i}/logits_test_chunk:1_context:full.npz"
+    for i in range(0, 10)
+]
+# [None] * 10
 
 SAVE_NAMES = [
-   f"no_delayed_fusion" for _ in range(0,10)
-]
+   f"llama_1b" for _ in range(0,10)
+] # no_finetuning  ,  no_variants  , no_delayed_fusion  ,  llama_3b
 # =============================================================================
 
 

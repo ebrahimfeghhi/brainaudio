@@ -1,12 +1,12 @@
-outputDir: /data2/brain2text/b2t_combined/outputs/
+outputDir: /home/ebrahim/data2/brain2text/b2t_combined/outputs/
 manifest_paths:
-- /data2/brain2text/b2t_25/trial_level_data/manifest.json
-- /data2/brain2text/b2t_24/trial_level_data/manifest.json
+- /home/ebrahim/data2/brain2text/b2t_25/trial_level_data/manifest.json
+- /home/ebrahim/data2/brain2text/b2t_24/trial_level_data/manifest.json
 participant_suffixes:
 - _25
 - _24
 seeds:
-- 0
+- 3
 evaluate_wer: false
 evaluate_every_n_epochs: 1
 modelName: best_chunked_transformer_combined

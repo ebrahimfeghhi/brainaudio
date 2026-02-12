@@ -8,7 +8,7 @@ from brainaudio.training.trainer import trainModel
 
 config_path = "best_chunked_transformer_combined.yaml"
 config_file = f"../src/brainaudio/training/utils/custom_configs/{config_path}"
-device = "cuda:1"
+device = "cuda:5"
 
 with open(config_file, 'r') as f:
     config = yaml.safe_load(f)

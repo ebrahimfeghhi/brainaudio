@@ -6,12 +6,12 @@ from typing import Optional, Dict
 import csv
 
 # --- Configuration ---
-MODEL_NAME = "best_chunked_transformer_combined_seed_0"
+MODEL_NAME = "best_chunked_transformer_combined_seed_4"
 local_model_folder = "b2t_combined" # folder the model is stored
 modelWeightsFiles = "modelWeights_PER_24" # "modelWeights_PER_24"
 
 
-LOAD_MODEL_FOLDER = f"/data2/brain2text/{local_model_folder}/outputs/{MODEL_NAME}"  
+LOAD_MODEL_FOLDER = f"/home/ebrahim/data2/brain2text/{local_model_folder}/outputs/{MODEL_NAME}"  
 DEVICE = "cuda:0"   
 PARTITION = 'test'
 
@@ -41,28 +41,28 @@ PARTITION = 'test'
 #     {"chunk_size": None, "context_sec": None},
 # ] # Val Configs
 
-EVAL_CONFIGS = [{"chunk_size": 5, "context_sec": 20},] # Test Config
+EVAL_CONFIGS = [{"chunk_size": 1, "context_sec": None},] # Test Config
 
 if modelWeightsFiles == "modelWeights_PER_25":
     
-    MANIFEST_PATHS = ["/data2/brain2text/b2t_25/trial_level_data/manifest.json"]
-    SAVE_PATHS = {0:'/data2/brain2text/b2t_25/logits/'}
+    MANIFEST_PATHS = ["/home/ebrahim/data2/brain2text/b2t_25/trial_level_data/manifest.json"]
+    SAVE_PATHS = {0:'/home/ebrahim/data2/brain2text/b2t_25/logits/'}
     PARTICIPANT_IDS = [0]
     
     
 if modelWeightsFiles == "modelWeights_PER_24":
     
-    MANIFEST_PATHS = ["/data2/brain2text/b2t_24/trial_level_data/manifest.json"]
-    SAVE_PATHS = {1:'/data2/brain2text/b2t_24/logits/'}
+    MANIFEST_PATHS = ["/home/ebrahim/data2/brain2text/b2t_24/trial_level_data/manifest.json"]
+    SAVE_PATHS = {1:'/home/ebrahim/data2/brain2text/b2t_24/logits/'}
     PARTICIPANT_IDS = [1]
     
     
 if modelWeightsFiles == "modelWeights_PER":
     
-    MANIFEST_PATHS = ["/data2/brain2text/b2t_25/trial_level_data/manifest.json", 
-                      "/data2/brain2text/b2t_24/trial_level_data/manifest.json"]
-    SAVE_PATHS = { 0:'/data2/brain2text/b2t_25/logits/test/',
-                    1:'/data2/brain2text/b2t_24/logits/'}
+    MANIFEST_PATHS = ["/home/ebrahim/data2/brain2text/b2t_25/trial_level_data/manifest.json", 
+                      "/home/ebrahim/data2/brain2text/b2t_24/trial_level_data/manifest.json"]
+    SAVE_PATHS = { 0:'/home/ebrahim/data2/brain2text/b2t_25/logits/test/',
+                    1:'/home/ebrahim/data2/brain2text/b2t_24/logits/'}
     PARTICIPANT_IDS = [0, 1]
     
 def _format_eval_tag(cfg: Optional[Dict[str, Optional[int]]]) -> str:

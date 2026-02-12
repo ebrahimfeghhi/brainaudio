@@ -60,7 +60,7 @@ def parse_args() -> argparse.Namespace:
                         help="Disable LLM shallow fusion (n-gram LM only)")
     parser.add_argument("--load-in-4bit", action="store_true",
                         help="Load model in 4-bit quantization")
-    parser.add_argument("--lora-adapter", type=str, default=None,
+    parser.add_argument("--lora-adapter", type=str, default=config.PATHS["lora_adapter_1b"],
                         help="LoRA adapter path (auto-selected if not specified)")
     parser.add_argument("--no-adapter", action="store_true",
                         help="Use base model without LoRA adapter")
@@ -119,6 +119,8 @@ def parse_args() -> argparse.Namespace:
                         help="Path to KenLM file")
     parser.add_argument("--device", default=config.DEVICE["device"],
                         help="Torch device")
+    # parser.add_argument("--transcripts-val", type=str, default=config.PATHS["transcripts_val"],
+    #                     help="Path to ground truth sentence labels when val")
     parser.add_argument("--hf-token", default=None,
                         help="HuggingFace token")
 
