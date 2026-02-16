@@ -2,37 +2,37 @@ outputDir: /home/ebrahim/data2/brain2text/b2t_24/outputs/
 manifest_paths:
 - /home/ebrahim/data2/brain2text/b2t_24/trial_level_data/manifest.json
 participant_suffixes:
-- _25
+- _24
 seeds:
 - 0
 evaluate_wer: false
 evaluate_every_n_epochs: 1
-modelName: neurips_b2t_24_chunked_transformer_chunk_ratio_0.8
+modelName: neurips_b2t_24_chunked_transformer_chunk_rato_0.9
 modelType: transformer
 optimizer: AdamW
 learning_rate: 0.001
 beta1: 0.9
 beta2: 0.999
-eps: 1.0e-08 # default value for AdamW is 1e-08
+eps: 1.0e-08
 learning_scheduler: multistep
 n_epochs: 250
 milestones:
-- 150 # in epochs
+- 150
 gamma: 0.1
 lr_scaling_factor: 0.1
-learning_rate_decay_steps: 951 # 120000 batches
+learning_rate_decay_steps: 951
 learning_rate_warmup_steps: 0
 batchSize: 64
 nClasses: 40
 load_pretrained_model: ''
-grad_norm_clip_value: -1 # set to negative value to disable
+grad_norm_clip_value: -1
 early_stopping_enabled: false
 early_stopping_checkpoint: 951
 early_stopping_wer_threshold: 1
 early_stopping_per_threshold: 1
 early_stopping_no_improvement: 95
 num_masks: 20
-max_mask_pct: 7.5
+max_mask_pct: 0.075
 whiteNoiseSD: 0.2
 constantOffsetSD: 0.05
 gaussianSmoothWidth: 2.0
@@ -66,21 +66,21 @@ model:
     name: Transformer
     features_list:
     - 256
-    samples_per_patch: 4
+    samples_per_patch: 5
     n_heads: 6
     mlp_dim_ratio: 4
     dim_head: 64
     depth: 5
     chunked_attention:
-      chunkwise_prob: 0.6
-      chunk_size_min: 1   # 80ms
-      chunk_size_max: 20  # 1600ms = 16s
+      chunkwise_prob: 0.9
+      chunk_size_min: 1
+      chunk_size_max: 20
       left_constrain_prob: 0.7
-      context_sec_min: 5  # 5s = 500ms
-      context_sec_max: 20 # 20s = 2000ms
-      timestep_duration_sec: 0.08 # based on patch size / GRU window length
+      context_sec_min: 5
+      context_sec_max: 20
+      timestep_duration_sec: 0.1
       eval:
-        chunk_size: 5
+        chunk_size: 1
         context_sec: 20
 wandb:
   project: nejm-brain-to-text

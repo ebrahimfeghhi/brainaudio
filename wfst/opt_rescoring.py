@@ -6,16 +6,19 @@ import pandas as pd
 from brainaudio.inference.eval_metrics import _cer_and_wer
 from brainaudio.inference.eval_metrics import clean_string
 import torch
+import time
 
 # ---- Config ----
-dataset = "b2t_24"
-val = True
+dataset = "b2t_25"
+val = False
+compute_rtf = True
+device = "cuda:0"
 
 model_paths = [
-    "time_masked_transformer/nbest_wfst_seed_1_neurips.pkl",
+    "pretrained_RNN/seed_1_test_with_mem.pkl",
 ]
 save_names = [
-    "time_masked_transformer_seed_1_neurips",
+    "ucd_RNN_seed_1_mem",
 ]
 assert len(model_paths) == len(save_names), "model_paths and save_names must be the same length"
 
@@ -24,6 +27,7 @@ print(f"RUNNING USING {dataset} settings, val={val}")
 model_name = "facebook/opt-6.7b"
 
 # ---- Load LLM ----
+vram_free_before = torch.cuda.mem_get_info(device)[0]
 llm_tokenizer = AutoTokenizer.from_pretrained(model_name)
 
 if dataset == "b2t_25":
@@ -31,13 +35,13 @@ if dataset == "b2t_25":
     llm = AutoModelForCausalLM.from_pretrained(
         model_name,
         torch_dtype=torch.float16,
-        device_map="auto"
+        device_map=device
     )
 elif dataset == "b2t_24":
     llm = AutoModelForCausalLM.from_pretrained(
         model_name,
         load_in_8bit=True,
-        device_map="auto"
+        device_map=device
     )
 
 # Sanity check
@@ -67,12 +71,22 @@ for mn, save_name in zip(model_paths, save_names):
     with open(nbest_path, mode='rb') as f:
         nbest = pickle.load(f)
 
+    # Load WFST timing data if computing RTF
+    if compute_rtf:
+        timing_path = f"{wfst_outputs_path}{mn.replace('.pkl', '_timing.pkl')}"
+        with open(timing_path, mode='rb') as f:
+            timing_data = pickle.load(f)
+        trial_lengths_ms = timing_data['trial_lengths_ms']
+        wfst_decode_times_ms = timing_data['wfst_decode_times_ms']
+        opt_decode_times_ms = []
+
     best_hyp_all = []
 
     for idx, nbest_trial in enumerate(nbest):
         if idx % 100 == 0:
             print(f"Index: {idx}")
 
+        t_start = time.perf_counter()
         best_hyp = gpt2_lm_decode(
             llm,
             llm_tokenizer,
@@ -82,8 +96,27 @@ for mn, save_name in zip(model_paths, save_names):
             alpha=llm_weight,
             returnConfidence=False
         )
+        t_end = time.perf_counter()
+
+        if compute_rtf:
+            opt_time_ms = (t_end - t_start) * 1000
+            opt_decode_times_ms.append(opt_time_ms)
+            total_time_ms = wfst_decode_times_ms[idx] + opt_time_ms
+            rtf = total_time_ms / trial_lengths_ms[idx]
+            if idx % 100 == 0:
+                print(f"  Trial {idx}: RTF = {rtf:.4f} (wfst={wfst_decode_times_ms[idx]:.1f}ms, opt={opt_time_ms:.1f}ms, trial_len={trial_lengths_ms[idx]:.1f}ms)")
 
         best_hyp_all.append(best_hyp.strip())
+
+    if compute_rtf:
+        rtf_list = [(w + o) / tl for w, o, tl in zip(wfst_decode_times_ms, opt_decode_times_ms, trial_lengths_ms)]
+        print(f"\n--- RTF (WFST + OPT) ---")
+        print(f"Mean RTF: {np.mean(rtf_list):.4f}")
+        print(f"Std RTF: {np.std(rtf_list):.4f}")
+        print(f"Max RTF: {np.max(rtf_list):.4f}")
+        vram_free_after = torch.cuda.mem_get_info(device)[0]
+        vram_used = (vram_free_before - vram_free_after) / (1024**3)
+        print(f"Peak vRAM ({device}): {vram_used:.2f} GB")
 
     if dataset == "b2t_25":
         best_hyp_all_cleaned = [clean_string(hyp) for hyp in best_hyp_all]
@@ -102,4 +135,7 @@ for mn, save_name in zip(model_paths, save_names):
         print(f"Model: {save_name}")
         print(f"CER: {metrics[0]:.4f}, WER: {metrics[1]:.4f}")
 
-breakpoint()
+if not compute_rtf:
+    vram_free_after = torch.cuda.mem_get_info(device)[0]
+    vram_used = (vram_free_before - vram_free_after) / (1024**3)
+    print(f"\nPeak vRAM ({device}): {vram_used:.2f} GB")

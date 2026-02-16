@@ -6,7 +6,7 @@ from brainaudio.models.transformer_chunking import TransformerModel
 from brainaudio.training.trainer import trainModel
 
 
-config_path = "best_chunked_transformer_combined.yaml"
+config_path = "neurips_b2t_24_chunked_transformer_chunk_ratio_0.9.yaml"
 config_file = f"../src/brainaudio/training/utils/custom_configs/{config_path}"
 device = "cuda:5"
 

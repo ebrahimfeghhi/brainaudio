@@ -6,14 +6,14 @@ from typing import Optional, Dict
 import csv
 
 # --- Configuration ---
-MODEL_NAME = "best_chunked_transformer_combined_seed_4"
-local_model_folder = "b2t_combined" # folder the model is stored
+MODEL_NAME = "neurips_b2t_24_chunked_transformer_seed_0"
+local_model_folder = "b2t_24" # folder the model is stored
 modelWeightsFiles = "modelWeights_PER_24" # "modelWeights_PER_24"
 
 
 LOAD_MODEL_FOLDER = f"/home/ebrahim/data2/brain2text/{local_model_folder}/outputs/{MODEL_NAME}"  
 DEVICE = "cuda:0"   
-PARTITION = 'test'
+PARTITION = 'val'
 
 # Optionally evaluate multiple chunk configs per run. Use None to keep the
 # checkpoint's stored eval config. Add dicts like {"chunk_size": 5, "context_chunks": 50}.
@@ -41,7 +41,7 @@ PARTITION = 'test'
 #     {"chunk_size": None, "context_sec": None},
 # ] # Val Configs
 
-EVAL_CONFIGS = [{"chunk_size": 1, "context_sec": None},] # Test Config
+EVAL_CONFIGS = [{"chunk_size": 5, "context_sec": None},] # Test Config
 
 if modelWeightsFiles == "modelWeights_PER_25":
     
@@ -53,8 +53,8 @@ if modelWeightsFiles == "modelWeights_PER_25":
 if modelWeightsFiles == "modelWeights_PER_24":
     
     MANIFEST_PATHS = ["/home/ebrahim/data2/brain2text/b2t_24/trial_level_data/manifest.json"]
-    SAVE_PATHS = {1:'/home/ebrahim/data2/brain2text/b2t_24/logits/'}
-    PARTICIPANT_IDS = [1]
+    SAVE_PATHS = {0:'/home/ebrahim/data2/brain2text/b2t_24/logits/'}
+    PARTICIPANT_IDS = [0]
     
     
 if modelWeightsFiles == "modelWeights_PER":
