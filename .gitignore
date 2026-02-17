@@ -33,6 +33,7 @@ sherpa-onnx-*/
 
 # Finetuned LLM checkpoints
 llama-*/
+finetune_llm/**/*.safetensors
 
 # Transcript data files
 data/transcripts*.txt
@@ -49,6 +50,7 @@ creating_n_gram_lm/search_lambda.py
 results/archive/
 results/test_files/archive/
 results/*.pkl
+results/per_results/
 
 # Weights & Biases
 wandb/

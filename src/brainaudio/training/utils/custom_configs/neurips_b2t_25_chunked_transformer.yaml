@@ -16,10 +16,10 @@ seeds:
 - 9
 evaluate_wer: false
 evaluate_every_n_epochs: 1
-modelName: neurips_b2t_25_causal_transformer_lower_mask
+modelName: neurips_b2t_25_causal_transformer_lr_0.0005
 modelType: transformer
 optimizer: AdamW
-learning_rate: 0.001
+learning_rate: 0.0005
 beta1: 0.9
 beta2: 0.999
 eps: 1.0e-08
@@ -41,7 +41,7 @@ early_stopping_wer_threshold: 1
 early_stopping_per_threshold: 1
 early_stopping_no_improvement: 95
 num_masks: 20
-max_mask_pct: 0.05
+max_mask_pct: 0.025
 whiteNoiseSD: 0.2
 constantOffsetSD: 0.05
 gaussianSmoothWidth: 2.0
@@ -90,7 +90,7 @@ model:
       timestep_duration_sec: 0.08
       eval:
         chunk_size: 1
-        context_sec: null
+        context_sec: 20
 wandb:
   project: nejm-brain-to-text
   entity: lionelhu926-ucla
