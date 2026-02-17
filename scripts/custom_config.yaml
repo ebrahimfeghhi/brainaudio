@@ -71,7 +71,10 @@ model:
     mlp_dim_ratio: 4
     dim_head: 64
     depth: 5
+    dim_head: 64
+    depth: 5
     chunked_attention:
+      chunkwise_prob: 0.6
       chunkwise_prob: 0.6
       chunk_size_min: 1   # 80ms
       chunk_size_max: 20  # 1600ms = 16s

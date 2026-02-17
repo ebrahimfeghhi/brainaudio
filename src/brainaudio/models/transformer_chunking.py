@@ -137,9 +137,9 @@ class TransformerModel(BaseTimeMaskedModel):
                  nClasses, max_mask_pct, num_masks, num_participants, 
                  return_final_layer, chunked_attention=None):
    
-        super().__init__(max_mask_pct=max_mask_pct, num_masks=num_masks)
+        super().__init__(max_mask_pct=max_mask_pct, num_masks=num_masks, samples_per_patch=samples_per_patch)
 
-        self.samples_per_patch = samples_per_patch
+        #self.samples_per_patch = samples_per_patch
         self.features_list = features_list
         self.dim = dim
         self.depth = depth
@@ -151,7 +151,7 @@ class TransformerModel(BaseTimeMaskedModel):
         self.nClasses = nClasses
         self.num_participants = num_participants
         self.return_final_layer = return_final_layer
-        self._train_sampler: Optional[ChunkConfigSampler] = None
+
         self._eval_config: Optional[ChunkConfig] = None
         if isinstance(chunked_attention, dict):
             self._setup_chunked_attention(chunked_attention)

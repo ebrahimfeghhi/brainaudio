@@ -6,12 +6,14 @@ class BaseTimeMaskedModel(nn.Module):
     def __init__(self,
                  *,
                  max_mask_pct, 
-                 num_masks):
+                 num_masks,
+                 samples_per_patch):
         
         super().__init__()
         
         self.max_mask_pct = max_mask_pct
         self.num_masks = num_masks
+        self.samples_per_patch = samples_per_patch
         
     def compute_length(self, X_len):
     
@@ -38,8 +40,8 @@ class BaseTimeMaskedModel(nn.Module):
         B, P, D = X.shape
         device = X.device
 
-        valid_lens = X_len
-            
+        valid_lens = (X_len // self.samples_per_patch).to(device)
+
         max_mask_lens = (self.max_mask_pct * valid_lens).long()  # (B,)
 
         # Repeat B num_masks times to simulate multiple masks per sample
