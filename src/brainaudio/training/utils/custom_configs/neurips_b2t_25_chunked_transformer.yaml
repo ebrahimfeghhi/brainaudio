@@ -5,34 +5,43 @@ participant_suffixes:
 - _25
 seeds:
 - 0
+- 1
+- 2 
+- 3
+- 4
+- 5
+- 6
+- 7
+- 8
+- 9
 evaluate_wer: false
 evaluate_every_n_epochs: 1
-modelName: neurips_b2t_25_chunked_transformer
+modelName: neurips_b2t_25_causal_transformer_lower_mask
 modelType: transformer
 optimizer: AdamW
 learning_rate: 0.001
 beta1: 0.9
 beta2: 0.999
 eps: 1.0e-08
-learning_scheduler: multistep
+learning_scheduler: cosine
 n_epochs: 500
 milestones:
 - 300
 gamma: 0.1
 lr_scaling_factor: 0.1
-learning_rate_decay_steps: 951
-learning_rate_warmup_steps: 0
+learning_rate_decay_steps: 500
+learning_rate_warmup_steps: 10
 batchSize: 64
 nClasses: 40
 load_pretrained_model: ''
-grad_norm_clip_value: -1
+grad_norm_clip_value: 10
 early_stopping_enabled: false
 early_stopping_checkpoint: 951
 early_stopping_wer_threshold: 1
 early_stopping_per_threshold: 1
 early_stopping_no_improvement: 95
 num_masks: 20
-max_mask_pct: 7.5
+max_mask_pct: 0.05
 whiteNoiseSD: 0.2
 constantOffsetSD: 0.05
 gaussianSmoothWidth: 2.0
@@ -47,7 +56,7 @@ lm_weight: 2.0
 word_score: 0.1
 beam_size: 30
 interctc:
-  enable_interctc: false
+  enable_interctc: falsttmue
   alpha: 0.25
   inter_ctc_per_layers: 3
 model:
@@ -72,16 +81,16 @@ model:
     dim_head: 64
     depth: 5
     chunked_attention:
-      chunkwise_prob: 0.6
+      chunkwise_prob: 1
       chunk_size_min: 1
-      chunk_size_max: 20
-      left_constrain_prob: 0.7
+      chunk_size_max: 1
+      left_constrain_prob: 1
       context_sec_min: 5
       context_sec_max: 20
       timestep_duration_sec: 0.08
       eval:
-        chunk_size: 5
-        context_sec: 20
+        chunk_size: 1
+        context_sec: null
 wandb:
   project: nejm-brain-to-text
   entity: lionelhu926-ucla

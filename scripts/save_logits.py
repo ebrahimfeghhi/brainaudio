@@ -6,7 +6,7 @@ from typing import Optional, Dict
 import csv
 
 # --- Configuration ---
-MODEL_NAME = "neurips_b2t_24_chunked_transformer_seed_0"
+MODEL_NAME = "neurips_b2t_24_chunked_transformer_seed_41_chunkwise_prob1.0"
 local_model_folder = "b2t_24" # folder the model is stored
 modelWeightsFiles = "modelWeights_PER_24" # "modelWeights_PER_24"
 
@@ -41,7 +41,7 @@ PARTITION = 'val'
 #     {"chunk_size": None, "context_sec": None},
 # ] # Val Configs
 
-EVAL_CONFIGS = [{"chunk_size": 5, "context_sec": None},] # Test Config
+EVAL_CONFIGS = [{"chunk_size": 1, "context_sec": None}] # Test Config
 
 if modelWeightsFiles == "modelWeights_PER_25":
     

@@ -9,16 +9,16 @@ import torch
 import time
 
 # ---- Config ----
-dataset = "b2t_25"
-val = False
+dataset = "b2t_24"
+val = True
 compute_rtf = True
 device = "cuda:0"
 
 model_paths = [
-    "pretrained_RNN/seed_1_test_with_mem.pkl",
+    "time_masked_transformer_chunked/seed_0_val.pkl" for i in range(5)
 ]
 save_names = [
-    "ucd_RNN_seed_1_mem",
+    "seed_{i}_val_results" for i in range(5)
 ]
 assert len(model_paths) == len(save_names), "model_paths and save_names must be the same length"
 
@@ -130,12 +130,18 @@ for mn, save_name in zip(model_paths, save_names):
         with open(saved_dir + f"{save_name}_llm_outs.txt", "w", encoding="utf-8") as f:
             f.write("\n".join(best_hyp_all) + "\n")
 
+    vram_free_after = torch.cuda.mem_get_info(device)[0]
+    vram_used = (vram_free_before - vram_free_after) / (1024**3)
+    if not compute_rtf:
+        print(f"\nPeak vRAM ({device}): {vram_used:.2f} GB")
+
     if val:
         metrics = _cer_and_wer(best_hyp_all, ground_truth)
         print(f"Model: {save_name}")
         print(f"CER: {metrics[0]:.4f}, WER: {metrics[1]:.4f}")
 
-if not compute_rtf:
-    vram_free_after = torch.cuda.mem_get_info(device)[0]
-    vram_used = (vram_free_before - vram_free_after) / (1024**3)
-    print(f"\nPeak vRAM ({device}): {vram_used:.2f} GB")
+        with open(saved_dir + f"{save_name}_metrics.txt", "w") as f:
+            f.write(f"Model: {save_name}\n")
+            f.write(f"CER: {metrics[0]:.4f}\n")
+            f.write(f"WER: {metrics[1]:.4f}\n")
+            f.write(f"Peak vRAM ({device}): {vram_used:.2f} GB\n")
