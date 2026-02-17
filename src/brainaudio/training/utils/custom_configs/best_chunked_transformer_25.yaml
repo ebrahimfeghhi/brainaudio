@@ -1,57 +1,47 @@
-outputDir: /home/ebrahim/data2/brain2text/b2t_24/outputs/
+outputDir: /home/ebrahim/data2/brain2text/b2t_25/outputs/
 manifest_paths:
-- /home/ebrahim/data2/brain2text/b2t_24/trial_level_data_log/manifest.json
+- /home/ebrahim/data2/brain2text/b2t_25/trial_level_data/manifest.json
 participant_suffixes:
-- _24
+- _25
 seeds:
 - 0
-- 1
-- 2
-- 3
-- 4
-- 5
-- 6
-- 7
-- 8
-- 9
-
 evaluate_wer: false
 evaluate_every_n_epochs: 1
-modelName: neurips_b2t_24_dynchunked_transformer
+modelName: best_chunked_transformer_25
 modelType: transformer
 optimizer: AdamW
-learning_rate: 0.001
+learning_rate: 0.0017109375
 beta1: 0.9
 beta2: 0.999
 eps: 1.0e-08
-learning_scheduler: multistep
-n_epochs: 250
+learning_scheduler: cosine
+n_epochs: 501
 milestones:
-- 150
-gamma: 0.1
+- None
+gamma: None
 lr_scaling_factor: 0.1
-learning_rate_decay_steps: 951
-learning_rate_warmup_steps: 0
+learning_rate_decay_steps: 500
+learning_rate_warmup_steps: 8
 batchSize: 64
 nClasses: 40
 load_pretrained_model: ''
-grad_norm_clip_value: -1
-early_stopping_enabled: false
-early_stopping_checkpoint: 951
+grad_norm_clip_value: 10
+early_stopping_enabled: true
+early_stopping_checkpoint: 501
 early_stopping_wer_threshold: 1
 early_stopping_per_threshold: 1
-early_stopping_no_improvement: 95
-num_masks: 20
-max_mask_pct: 0.075
-whiteNoiseSD: 0.2
-constantOffsetSD: 0.05
+early_stopping_no_improvement: 50
+num_masks: 12
+max_mask_pct: 0.055
+whiteNoiseSD: 0.146875
+constantOffsetSD: 0.0953125
 gaussianSmoothWidth: 2.0
 smooth_kernel_size: 20
 random_cut: 0
 use_amp: true
-l2_decay: 1.0e-05
-input_dropout: 0.2
-dropout: 0.35
+l2_decay: 4.531583637600821e-05
+input_dropout: 0.1
+dropout: 0.25468750000000007
 acoustic_scale: 0.6
 lm_weight: 2.0
 word_score: 0.1
@@ -75,9 +65,9 @@ model:
   transformer:
     name: Transformer
     features_list:
-    - 256
-    samples_per_patch: 5
-    n_heads: 6
+    - 512
+    samples_per_patch: 4
+    n_heads: 7
     mlp_dim_ratio: 4
     dim_head: 64
     depth: 5
@@ -85,13 +75,13 @@ model:
       chunkwise_prob: 0.8
       chunk_size_min: 1
       chunk_size_max: 20
-      left_constrain_prob: 1.0
+      left_constrain_prob: 0.7
       context_sec_min: 5
       context_sec_max: 20
-      timestep_duration_sec: 0.1
+      timestep_duration_sec: 0.08
       eval:
-        chunk_size: 10
-        context_sec: null
+        chunk_size: 5
+        context_sec: 20
 wandb:
   project: nejm-brain-to-text
   entity: lionelhu926-ucla

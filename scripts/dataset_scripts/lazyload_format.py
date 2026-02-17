@@ -5,8 +5,8 @@ import pickle
 from pathlib import Path
 
 # --- Configuration ---
-data_paths = ['/data2/brain2text/b2t_25/brain2text25.pkl', '/data2/brain2text/b2t_24/brain2text24.pkl']
-output_dirs = ['/data2/brain2text/b2t_25/trial_level_data/', '/data2/brain2text/b2t_24/trial_level_data/']
+data_paths = ['/home/ebrahim/data2/brain2text/b2t_24/brain2text24_log.pkl']
+output_dirs = ['/home/ebrahim/data2/brain2text/b2t_24/trial_level_data_log/']
 # ---------------------
 
 print("Starting preprocessing...")
