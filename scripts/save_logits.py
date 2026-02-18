@@ -14,7 +14,7 @@ local_model_folder = "b2t_25" # folder the model is stored
 modelWeightsFiles = "modelWeights_PER_25" # "modelWeights_PER_24"
 
 DEVICE = "cuda:0"
-PARTITION = 'val'
+PARTITION = 'test'
 
 EVAL_CONFIGS = [{"chunk_size": 1, "context_sec": 20}, {"chunk_size": 1, "context_sec": 17.5}, {"chunk_size": 1, "context_sec": 15}, 
         {"chunk_size": 1, "context_sec": 12.5}, {"chunk_size": 1, "context_sec": 10}, 

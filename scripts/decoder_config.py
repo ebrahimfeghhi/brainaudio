@@ -3,7 +3,7 @@ Default configuration for CTC beam search decoder.
 Edit this file to change default hyperparameters.
 """
 
-base_path = ""
+base_path = "/home/ebrahim/"
 
 # =============================================================================
 # DATASET SELECTOR  ("b2t_24" or "b2t_25")
