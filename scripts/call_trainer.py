@@ -1,7 +1,8 @@
 import yaml
 from brainaudio.models._archive.gru_b2t_25 import GRU_25
 #from brainaudio.models.transformer_interctc import TransformerModel 
-from brainaudio.models.transformer_chunking import TransformerModel
+#from brainaudio.models.transformer_chunking import TransformerModel
+from brainaudio.models.transformer_demichunking import TransformerModel
 #from brainaudio.models._archive.transformer import TransformerModel
 from brainaudio.training.trainer import trainModel
 
@@ -41,12 +42,6 @@ for seed in config['seeds']:
                                 dropout=config['dropout'], input_dropout=config['input_dropout'], nClasses=config['nClasses'], 
                                 max_mask_pct=config['max_mask_pct'], num_masks=config['num_masks'], num_participants=len(model_args['features_list']), return_final_layer=False, 
                                  chunked_attention=model_args["chunked_attention"])
-        
-        # model = TransformerModel(features_list=model_args['features_list'], samples_per_patch=model_args['samples_per_patch'], dim=model_args['d_model'], 
-        #                          depth=model_args['depth'], heads=model_args['n_heads'], mlp_dim_ratio=model_args['mlp_dim_ratio'],  dim_head=model_args['dim_head'], 
-        #                         dropout=config['dropout'], input_dropout=config['input_dropout'], nClasses=config['nClasses'], 
-        #                         max_mask_pct=config['max_mask_pct'], num_masks=config['num_masks'], num_participants=len(model_args['features_list']), bidirectional=False, 
-        #                         return_final_layer=False)
 
         total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
         print(f"Total parameters are {total_params}")

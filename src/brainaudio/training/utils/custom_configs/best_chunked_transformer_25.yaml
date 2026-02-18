@@ -27,7 +27,7 @@ nClasses: 40
 load_pretrained_model: ''
 grad_norm_clip_value: 10
 early_stopping_enabled: true
-early_stopping_checkpoint: 501
+early_stopping_checkpoint: 500
 early_stopping_wer_threshold: 1
 early_stopping_per_threshold: 1
 early_stopping_no_improvement: 50
@@ -72,7 +72,7 @@ model:
     dim_head: 64
     depth: 5
     chunked_attention:
-      chunkwise_prob: 0.8
+      chunkwise_prob: 0.7
       chunk_size_min: 1
       chunk_size_max: 20
       left_constrain_prob: 0.7
@@ -80,8 +80,8 @@ model:
       context_sec_max: 20
       timestep_duration_sec: 0.08
       eval:
-        chunk_size: 5
-        context_sec: 20
+        chunk_size: 1
+        context_sec: null
 wandb:
   project: nejm-brain-to-text
   entity: lionelhu926-ucla
