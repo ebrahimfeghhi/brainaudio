@@ -19,18 +19,22 @@ from pathlib import Path
 # EDIT THESE LISTS (must be same length, use None to skip val or test)
 # =============================================================================
 
-seed_list = [0,1,2,3,4,5,6,7,8,9]
-TRAIN_PATHS = [
-     f"/home/ebrahim/data2/brain2text/b2t_24/logits/neurips_b2t_24_chunked_unidirectional_transformer_5to20_sec_seed_{seed}/logits_train_chunk:1_context:20.npz"
-     for seed in seed_list]
+seed_list = [0]
+#TRAIN_PATHS = [
+#     f"/home/ebrahim/data2/brain2text/b2t_24/logits/#neurips_b2t_24_chunked_unidirectional_transformer_5to20_sec_seed_{seed}/logits_train_chunk:1_context:20.npz"
+#     for seed in seed_list]
      
-VAL_PATHS = [f"/home/ebrahim/data2/brain2text/b2t_24/logits/neurips_b2t_24_chunked_unidirectional_transformer_5to20_sec_seed_{seed}/logits_val_chunk:1_context:20.npz"
-     for seed in seed_list] 
+#VAL_PATHS = [f"/home/ebrahim/data2/brain2text/b2t_24/logits/#neurips_b2t_24_chunked_unidirectional_transformer_5to20_sec_seed_{seed}/logits_val_chunk:1_context:20.npz"
+#     for seed in seed_list] 
 
-TEST_PATHS = [
-    f"/home/ebrahim/data2/brain2text/b2t_24/logits/neurips_b2t_24_chunked_unidirectional_transformer_5to20_sec_seed_{seed}/logits_test_chunk:1_context:20.npz"
-    for seed in seed_list]
+#TEST_PATHS = [
+#    f"/home/ebrahim/data2/brain2text/b2t_24/logits/neurips_b2t_24_chunked_unidirectional_transformer_5to20_sec_seed_#{seed}/logits_test_chunk:1_context:20.npz"
+ #   for seed in seed_list]]
 # [None] * 10
+
+TRAIN_PATHS = [None]
+VAL_PATHS = ["/home/ebrahim/data2/brain2text/b2t_25/logits/neurips_b2t_25_causal_transformer_v4_prob_1_seed_0/logits_val_chunk:1_context:20.npz"]
+TEST_PATHS = [None]
 
 SAVE_NAMES = [f"" for _ in range(len(seed_list))] # no_finetuning  ,  no_variants  , no_delayed_fusion  ,  llama_3b
 # =============================================================================
