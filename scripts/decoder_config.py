@@ -14,7 +14,7 @@ PATHS = {
     "lora_adapter_1b": "/home/ebrahim/brainaudio/finetune_llm/llama-3.2-1b-hf-finetuned-normalized",
     "lora_adapter_3b": "/home/ebrahim/brainaudio/finetune_llm/llama-3.2-3b-hf-finetuned-normalized",
     "results_dir": "../results/transformer_24",
-    "results_test_dir": "../results/test_files/transformer_25",
+    "results_test_dir": "../results/test_files/transformer_24",
 }
 
 # =============================================================================
@@ -48,7 +48,7 @@ BEAM_SEARCH = {
     "beam_beta": 1.5,
     "word_boundary_bonus": 1.0,
     "alpha_ngram": 0.8,
-    "top_k": 10,
+    "top_k": 20,
     "score_combination": "max",
 }
 
@@ -56,5 +56,5 @@ BEAM_SEARCH = {
 # DEVICE SETTINGS
 # =============================================================================
 DEVICE = {
-    "device": "cuda:7",
+    "device": "cuda:1",
 }

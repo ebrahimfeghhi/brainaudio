@@ -7,19 +7,19 @@ import csv
 import json
 
 # --- Configuration ---
-MODEL_NAME_TEMPLATE = "neurips_b2t_25_causal_transformer_lowest_mask_prob_1_seed_{seed}"
-SEEDS = [0,1,2,3,4]
+MODEL_NAME_TEMPLATE = "neurips_b2t_24_chunked_unidirectional_transformer_5to20_sec_seed_{seed}"
+SEEDS = [0,1,2,3,4,5,6,7,8,9]
 
-local_model_folder = "b2t_25" # folder the model is stored
-modelWeightsFiles = "modelWeights_PER_25" # "modelWeights_PER_24"
+local_model_folder = "b2t_24" # folder the model is stored
+modelWeightsFiles = "modelWeights_PER_24" # "modelWeights_PER_24"
 
 DEVICE = "cuda:0"
-PARTITION = 'val'
+PARTITION = 'train'
 
 #EVAL_CONFIGS = [{"chunk_size": 1, "context_sec": None}, {"chunk_size": 1, "context_sec": 20}, {"chunk_size": 1, "context_sec": 17.5}, {"chunk_size": 1, "context_sec": 15}, 
 #        {"chunk_size": 1, "context_sec": 12.5}, {"chunk_size": 1, "context_sec": 10}, 
 #        {"chunk_size": 1, "context_sec": 7.5}, {"chunk_size": 1, "context_sec": 5}] # Test Config
-EVAL_CONFIGS = [{"chunk_size": 1, "context_sec": 15}]
+EVAL_CONFIGS = [{"chunk_size": 1, "context_sec": 20}]
 
 if modelWeightsFiles == "modelWeights_PER_25":
 
@@ -30,18 +30,23 @@ if modelWeightsFiles == "modelWeights_PER_25":
 
 if modelWeightsFiles == "modelWeights_PER_24":
 
-    MANIFEST_PATHS = ["/home/ebrahim/data2/brain2text/b2t_24/trial_level_data_log/manifest.json"]
-    SAVE_PATHS = {0:'/home/ebrahim/data2/brain2text/b2t_24/logits/'}
-    PARTICIPANT_IDS = [0]
+    if "gru" in MODEL_NAME_TEMPLATE:
+        
+        print("LOADING NON LOGGED DATA")
+        MANIFEST_PATHS = ["/home/ebrahim/data2/brain2text/b2t_24/trial_level_data/manifest.json"]
+        SAVE_PATHS = {0:'/home/ebrahim/data2/brain2text/b2t_24/logits/'}
+        PARTICIPANT_IDS = [0]
+
+    else:
+
+        print("LOADING LOGGED DATA")
+        MANIFEST_PATHS = ["/home/ebrahim/data2/brain2text/b2t_24/trial_level_data_log/manifest.json"]
+        SAVE_PATHS = {0:'/home/ebrahim/data2/brain2text/b2t_24/logits/'}
+        PARTICIPANT_IDS = [0]
+
+    
 
 
-if modelWeightsFiles == "modelWeights_PER":
-
-    MANIFEST_PATHS = ["/home/ebrahim/data2/brain2text/b2t_25/trial_level_data/manifest.json",
-                      "/home/ebrahim/data2/brain2text/b2t_24/trial_level_data_log/manifest.json"]
-    SAVE_PATHS = { 0:'/home/ebrahim/data2/brain2text/b2t_25/logits/test/',
-                    1:'/home/ebrahim/data2/brain2text/b2t_24/logits/'}
-    PARTICIPANT_IDS = [0, 1]
 
 def _format_eval_tag(cfg: Optional[Dict[str, Optional[int]]]) -> str:
     if cfg is None:

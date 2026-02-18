@@ -34,6 +34,8 @@ def parse_args() -> argparse.Namespace:
     # =========================================================================
     # LOGITS PATHS (required)
     # =========================================================================
+    parser.add_argument("--logits-train-path", type=Path, default=None,
+                        help="Path to train logits NPZ file")
     parser.add_argument("--logits-val-path", type=Path, default=None,
                         help="Path to validation logits NPZ file")
     parser.add_argument("--logits-test-path", type=Path, default=None,
@@ -140,9 +142,9 @@ def parse_args() -> argparse.Namespace:
 
 def run_decode_pass(
     args, decoder, device, word_history, lexicon, lm_fusion, process,
-    logits_path, trial_indices, transcripts, is_test_mode, results_filename
+    logits_path, trial_indices, transcripts, mode, results_filename
 ):
-    """Run a single decode pass (val or test) and save results."""
+    """Run a single decode pass (train, val, or test) and save results."""
     from brainaudio.inference.decoder import materialize_beam_transcript, collapse_ctc_sequence
     from brainaudio.inference.eval_metrics import clean_string
 
@@ -151,12 +153,13 @@ def run_decode_pass(
     # Results Containers
     decoded_sentences = []
     ground_truth_sentences = []
+    all_beams = []  # per-trial list of top-K beam texts
     rtf_values = []
     peak_cpu_memory = process.memory_info().rss
 
     total_start_time = time.perf_counter()
 
-    mode_str = "TEST" if is_test_mode else "VAL"
+    mode_str = mode.upper()
     print(f"\n=== Starting {mode_str} Decode Loop: {len(trial_indices)} trials ===")
     print(f"[INFO] Decoding trial indices: {trial_indices}")
     print(f"[INFO] Logits path: {logits_path}")
@@ -211,9 +214,10 @@ def run_decode_pass(
         best_text = decoded_beams[0] if decoded_beams else ""
         best_lm_score = lm_scores[0] if lm_scores else 0
         decoded_sentences.append(best_text)
+        all_beams.append(decoded_beams)
 
         ground_truth = ""
-        if not is_test_mode:
+        if mode != "test":
             if isinstance(transcripts, (list, tuple)) and trial_idx < len(transcripts):
                 ground_truth = transcripts[trial_idx]
             elif hasattr(transcripts, 'get'):
@@ -224,7 +228,7 @@ def run_decode_pass(
 
         best_score = scores[topk_indices[0]] if topk_indices else 0
         print(f"Trial {trial_idx:3d} | {trial_elapsed*1000:.1f}ms | RTF: {rtf:.3f} | Score: {best_score:.2f} | LM Score: {best_lm_score:.2f}")
-        if not is_test_mode:
+        if mode != "test":
             print(f"  GT:   {ground_truth}")
         print(f"  Best: {best_text}")
 
@@ -280,17 +284,17 @@ def run_decode_pass(
     print(f"RTF - Mean: {rtf_array.mean():.3f}, Median: {np.median(rtf_array):.3f}, Min: {rtf_array.min():.3f}, Max: {rtf_array.max():.3f}")
 
     wer = None
-    if not is_test_mode:
+    if mode != "test":
         try:
             _, wer, _ = _cer_and_wer(decoded_sentences, ground_truth_sentences)
             print(f"\nAggregate WER: {wer:.4f}")
         except Exception as e:
             print(f"\nError computing WER: {e}")
     else:
-        print("\n[test-mode] Skipping WER computation")
+        print(f"\n[{mode}-mode] Skipping WER computation")
 
     # Save results
-    if is_test_mode:
+    if mode == "test":
         results_dir = Path(config.PATHS["results_test_dir"])
         cleaned_sentences = [clean_string(sent) for sent in decoded_sentences]
     else:
@@ -312,7 +316,7 @@ def run_decode_pass(
     # Save metrics to JSON
     metrics = {
         "encoder_model_name": args.encoder_model_name,
-        "mode": "test" if is_test_mode else "val",
+        "mode": mode,
         "hyperparameters": {
             "acoustic_scale": args.acoustic_scale,
             "temperature": args.temperature,
@@ -344,13 +348,21 @@ def run_decode_pass(
             "num_trials": len(trial_indices),
         }
     }
-    if not is_test_mode and wer is not None:
+    if mode != "test" and wer is not None:
         metrics["aggregate"]["wer"] = wer
 
     metrics_path = csv_path.with_suffix('.json')
     with open(metrics_path, 'w') as f:
         json.dump(metrics, f, indent=2)
     print(f"Saved metrics to {metrics_path}")
+
+    # Save top-K beams for train and val (not test)
+    if mode != "test":
+        beams_data = {str(trial_idx): beams for trial_idx, beams in zip(trial_indices, all_beams)}
+        beams_path = csv_path.with_name(csv_path.stem + "_beams.json")
+        with open(beams_path, 'w') as f:
+            json.dump(beams_data, f)
+        print(f"Saved top-{K} beams to {beams_path}")
 
     return {
         "decoded_sentences": decoded_sentences,
@@ -424,12 +436,12 @@ def main():
     args = parse_args()
 
     # Validate inputs
-    if args.logits_val_path is None and args.logits_test_path is None:
-        raise ValueError("At least one of --logits-val-path or --logits-test-path is required")
+    if args.logits_val_path is None and args.logits_test_path is None and args.logits_train_path is None:
+        raise ValueError("At least one of --logits-train-path, --logits-val-path, or --logits-test-path is required")
 
     # Auto-derive encoder name from logits path if not explicitly set
     if args.encoder_model_name is None:
-        logits_path = args.logits_val_path or args.logits_test_path
+        logits_path = args.logits_val_path or args.logits_train_path or args.logits_test_path
         args.encoder_model_name = logits_path.parent.name
         print(f"[INFO] Auto-derived encoder name: {args.encoder_model_name}")
 
@@ -492,7 +504,38 @@ def main():
     else:
         print(f"Warning: Transcripts file not found at {transcripts_path}")
 
+    # Load transcripts for train (same folder as val, _val_ -> _train_)
+    train_transcripts = None
+    train_transcripts_path = Path(str(transcripts_path).replace("_val_", "_train_"))
+    if train_transcripts_path.exists():
+        train_transcripts = pd.read_pickle(train_transcripts_path)
+    else:
+        print(f"Warning: Train transcripts file not found at {train_transcripts_path}")
+
     val_results = None
+
+    # Run train decode pass if train path provided
+    if args.logits_train_path:
+        train_trial_indices = get_trial_indices_from_npz(args.logits_train_path)
+        if args.trial_indices is not None:
+            train_trial_indices = args.trial_indices
+        elif args.random is not None:
+            rng = np.random.default_rng(seed=42)
+            train_trial_indices = sorted(rng.choice(train_trial_indices, size=min(args.random, len(train_trial_indices)), replace=False).tolist())
+        elif args.start_trial_idx is not None or args.end_trial_idx is not None:
+            start = args.start_trial_idx or 0
+            end = args.end_trial_idx or max(train_trial_indices) + 1
+            train_trial_indices = [i for i in train_trial_indices if start <= i < end]
+
+        run_decode_pass(
+            args, decoder, device, word_history, lexicon, lm_fusion, process,
+            logits_path=args.logits_train_path,
+            trial_indices=train_trial_indices,
+            transcripts=train_transcripts,
+            mode="train",
+            results_filename=args.results_filename + "_train"
+        )
+        word_history.reset()
 
     # Run validation if val path provided
     if args.logits_val_path:
@@ -512,21 +555,30 @@ def main():
             logits_path=args.logits_val_path,
             trial_indices=val_trial_indices,
             transcripts=transcripts,
-            is_test_mode=False,
+            mode="val",
             results_filename=args.results_filename
         )
 
     # Run test if test path provided
     if args.logits_test_path:
-        if args.logits_val_path:
+        if args.logits_val_path or args.logits_train_path:
             word_history.reset()
         test_trial_indices = get_trial_indices_from_npz(args.logits_test_path)
+        if args.trial_indices is not None:
+            test_trial_indices = args.trial_indices
+        elif args.random is not None:
+            rng = np.random.default_rng(seed=42)
+            test_trial_indices = sorted(rng.choice(test_trial_indices, size=min(args.random, len(test_trial_indices)), replace=False).tolist())
+        elif args.start_trial_idx is not None or args.end_trial_idx is not None:
+            start = args.start_trial_idx or 0
+            end = args.end_trial_idx or max(test_trial_indices) + 1
+            test_trial_indices = [i for i in test_trial_indices if start <= i < end]
         run_decode_pass(
             args, decoder, device, word_history, lexicon, lm_fusion, process,
             logits_path=args.logits_test_path,
             trial_indices=test_trial_indices,
             transcripts=None,
-            is_test_mode=True,
+            mode="test",
             results_filename=args.results_filename + "_test"
         )
 

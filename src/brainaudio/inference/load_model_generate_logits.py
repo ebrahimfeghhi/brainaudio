@@ -178,6 +178,7 @@ def generate_and_save_logits(model, config, partition, device,
                 save_path = f"{save_paths[participant_id]}/logits_{partition}.npz"
                 
             print(f"Saving logits for participant {participant_id} to {save_path}")
+            print(f"Length of logits: ", len(logits_data))
             np.savez_compressed(save_path, *logits_data)
             print(f"Error Rate for participant {participant_id}: {total_edit_distance/total_seq_length}")
             if per_dict is not None:
