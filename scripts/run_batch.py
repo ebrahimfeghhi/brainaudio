@@ -33,7 +33,7 @@ seed_list = [0]
 # [None] * 10
 
 TRAIN_PATHS = [None]
-VAL_PATHS = ["/home/ebrahim/data2/brain2text/b2t_25/logits/neurips_b2t_25_causal_transformer_v4_prob_1_seed_0/logits_val_chunk:1_context:20.npz"]
+VAL_PATHS = ["/data2/brain2text/b2t_25/logits/neurips_b2t_25_causal_transformer_v4_prob_1_seed_0/logits_val_chunk:1_context:20.npz"]
 TEST_PATHS = [None]
 
 SAVE_NAMES = [f"" for _ in range(len(seed_list))] # no_finetuning  ,  no_variants  , no_delayed_fusion  ,  llama_3b

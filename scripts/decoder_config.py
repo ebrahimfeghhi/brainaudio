@@ -3,6 +3,8 @@ Default configuration for CTC beam search decoder.
 Edit this file to change default hyperparameters.
 """
 
+base_path = ""
+
 # =============================================================================
 # DATASET SELECTOR  ("b2t_24" or "b2t_25")
 # =============================================================================
@@ -12,7 +14,7 @@ DATASET = "b2t_25"
 # PER-DATASET CONFIGS
 # =============================================================================
 _B2T_24 = {
-    "transcripts_val": "/home/ebrahim/data2/brain2text/b2t_24/transcripts_val_cleaned.pkl",
+    "transcripts_val": f"{base_path}/data2/brain2text/b2t_24/transcripts_val_cleaned.pkl",
     "results_dir": "../results/transformer_24",
     "results_test_dir": "../results/test_files/transformer_24",
     "beam_size": 1000,
@@ -23,7 +25,7 @@ _B2T_24 = {
 }
 
 _B2T_25 = {
-    "transcripts_val": "/home/ebrahim/data2/brain2text/b2t_25/transcripts_val_cleaned.pkl",
+    "transcripts_val": f"{base_path}/data2/brain2text/b2t_25/transcripts_val_cleaned.pkl",
     "results_dir": "../results/transformer_25",
     "results_test_dir": "../results/test_files/transformer_25",
     "beam_size": 900,
@@ -39,12 +41,12 @@ _DS = {"b2t_24": _B2T_24, "b2t_25": _B2T_25}[DATASET]
 # PATHS
 # =============================================================================
 PATHS = {
-    "tokens": "/home/ebrahim/data2/brain2text/lm/units_pytorch.txt",
-    "lexicon": "/home/ebrahim/data2/brain2text/lm/vocab_lower_100k_pytorch_phoneme_with_variants.txt",
-    "word_lm": "/home/ebrahim/data2/brain2text/lm/lm_dec19_huge_4gram.kenlm",
+    "tokens": f"{base_path}/data2/brain2text/lm/units_pytorch.txt",
+    "lexicon": f"{base_path}/data2/brain2text/lm/vocab_lower_100k_pytorch_phoneme_with_variants.txt",
+    "word_lm": f"{base_path}/data2/brain2text/lm/lm_dec19_huge_4gram.kenlm",
     "transcripts_val": _DS["transcripts_val"],
-    "lora_adapter_1b": "/home/ebrahim/brainaudio/finetune_llm/llama-3.2-1b-hf-finetuned-normalized",
-    "lora_adapter_3b": "/home/ebrahim/brainaudio/finetune_llm/llama-3.2-3b-hf-finetuned-normalized",
+    "lora_adapter_1b": f"/data2/brain2text/finetuned_llms/llama-3.2-1b-hf-finetuned-normalized",
+    "lora_adapter_3b": f"{base_path}/brainaudio/finetune_llm/llama-3.2-3b-hf-finetuned-normalized",
     "results_dir": _DS["results_dir"],
     "results_test_dir": _DS["results_test_dir"],
 }
@@ -87,5 +89,5 @@ BEAM_SEARCH = {
 # DEVICE SETTINGS
 # =============================================================================
 DEVICE = {
-    "device": "cuda:4",
+    "device": "cuda:0",
 }
