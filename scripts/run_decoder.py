@@ -356,13 +356,12 @@ def run_decode_pass(
         json.dump(metrics, f, indent=2)
     print(f"Saved metrics to {metrics_path}")
 
-    # Save top-K beams for train and val (not test)
-    if mode != "test":
-        beams_data = {str(trial_idx): beams for trial_idx, beams in zip(trial_indices, all_beams)}
-        beams_path = csv_path.with_name(csv_path.stem + "_beams.json")
-        with open(beams_path, 'w') as f:
-            json.dump(beams_data, f)
-        print(f"Saved top-{K} beams to {beams_path}")
+    # Save top-K beams for all modes
+    beams_data = {str(trial_idx): beams for trial_idx, beams in zip(trial_indices, all_beams)}
+    beams_path = csv_path.with_name(csv_path.stem + "_beams.json")
+    with open(beams_path, 'w') as f:
+        json.dump(beams_data, f)
+    print(f"Saved top-{K} beams to {beams_path}")
 
     return {
         "decoded_sentences": decoded_sentences,

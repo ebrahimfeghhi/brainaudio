@@ -22,6 +22,8 @@ _B2T_24 = {
     "alpha_ngram": 0.8,
     "acoustic_scale": 0.6,
     "lm_rescore_interval": 10,
+    "results_dir": "../results/transformer_24",
+    "results_test_dir": "../results/test_files/transformer_24",
 }
 
 _B2T_25 = {
@@ -33,6 +35,8 @@ _B2T_25 = {
     "alpha_ngram": 1.0,
     "acoustic_scale": 0.4,
     "lm_rescore_interval": 15,
+    "results_dir": "../results/transformer_25",
+    "results_test_dir": "../results/test_files/transformer_25",
 }
 
 _DS = {"b2t_24": _B2T_24, "b2t_25": _B2T_25}[DATASET]
@@ -44,15 +48,15 @@ PATHS = {
     "tokens": "/home/ebrahim/data2/brain2text/lm/units_pytorch.txt",
     "lexicon": "/home/ebrahim/data2/brain2text/lm/vocab_lower_100k_pytorch_phoneme_with_variants.txt",
     "word_lm": "/home/ebrahim/data2/brain2text/lm/lm_dec19_huge_4gram.kenlm",
-    "transcripts_val": "/home/ebrahim/data2/brain2text/b2t_25/transcripts_val_cleaned.pkl",
+    "transcripts_val": _DS["transcripts_val"],
     "lora_adapter_1b": "/home/ebrahim/brainaudio/finetune_llm/llama-3.2-1b-hf-finetuned-normalized",
     "lora_adapter_3b": "/home/ebrahim/brainaudio/finetune_llm/llama-3.2-3b-hf-finetuned-normalized",
     "lora_adapter_270m": "/home/ebrahim/brainaudio/finetune_llm/gemma-3-270m-hf-finetuned-normalized",
     "lora_adapter_360m": "/home/ebrahim/brainaudio/finetune_llm/smollm-360m-hf-finetuned-normalized",
     "lora_adapter_2b": "/home/ebrahim/brainaudio/finetune_llm/granite-3.3-2b-hf-finetuned-normalized",
     "lora_adapter_8b": "/home/ebrahim/brainaudio/finetune_llm/",
-    "results_dir": "../results/transformer_25",
-    "results_test_dir": "../results/test_files/transformer_25",
+    "results_dir": _DS["results_dir"],
+    "results_test_dir": _DS["results_test_dir"],
 }
 
 # =============================================================================

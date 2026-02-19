@@ -9,16 +9,16 @@ import torch
 import time
 
 # ---- Config ----
-dataset = "b2t_24"
+dataset = "b2t_25"
 val = False
 compute_rtf = True
 device = "cuda:7"
 
 model_paths = [
-    f"time_masked_transformer_24/seed_{i}_test.pkl" for i in range(10)
+    f"time_masked_transformer_25/seed_{i}_test.pkl" for i in range(10)
 ]
 save_names = [
-    f"seed_{i}_test_results_24" for i in range(10)
+    f"seed_{i}_test_results_25" for i in range(10)
 ]
 assert len(model_paths) == len(save_names), "model_paths and save_names must be the same length"
 
