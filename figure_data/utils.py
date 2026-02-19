@@ -33,8 +33,8 @@ def paired_t_test(values_a, values_b, label_a="A", label_b="B"):
     sem_b = stats.sem(values_b)
 
     print(f"--- Paired T-Test Results ---")
-    print(f"Mean {label_a}: {mean_a:.4f}")
-    print(f"Mean {label_b}: {mean_b:.4f}")
+    print(f"Mean {label_a}: {mean_a:.4f}, SEM {sem_a:.4f}")
+    print(f"Mean {label_b}: {mean_b:.4f}, SEM {sem_b:.4f}")
     print(f"Mean difference ({label_a} - {label_b}): {mean_diff:.4f}")
     print(f"T-statistic:    {t_stat:.5f}")
     print(f"P-value:        {p_value:.5f}")
