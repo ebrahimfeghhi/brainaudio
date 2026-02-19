@@ -19,7 +19,7 @@ from pathlib import Path
 # EDIT THESE LISTS (must be same length, use None to skip val or test)
 # =============================================================================
 
-seed_list = [0,1,2,3,4,5,7,8]
+seed_list = [6,9]
 
 
 

@@ -8,13 +8,13 @@ import json
 
 # --- Configuration ---
 MODEL_NAME_TEMPLATE = "neurips_b2t_25_causal_transformer_v4_prob_1_seed_{seed}"
-SEEDS = [0,1,2,3,4,5,7,8]
+SEEDS = [6,9]
 
 local_model_folder = "b2t_25" # folder the model is stored
 modelWeightsFiles = "modelWeights_PER_25" # "modelWeights_PER_24"
 
 DEVICE = "cuda:0"
-PARTITION = 'test'
+PARTITION = 'val'
 
 #EVAL_CONFIGS = [{"chunk_size": 1, "context_sec": 20}, {"chunk_size": 1, "context_sec": 17.5}, {"chunk_size": 1, "context_sec": 15}, 
 #        {"chunk_size": 1, "context_sec": 12.5}, {"chunk_size": 1, "context_sec": 10}, 
