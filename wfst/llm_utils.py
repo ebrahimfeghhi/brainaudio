@@ -10,8 +10,6 @@ try:
 except Exception:
     from tqdm import trange, tqdm
 
-device = 'cuda'
-
 def wer_func(r, h):
     """
     Calculation of WER with Levenshtein distance.
@@ -148,7 +146,7 @@ def rescore_with_gpt2(model, tokenizer, hypotheses, lengthPenalty):
     else:
         import torch
         inputs = tokenizer(hypotheses, return_tensors='pt', padding=True)
-        inputs = inputs.to(device)
+        inputs = inputs.to(next(model.parameters()).device)
         with torch.no_grad():
             outputs = model(**inputs)
             logProbs = torch.nn.functional.log_softmax(outputs['logits'].float(), -1).cpu().numpy()

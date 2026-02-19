@@ -4,7 +4,7 @@ manifest_paths:
 participant_suffixes:
 - _25
 seeds:
-- 9
+- 7
 evaluate_wer: false
 evaluate_every_n_epochs: 1
 modelName: neurips_b2t_25_causal_transformer_v4

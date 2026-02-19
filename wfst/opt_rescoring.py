@@ -10,15 +10,15 @@ import time
 
 # ---- Config ----
 dataset = "b2t_24"
-val = True
+val = False
 compute_rtf = True
-device = "cuda:0"
+device = "cuda:7"
 
 model_paths = [
-    "time_masked_transformer_chunked/seed_0_val.pkl" for i in range(5)
+    f"time_masked_transformer_24/seed_{i}_test.pkl" for i in range(10)
 ]
 save_names = [
-    "seed_{i}_val_results" for i in range(5)
+    f"seed_{i}_test_results_24" for i in range(10)
 ]
 assert len(model_paths) == len(save_names), "model_paths and save_names must be the same length"
 
