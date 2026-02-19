@@ -41,21 +41,25 @@ _DS = {"b2t_24": _B2T_24, "b2t_25": _B2T_25}[DATASET]
 # PATHS
 # =============================================================================
 PATHS = {
-    "tokens": f"{base_path}/data2/brain2text/lm/units_pytorch.txt",
-    "lexicon": f"{base_path}/data2/brain2text/lm/vocab_lower_100k_pytorch_phoneme_with_variants.txt",
-    "word_lm": f"{base_path}/data2/brain2text/lm/lm_dec19_huge_4gram.kenlm",
-    "transcripts_val": _DS["transcripts_val"],
-    "lora_adapter_1b": f"/data2/brain2text/finetuned_llms/llama-3.2-1b-hf-finetuned-normalized",
-    "lora_adapter_3b": f"{base_path}/brainaudio/finetune_llm/llama-3.2-3b-hf-finetuned-normalized",
-    "results_dir": _DS["results_dir"],
-    "results_test_dir": _DS["results_test_dir"],
+    "tokens": "/home/ebrahim/data2/brain2text/lm/units_pytorch.txt",
+    "lexicon": "/home/ebrahim/data2/brain2text/lm/vocab_lower_100k_pytorch_phoneme_with_variants.txt",
+    "word_lm": "/home/ebrahim/data2/brain2text/lm/lm_dec19_huge_4gram.kenlm",
+    "transcripts_val": "/home/ebrahim/data2/brain2text/b2t_24/transcripts_val_cleaned.pkl",
+    "lora_adapter_1b": "/home/ebrahim/brainaudio/finetune_llm/llama-3.2-1b-hf-finetuned-normalized",
+    "lora_adapter_3b": "/home/ebrahim/brainaudio/finetune_llm/llama-3.2-3b-hf-finetuned-normalized",
+    "lora_adapter_270m": "/home/ebrahim/brainaudio/finetune_llm/gemma-3-270m-hf-finetuned-normalized",
+    "lora_adapter_360m": "/home/ebrahim/brainaudio/finetune_llm/smollm-360m-hf-finetuned-normalized",
+    "lora_adapter_2b": "/home/ebrahim/brainaudio/finetune_llm/granite-3.3-2b-hf-finetuned-normalized",
+    "lora_adapter_8b": "/home/ebrahim/brainaudio/finetune_llm/",
+    "results_dir": "../results/b2t_24",
+    "results_test_dir": "../results/test_files/b2t_24",
 }
 
 # =============================================================================
 # LLM SETTINGS
 # =============================================================================
 LLM = {
-    "model": "meta-llama/Llama-3.2-1B",
+    "model": "meta-llama/Llama-3.2-1B", # google/gemma-3-270m, HuggingFaceTB/SmolLM-360M, ibm-granite/granite-3.3-2b-base
     "llm_weight": 1.2,
     "ngram_rescore_weight": 0.0,
     "lm_rescore_interval": _DS["lm_rescore_interval"],

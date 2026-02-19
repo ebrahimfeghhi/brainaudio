@@ -70,13 +70,15 @@ def compute_perplexity(
     sentences,
     batch_size=16,
     max_length=512,
-    device="cuda",
+    device=None,
     desc="Computing Perplexity",
 ):
     """
     Standard HF Perplexity calculation (matches finetune_llama.py).
     """
     model.eval()
+    if device is None:
+        device = next(model.parameters()).device
 
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
@@ -110,7 +112,7 @@ def compute_perplexity(
         torch.cuda.empty_cache()
 
     if total_tokens == 0:
-        return float('inf'), float('-inf'), 0
+        return float('inf')#, float('-inf'), 0
 
     avg_loss = total_loss / total_tokens
     perplexity = math.exp(avg_loss)
@@ -154,12 +156,12 @@ class PerplexityCallback(TrainerCallback):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="")
+    parser = argparse.ArgumentParser(description="Finetuning LLM...")
     parser.add_argument("--transcript-files", type=str, nargs="+", default=["/home/ebrahim/brainaudio/data/transcripts_merged_normalized.txt"])
     parser.add_argument("--output-dir", type=str, default=None)
     parser.add_argument("--model-name", type=str, default=None)
     parser.add_argument("--max-seq-length", type=int, default=512)
-    parser.add_argument("--num-epochs", type=int, default=1.5)
+    parser.add_argument("--num-epochs", type=float, default=3)
     parser.add_argument("--eval-every", type=float, default=0.25, help="Evaluate every N epochs")
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--learning-rate", type=float, default=2e-4)
@@ -174,7 +176,10 @@ def main():
     is_70b = "70b" in args.model_name.lower()
     if is_70b:
         print("Detected 70B model - enabling 4-bit quantization, multi-GPU, and memory optimizations")
-
+    is_gemma3 = "gemma-3" in args.model_name.lower()
+    if is_gemma3:
+        print("Detected Gemma model - enabling eager attention, switching pad_token_id to 0.")
+    
     # Set CUDA device(s)
     if args.device is not None:
         os.environ["CUDA_VISIBLE_DEVICES"] = args.device
@@ -185,8 +190,9 @@ def main():
 
     # 1. Load Tokenizer
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
-    # Llama 3 does not have a pad token by default. We use EOS.
-    tokenizer.pad_token = tokenizer.eos_token
+    # Pad token: only apply eos workaround when there's no dedicated pad token
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "right" # Important for training stability
 
     # 2. Load Model
@@ -205,6 +211,14 @@ def main():
             use_cache=False,
         )
         model.gradient_checkpointing_enable()
+    elif is_gemma3:
+        model = AutoModelForCausalLM.from_pretrained(
+            args.model_name,
+            dtype=torch.bfloat16,
+            attn_implementation="eager",
+            device_map="auto",
+            use_cache=False,
+        )
     else:
         # Standard bfloat16 for smaller models
         model = AutoModelForCausalLM.from_pretrained(
@@ -225,6 +239,7 @@ def main():
     print(f"Train samples: {len(all_train)}, Val samples: {len(all_val)}")
 
     # 4. Compute Baseline Perplexity
+    ppl_before = None
     if all_val:
         print("Calculating baseline perplexity...")
         ppl_before = compute_perplexity(model, tokenizer, all_val, desc="Baseline PPL")
@@ -330,7 +345,7 @@ def main():
     print(f"\nBest model saved to {args.output_dir}")
 
     # 13. Log results to shared results file
-    results_file = Path("/data2/brain2text/finetuned_llms/finetuning_results.jsonl")
+    results_file = Path("/home/ebrahim/brainaudio/finetune_llm/finetuning_results.json")
     result_entry = {
         "timestamp": datetime.now().isoformat(),
         "model_name": args.model_name,
