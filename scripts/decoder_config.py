@@ -44,15 +44,15 @@ PATHS = {
     "tokens": "/home/ebrahim/data2/brain2text/lm/units_pytorch.txt",
     "lexicon": "/home/ebrahim/data2/brain2text/lm/vocab_lower_100k_pytorch_phoneme_with_variants.txt",
     "word_lm": "/home/ebrahim/data2/brain2text/lm/lm_dec19_huge_4gram.kenlm",
-    "transcripts_val": "/home/ebrahim/data2/brain2text/b2t_24/transcripts_val_cleaned.pkl",
+    "transcripts_val": "/home/ebrahim/data2/brain2text/b2t_25/transcripts_val_cleaned.pkl",
     "lora_adapter_1b": "/home/ebrahim/brainaudio/finetune_llm/llama-3.2-1b-hf-finetuned-normalized",
     "lora_adapter_3b": "/home/ebrahim/brainaudio/finetune_llm/llama-3.2-3b-hf-finetuned-normalized",
     "lora_adapter_270m": "/home/ebrahim/brainaudio/finetune_llm/gemma-3-270m-hf-finetuned-normalized",
     "lora_adapter_360m": "/home/ebrahim/brainaudio/finetune_llm/smollm-360m-hf-finetuned-normalized",
     "lora_adapter_2b": "/home/ebrahim/brainaudio/finetune_llm/granite-3.3-2b-hf-finetuned-normalized",
     "lora_adapter_8b": "/home/ebrahim/brainaudio/finetune_llm/",
-    "results_dir": "../results/b2t_24",
-    "results_test_dir": "../results/test_files/b2t_24",
+    "results_dir": "../results/transformer_25",
+    "results_test_dir": "../results/test_files/transformer_25",
 }
 
 # =============================================================================

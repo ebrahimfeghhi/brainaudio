@@ -1,15 +1,15 @@
 import yaml
 from brainaudio.models._archive.gru_b2t_25 import GRU_25
 #from brainaudio.models.transformer_interctc import TransformerModel 
-#from brainaudio.models.transformer_chunking import TransformerModel
-from brainaudio.models.transformer_demichunking import TransformerModel
+from brainaudio.models.transformer_chunking import TransformerModel
+#from brainaudio.models.transformer_demichunking import TransformerModel
 #from brainaudio.models._archive.transformer import TransformerModel
 from brainaudio.training.trainer import trainModel
 
 
 config_path = "neurips_b2t_25_chunked_transformer.yaml"
 config_file = f"../src/brainaudio/training/utils/custom_configs/{config_path}"
-device = "cuda:6"
+device = "cuda:7"
 
 with open(config_file, 'r') as f:
     config = yaml.safe_load(f)

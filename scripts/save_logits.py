@@ -7,19 +7,19 @@ import csv
 import json
 
 # --- Configuration ---
-MODEL_NAME_TEMPLATE = "neurips_b2t_24_chunked_unidirectional_transformer_5to20_sec_seed_{seed}"
-SEEDS = [0,1,2,3,4,5,6,7,8,9]
+MODEL_NAME_TEMPLATE = "neurips_b2t_25_causal_transformer_v4_prob_1_seed_{seed}"
+SEEDS = [0,1,2,3,4,5,7,8]
 
-local_model_folder = "b2t_24" # folder the model is stored
-modelWeightsFiles = "modelWeights_PER_24" # "modelWeights_PER_24"
+local_model_folder = "b2t_25" # folder the model is stored
+modelWeightsFiles = "modelWeights_PER_25" # "modelWeights_PER_24"
 
 DEVICE = "cuda:0"
 PARTITION = 'test'
 
-#EVAL_CONFIGS = [{"chunk_size": 1, "context_sec": None}, {"chunk_size": 1, "context_sec": 20}, {"chunk_size": 1, "context_sec": 17.5}, {"chunk_size": 1, "context_sec": 15}, 
+#EVAL_CONFIGS = [{"chunk_size": 1, "context_sec": 20}, {"chunk_size": 1, "context_sec": 17.5}, {"chunk_size": 1, "context_sec": 15}, 
 #        {"chunk_size": 1, "context_sec": 12.5}, {"chunk_size": 1, "context_sec": 10}, 
 #        {"chunk_size": 1, "context_sec": 7.5}, {"chunk_size": 1, "context_sec": 5}] # Test Config
-EVAL_CONFIGS = [{"chunk_size": 1, "context_sec": 7.5}]
+EVAL_CONFIGS = [{"chunk_size": 1, "context_sec": 20}]
 
 if modelWeightsFiles == "modelWeights_PER_25":
 
