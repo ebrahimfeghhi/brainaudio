@@ -1,0 +1,89 @@
+outputDir: /home/ebrahim/data2/brain2text/b2t_24/outputs/
+manifest_paths:
+- /home/ebrahim/data2/brain2text/b2t_24/trial_level_data_log/manifest.json
+participant_suffixes:
+- _24
+seeds:
+- 7
+- 8
+- 9
+evaluate_wer: false
+evaluate_every_n_epochs: 1
+modelName: neurips_b2t_24_bidir_transformer
+modelType: transformer
+optimizer: AdamW
+learning_rate: 0.001
+beta1: 0.9
+beta2: 0.999
+eps: 1.0e-08
+learning_scheduler: multistep
+n_epochs: 250
+milestones:
+- 150
+gamma: 0.1
+lr_scaling_factor: 0.1
+learning_rate_decay_steps: 250
+learning_rate_warmup_steps: 0
+batchSize: 64
+nClasses: 40
+load_pretrained_model: ''
+grad_norm_clip_value: -1
+early_stopping_enabled: true
+early_stopping_checkpoint: 500
+early_stopping_wer_threshold: 1
+early_stopping_per_threshold: 1
+early_stopping_no_improvement: 50
+num_masks: 20
+max_mask_pct: 0.075
+whiteNoiseSD: 0.2
+constantOffsetSD: 0.05
+gaussianSmoothWidth: 2.0
+smooth_kernel_size: 20
+random_cut: 0
+use_amp: true
+l2_decay: 1.0e-05
+input_dropout: 0.2
+dropout: 0.35
+acoustic_scale: 0.6
+lm_weight: 2.0
+word_score: 0.1
+beam_size: 30
+interctc:
+  enable_interctc: false
+  alpha: 0.25
+  inter_ctc_per_layers: 3
+model:
+  gru:
+    name: GRU
+    year: '2024'
+    nInputFeatures: 256
+    nClasses: 40
+    nUnits: 1024
+    nLayers: 5
+    bidirectional: true
+    strideLen: 4
+    kernelLen: 4
+    nDays: 24
+  transformer:
+    name: Transformer
+    features_list:
+    - 256
+    samples_per_patch: 5
+    n_heads: 6
+    mlp_dim_ratio: 4
+    dim_head: 64
+    depth: 5
+    chunked_attention:
+      chunkwise_prob: 0.0
+      chunk_size_min: 1
+      chunk_size_max: .inf
+      left_constrain_prob: 0.0
+      context_sec_min: 5
+      context_sec_max: 20
+      timestep_duration_sec: 0.1
+      eval:
+        chunk_size: null
+        context_sec: null
+wandb:
+  project: nejm-brain-to-text
+  entity: lionelhu926-ucla
