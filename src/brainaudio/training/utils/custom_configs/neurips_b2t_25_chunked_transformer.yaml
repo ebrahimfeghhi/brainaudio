@@ -4,10 +4,11 @@ manifest_paths:
 participant_suffixes:
 - _25
 seeds:
+- 8
 - 9
 evaluate_wer: false
 evaluate_every_n_epochs: 1
-modelName: neurips_b2t_25_causal_transformer_v4_redo
+modelName: neurips_b2t_25_bidirectional_transformer_v4
 modelType: transformer
 optimizer: AdamW
 learning_rate: 0.002
@@ -20,8 +21,6 @@ milestones:
 - 300
 gamma: 0.1
 lr_scaling_factor: 0.1
-learning_rate_decay_steps: 500
-learning_rate_warmup_steps: 10
 learning_rate_decay_steps: 500
 learning_rate_warmup_steps: 10
 batchSize: 64
@@ -74,18 +73,16 @@ model:
     dim_head: 64
     depth: 5
     chunked_attention:
-      chunkwise_prob: 1
+      chunkwise_prob: 0
       chunk_size_min: 1
-      chunk_size_max: 1
-      left_constrain_prob: 1
-      chunk_size_max: 1
-      left_constrain_prob: 1
+      chunk_size_max: .inf
+      left_constrain_prob: 0
       context_sec_min: 5
       context_sec_max: 20
       timestep_duration_sec: 0.08
       eval:
-        chunk_size: 1
-        context_sec: 20
+        chunk_size: null
+        context_sec: null
 wandb:
   project: nejm-brain-to-text
   entity: lionelhu926-ucla
