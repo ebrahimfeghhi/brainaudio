@@ -9,20 +9,29 @@ import torch
 import time
 
 # ---- Config ----
-dataset = "b2t_24"
-val = False
+dataset = "b2t_25"
 compute_rtf = True
-device = "cuda:7"
+device = "cuda:6"
 
-model_paths = [
-    f"time_masked_transformer_24/seed_{i}_train.pkl" for i in range(10)
-]
-save_names = [
-    f"seed_{i}_train_results_24" for i in range(10)
-]
+seeds_list = list(range(10))
+partition_arr = ["train", "val", "test"]
+
+suffix = "24" if dataset == "b2t_24" else "25"
+pkl_suffix = ".pkl" if dataset == "b2t_24" else "_augmented.pkl"
+model_paths, save_names, partitions = zip(*[
+    (
+        f"time_masked_transformer_{suffix}/seed_{i}_{mode}_{partition}_transformer{pkl_suffix}",
+        f"seed_{i}_{mode}_{partition}_transformer_{suffix}",
+        partition,
+    )
+    for partition in partition_arr
+    for mode in ["unidir", "bidir"]
+    for i in seeds_list
+])
+
 assert len(model_paths) == len(save_names), "model_paths and save_names must be the same length"
 
-print(f"RUNNING USING {dataset} settings, val={val}")
+print(f"RUNNING USING {dataset} settings")
 
 model_name = "facebook/opt-6.7b"
 
@@ -64,7 +73,8 @@ else:
     ground_truth = pd.read_pickle("/home/ebrahim/data2/brain2text/b2t_24/transcripts_val_cleaned.pkl")
 
 # ---- Rescoring loop ----
-for mn, save_name in zip(model_paths, save_names):
+for mn, save_name, partition in zip(model_paths, save_names, partitions):
+    val = partition == "val"
 
     nbest_path = f"{wfst_outputs_path}{mn}"
 
@@ -73,7 +83,7 @@ for mn, save_name in zip(model_paths, save_names):
 
     # Load WFST timing data if computing RTF
     if compute_rtf:
-        timing_path = f"{wfst_outputs_path}{mn.replace('.pkl', '_timing.pkl')}"
+        timing_path = f"{wfst_outputs_path}{mn.replace('_augmented.pkl', '.pkl').replace('.pkl', '_timing.pkl')}"
         with open(timing_path, mode='rb') as f:
             timing_data = pickle.load(f)
         trial_lengths_ms = timing_data['trial_lengths_ms']

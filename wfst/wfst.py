@@ -12,7 +12,7 @@ import pandas as pd
 import sys                                      
 
 
-dataset = 'b2t_25'
+dataset = 'b2t_24'
 transformer_mode = True
 load_lm = True
 seeds_list = [0,1,2,3,4,5,6,7,8,9]
@@ -79,7 +79,6 @@ for partition in partition_arr:
         return_n_best = True
 
         print(f"MS PER OUTPUT: {ms_per_output}")
-        breakpoint()
 
         import resource
 
