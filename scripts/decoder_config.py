@@ -22,8 +22,8 @@ _B2T_24 = {
     "alpha_ngram": 0.8,
     "acoustic_scale": 0.6,
     "lm_rescore_interval": 10,
-    "results_dir": "../results/transformer_24",
-    "results_test_dir": "../results/test_files/transformer_24",
+    "results_dir": "../results/b2t_24",
+    "results_test_dir": "../results/test_files/b2t_24",
 }
 
 _B2T_25 = {
@@ -35,8 +35,8 @@ _B2T_25 = {
     "alpha_ngram": 1.0,
     "acoustic_scale": 0.4,
     "lm_rescore_interval": 15,
-    "results_dir": "../results/transformer_25",
-    "results_test_dir": "../results/test_files/transformer_25",
+    "results_dir": "../results/b2t_25",
+    "results_test_dir": "../results/test_files/b2t_25",
 }
 
 _DS = {"b2t_24": _B2T_24, "b2t_25": _B2T_25}[DATASET]
@@ -63,7 +63,7 @@ PATHS = {
 # LLM SETTINGS
 # =============================================================================
 LLM = {
-    "model": "meta-llama/Llama-3.2-1B", # google/gemma-3-270m, HuggingFaceTB/SmolLM-360M, ibm-granite/granite-3.3-2b-base
+    "model": "meta-llama/Llama-3.2-3B", # google/gemma-3-270m, HuggingFaceTB/SmolLM-360M, ibm-granite/granite-3.3-2b-base
     "llm_weight": 1.2,
     "ngram_rescore_weight": 0.0,
     "lm_rescore_interval": _DS["lm_rescore_interval"],

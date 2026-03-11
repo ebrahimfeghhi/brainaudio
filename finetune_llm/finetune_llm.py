@@ -186,7 +186,7 @@ def main():
     elif is_70b:
         os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"  # Use 2 GPUs for 70B
     else:
-        os.environ["CUDA_VISIBLE_DEVICES"] = "1"  # Single GPU for smaller models
+        os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # Single GPU for smaller models
 
     # 1. Load Tokenizer
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)

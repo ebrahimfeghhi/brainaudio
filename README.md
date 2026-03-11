@@ -31,3 +31,6 @@ used in Willett et al., 2023 and Card et al., 2024 requires a different environm
 6. Copy the `language_model` directory from the `NEJM_repo` into the `third_party` directory: `cp -r nejm-brain-to-text/language_model brainaudio/third_party`
 
 7. Run `cd third_party/language_model/runtime/server/x86` and then `python setup.py install`. Make sure this command is run in the `.wfst` venv
+
+
+### Code Base Structure and Organization

@@ -19,26 +19,18 @@ from pathlib import Path
 # EDIT THESE LISTS (must be same length, use None to skip val or test)
 # =============================================================================
 
-seed_list = [0]
-VAL_PATHS = [None]
-# [
-#     f"/home/ebrahim/data2/brain2text/b2t_24/logits/neurips_b2t_24_bidir_transformer_seed_{i}/logits_val_chunk:full_context:full.npz"
-#     for i in seed_list
-#  ]
+seed_list = [6,7,8,9]
+VAL_PATHS = [f"/home/ebrahim/data2/brain2text/b2t_24/logits/bidirectional_gru_all/bidirectional_gru_seed_{i}/logits_val.npz"
+     for i in seed_list] 
 
-TEST_PATHS = [None]
-# [
-#     f"/home/ebrahim/data2/brain2text/b2t_24/logits/neurips_b2t_24_bidir_transformer_seed_{i}/logits_test_chunk:full_context:full.npz"
-#     for i in seed_list
-# ]
+# [f"/data2/brain2text/b2t_25/logits/baseline_rnn_ucd_npl_seed_{i}/logits_val.npz" for i in seed_list]
+
+TEST_PATHS = [None]*4
 
 
-TRAIN_PATHS = [
-    f"/home/ebrahim/data2/brain2text/b2t_24/logits/neurips_b2t_24_bidir_transformer_seed_{i}/logits_train_chunk:full_context:full.npz"
-    for i in seed_list
-]
+TRAIN_PATHS = [None]*4
 
-SAVE_NAMES = [f"" for _ in range(len(seed_list))] # no_finetuning  ,  no_variants  , no_delayed_fusion  ,  llama_3b
+SAVE_NAMES = [f"3b" for _ in range(len(seed_list))] # no_finetuning  ,  no_variants  , no_delayed_fusion  ,  llama_3b
 # =============================================================================
 
 

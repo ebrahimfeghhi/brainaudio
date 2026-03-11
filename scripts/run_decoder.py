@@ -62,7 +62,7 @@ def parse_args() -> argparse.Namespace:
                         help="Disable LLM shallow fusion (n-gram LM only)")
     parser.add_argument("--load-in-4bit", action="store_true",
                         help="Load model in 4-bit quantization")
-    parser.add_argument("--lora-adapter", type=str, default=config.PATHS["lora_adapter_1b"],
+    parser.add_argument("--lora-adapter", type=str, default=config.PATHS["lora_adapter_3b"],
                         help="LoRA adapter path (auto-selected if not specified)")
     parser.add_argument("--no-adapter", action="store_true",
                         help="Use base model without LoRA adapter")
@@ -107,6 +107,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--score-combination", type=str, default=config.BEAM_SEARCH["score_combination"],
                         choices=["max", "logsumexp"],
                         help="Method for combining scores of equivalent hypotheses")
+    parser.add_argument("--encoder-frame-duration", type=float, default=0.08, 
+                        help="Defined time duration per frame of specific encoders")
 
     # =========================================================================
     # PATHS (defaults from config.PATHS)
@@ -142,7 +144,7 @@ def parse_args() -> argparse.Namespace:
 
 def run_decode_pass(
     args, decoder, device, word_history, lexicon, lm_fusion, process,
-    logits_path, trial_indices, transcripts, mode, results_filename
+    logits_path, trial_indices, transcripts, mode, results_filename, encoder_time_frame
 ):
     """Run a single decode pass (train, val, or test) and save results."""
     from brainaudio.inference.decoder import materialize_beam_transcript, collapse_ctc_sequence
@@ -170,8 +172,9 @@ def run_decode_pass(
     for trial_idx in trial_indices:
         logits = torch.from_numpy(logits_npz[f"arr_{trial_idx}"]).to(device).unsqueeze(0)
 
+        
         num_frames_original = logits.shape[1]
-        trial_duration_seconds = num_frames_original * 0.08
+        trial_duration_seconds = num_frames_original * encoder_time_frame
 
         num_padding_frames = 2
         vocab_size = logits.shape[-1]
@@ -182,13 +185,13 @@ def run_decode_pass(
         log_probs = torch.nn.functional.log_softmax(logits / args.temperature, dim=-1) * args.acoustic_scale
 
         if device.type == "cuda":
-            torch.cuda.synchronize()
+            torch.cuda.synchronize(device)
         trial_start = time.perf_counter()
 
         result = decoder(log_probs, lengths)
 
         if device.type == "cuda":
-            torch.cuda.synchronize()
+            torch.cuda.synchronize(device)
         trial_elapsed = time.perf_counter() - trial_start
 
         rtf = trial_elapsed / trial_duration_seconds
@@ -532,7 +535,8 @@ def main():
             trial_indices=train_trial_indices,
             transcripts=train_transcripts,
             mode="train",
-            results_filename=args.results_filename + "_train"
+            results_filename=args.results_filename + "_train",
+            encoder_time_frame=args.encoder_frame_duration
         )
         word_history.reset()
 
@@ -555,7 +559,8 @@ def main():
             trial_indices=val_trial_indices,
             transcripts=transcripts,
             mode="val",
-            results_filename=args.results_filename
+            results_filename=args.results_filename,
+            encoder_time_frame=args.encoder_frame_duration
         )
 
     # Run test if test path provided
@@ -578,7 +583,8 @@ def main():
             trial_indices=test_trial_indices,
             transcripts=None,
             mode="test",
-            results_filename=args.results_filename + "_test"
+            results_filename=args.results_filename + "_test",
+            encoder_time_frame=args.encoder_frame_duration
         )
 
     # Log to wandb

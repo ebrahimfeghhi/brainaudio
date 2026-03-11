@@ -16,7 +16,7 @@ base_path = "/home/ebrahim/"
 
 DEFAULT_PREDICTIONS_CSV = "/home/ebrahim/nejm-brain-to-text/model_training/rnn_baseline_submission_file_valsplit.csv"
 DEFAULT_TRANSCRIPTS_PKL = f"{base_path}/data2/brain2text/b2t_25/transcripts_val_cleaned.pkl"
-RESULTS_DIR = Path("/home/ebrahim/brainaudio/results")
+RESULTS_DIR = Path("../results")
 
 
 def parse_args() -> argparse.Namespace:
@@ -386,7 +386,7 @@ def main():
                 "llm_prediction": r["llm_pred"],
                 "baseline_prediction": r["baseline_pred"],
             }
-            for r in worse_results_for_csv
+            for r in diff_results
         ])
 
         # Write header then CSV
@@ -394,7 +394,7 @@ def main():
             f.write('\n'.join(header_lines) + '\n')
             comparison_df.to_csv(f, index=False)
 
-        print(f"\nSaved {len(worse_results_for_csv)} worse sentences to {output_csv_path}")
+        print(f"\nSaved {len(diff_results)} sentences with different text to {output_csv_path}")
 
 
 if __name__ == "__main__":
