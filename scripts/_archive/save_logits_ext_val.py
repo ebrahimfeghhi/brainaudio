@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 from torch.nn.utils.rnn import pad_sequence
 
 from brainaudio.inference.load_model_generate_logits import load_transformer_model
-from save_logits import _format_eval_tag
+from scripts.generate_logits import _format_eval_tag
 # Import the MemoryDataset we just created (or paste the class definition here)
 from brainaudio.datasets.memory_dataset import MemorySpeechDataset 
 

@@ -16,6 +16,7 @@ modelWeightsFiles = "modelWeights_PER_25" # "modelWeights_PER_24"
 DEVICE = "cuda:2"
 PARTITION = 'val'
 
+# Transformer 
 EVAL_CONFIGS = [{"chunk_size": 1, "context_sec": 20}, {"chunk_size": 1, "context_sec": 17.5}, {"chunk_size": 1, "context_sec": 15}, 
        {"chunk_size": 1, "context_sec": 12.5}, {"chunk_size": 1, "context_sec": 10}, 
        {"chunk_size": 1, "context_sec": 7.5}, {"chunk_size": 1, "context_sec": 5}] # Test Config

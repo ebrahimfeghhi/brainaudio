@@ -51,6 +51,9 @@ results/archive/
 results/test_files/archive/
 results/*.pkl
 
+# Unsloth compiled cache
+unsloth_compiled_cache/
+
 # Weights & Biases
 wandb/
 

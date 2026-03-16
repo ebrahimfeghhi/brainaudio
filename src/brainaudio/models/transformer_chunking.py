@@ -5,8 +5,8 @@ from typing import Optional
 from einops import rearrange
 from einops.layers.torch import Rearrange
 from torch.nn import functional as F
-from .base_model import BaseTimeMaskedModel
-from .chunking_utils import ChunkConfig, ChunkConfigSampler, create_dynamic_chunk_mask
+from brainaudio.models.base_model import BaseTimeMaskedModel
+from brainaudio.models.utils.chunking_utils import ChunkConfig, ChunkConfigSampler, create_dynamic_chunk_mask
 
 """
 Transformer model with dynamic chunked left-context attention for streaming inference.

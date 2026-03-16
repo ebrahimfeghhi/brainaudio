@@ -11,9 +11,9 @@ import pickle
 
 
 # ----------------------- USER-SPECIFIC INFORMATION -----------------------
-dataDir = "/data2/brain2text/b2t_24/competitionData/" # directory where data is stored at 
+DATA_DIR = "/data2/brain2text/b2t_24/competitionData/" # directory where data is stored at 
 output_type = "phonemes"
-dataSave = "/data2/brain2text/b2t_24/brain2text24.pkl" # directory where processed data is saved
+SAVE_DIR = "/data2/brain2text/b2t_24/brain2text24.pkl" # directory where processed data is saved
 logBoth = False # if True, log both spike band power and tx crossings before normalization
 # -------------------------------------------------------------------------
 
@@ -218,14 +218,14 @@ sessionNames = ['t12.2022.04.28',  't12.2022.05.26',  't12.2022.06.21',  't12.20
 sessionNames.sort()
 
 for dayIdx in range(len(sessionNames)):
-    trainDataset = getDataset(dataDir + '/train/' + sessionNames[dayIdx] + '.mat', logBoth, output_type)
-    testDataset = getDataset(dataDir + '/test/' + sessionNames[dayIdx] + '.mat', logBoth, output_type)
+    trainDataset = getDataset(DATA_DIR + '/train/' + sessionNames[dayIdx] + '.mat', logBoth, output_type)
+    testDataset = getDataset(DATA_DIR + '/test/' + sessionNames[dayIdx] + '.mat', logBoth, output_type)
 
     trainDatasets.append(trainDataset)
     testDatasets.append(testDataset)
 
-    if os.path.exists(dataDir + '/competitionHoldOut/' + sessionNames[dayIdx] + '.mat'):
-        dataset = getDataset(dataDir + '/competitionHoldOut/' + sessionNames[dayIdx] + '.mat', logBoth, output_type)
+    if os.path.exists(DATA_DIR + '/competitionHoldOut/' + sessionNames[dayIdx] + '.mat'):
+        dataset = getDataset(DATA_DIR + '/competitionHoldOut/' + sessionNames[dayIdx] + '.mat', logBoth, output_type)
         competitionDatasets.append(dataset)
         
 allDatasets = {}
@@ -234,5 +234,5 @@ allDatasets['val'] = testDatasets
 allDatasets['test'] = competitionDatasets
 
 
-with open(dataSave, 'wb') as handle:
+with open(SAVE_DIR, 'wb') as handle:
     pickle.dump(allDatasets, handle)

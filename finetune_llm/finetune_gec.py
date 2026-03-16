@@ -101,18 +101,6 @@ val_dataset = val_dataset.map(formatting_prompts_func, batched = True)
 stacked_train_dataset = concatenate_datasets([val_dataset, train_dataset, val_dataset])
 
 
-# # combined
-# train_dataset_24 = load_dataset("json", data_files="./jsonl_files/train_b2t_24.jsonl", split="train")
-# val_dataset_24 = load_dataset("json", data_files= "./jsonl_files/val_b2t_24.jsonl", split="train")
-# train_dataset_25 = load_dataset("json", data_files="./jsonl_files/train_b2t_25.jsonl", split="train")
-# val_dataset_25 = load_dataset("json", data_files= "./jsonl_files/val_b2t_25.jsonl", split="train")
-# train_dataset_24 = train_dataset_24.map(formatting_prompts_func, batched = True)
-# val_dataset_24 = val_dataset_24.map(formatting_prompts_func, batched = True)
-# train_dataset_25 = train_dataset_25.map(formatting_prompts_func, batched = True)
-# val_dataset_25 = val_dataset_25.map(formatting_prompts_func, batched = True)
-# stacked_train_dataset = concatenate_datasets([val_dataset_24, train_dataset_24, val_dataset_24, val_dataset_25, train_dataset_25, val_dataset_25])
-
-
 print(f"Total training examples in stacked dataset: {len(stacked_train_dataset)}")
 # ──────────────────────────────────────────────────────────────────
 # 3) Trainer Setup
