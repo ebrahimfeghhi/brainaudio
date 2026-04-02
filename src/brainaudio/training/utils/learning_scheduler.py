@@ -6,10 +6,9 @@ def create_learning_rate_scheduler(args, optim):
 
     scheduler_type = args['learning_scheduler']
     
-    learning_rate = args['learning_rate']
     
     # cosine learning rate hparams
-    learning_rate_min = args['learning_rate_min']
+    min_learning_rate_ratio = args["lr_scaling_factor"]
     learning_rate_decay_steps = args['learning_rate_decay_steps']
     learning_rate_warmup_steps = args['learning_rate_warmup_steps']
     
@@ -55,7 +54,7 @@ def create_learning_rate_scheduler(args, optim):
             return 1 
             
         
-    return LambdaLR(optim,  lambda step: learning_rate_lambda(step, learning_rate_min / learning_rate, learning_rate_decay_steps, learning_rate_warmup_steps), -1)
+    return LambdaLR(optim,  lambda step: learning_rate_lambda(step, min_learning_rate_ratio, learning_rate_decay_steps, learning_rate_warmup_steps), -1)
     
     
     

@@ -2,8 +2,9 @@ import torch
 from torch import nn
 from ..base_model import BaseTimeMaskedModel
 from ...training.utils.augmentations import GaussianSmoothing
+from einops.layers.torch import Rearrange
 
-class GRU_24(BaseTimeMaskedModel):
+class GRU_24_patch(BaseTimeMaskedModel):
     
     """GRU-based speech encoder.
     
@@ -18,19 +19,19 @@ class GRU_24(BaseTimeMaskedModel):
     layer_dim : int
         Number of stacked GRU layers.
     nDays : int
-        Number of distinct recording sessions / days (used for day‑specific affine transforms).
+        Number of distinct recording sessions / days (used for day-specific affine transforms).
     dropout : float
         Dropout probability within the GRU.
     input_dropout : float
-        Dropout probability applied to inputs after the day‑specific transform.
+        Dropout probability applied to inputs after the day-specific transform.
     strideLen : int
-        Stride for the unfolding operation (temporal down‑sampling).
+        Stride for the unfolding operation (temporal down-sampling).
     kernelLen : int
         Kernel length for the unfolding operation.
     bidirectional : bool
         If ``True``, use a bidirectional GRU.
     max_mask_pct : float
-        Maximum proportion of the sequence to mask during SpecAugment‑style masking.
+        Maximum proportion of the sequence to mask during SpecAugment-style masking.
     num_masks : int
         Number of temporal masks to apply per sample when training.
     """
@@ -50,10 +51,12 @@ class GRU_24(BaseTimeMaskedModel):
         bidirectional: bool,
         max_mask_pct: float,
         num_masks: int,
-        samples_per_patch: int
+        samples_per_patch: int,
+        features_list: list[int],
+        num_participants: int,
     ) -> None:
         
-        super().__init__(max_mask_pct=max_mask_pct, num_masks=num_masks, samples_per_patch=samples_per_patch)
+        super().__init__(max_mask_pct=max_mask_pct, num_masks=num_masks, samples_per_patch=self.samples_per_patch)
 
         # Store constructor args
         self.layer_dim = layer_dim
@@ -81,11 +84,34 @@ class GRU_24(BaseTimeMaskedModel):
             inp_layer: nn.Linear = getattr(self, f"inpLayer{x}")
             inp_layer.weight.data.add_(torch.eye(self.neural_dim))
 
-        self.inputDropoutLayer = nn.Dropout(p=self.input_dropout)
+
+        self.dropout_layer = nn.Dropout(self.input_dropout)
+
+        # self.mask_token = nn.Parameter(torch.randn(self.patch_dim))  
+        self.patch_embedders = nn.ModuleList([])
+        
+        for pid in range(self.num_participants):
+        
+            feature_size = self.features_list[pid]
+                    
+            patch_dim = self.samples_per_patch*feature_size
+            
+            self.patch_embedders.append(
+            nn.Sequential(
+                Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', 
+                        p1=self.samples_per_patch, p2=feature_size),
+                nn.LayerNorm(patch_dim),
+                nn.Linear(patch_dim, self.neural_dim),
+                nn.LayerNorm(self.neural_dim)
+            ))
+
+        # If we are using "strided inputs", then the input size of the first recurrent layer will actually be in_size * kernelLen
+        if self.kernelLen > 0:
+            self.input_size = self.neural_dim * self.kernelLen
 
         # === GRU ===
         self.gru_decoder = nn.GRU(
-            self.neural_dim * self.kernelLen,
+            self.input_size,
             self.hidden_dim,
             self.layer_dim,
             batch_first=True,
@@ -107,23 +133,23 @@ class GRU_24(BaseTimeMaskedModel):
         # === Final linear projection ===
         self.fc_decoder_out = nn.Linear(rnn_out_dim, n_classes + 1)  # +1 for CTC blank
 
-        # self.gaussianSmoother = GaussianSmoothing(neural_dim, 20, 2.0, dim=1)
+        self.gaussianSmoother = GaussianSmoothing(neural_dim, 20, 2.0, dim=1)
         
-    def forward(self, neuralInput: torch.Tensor, X_len: torch.Tensor, dayIdx: torch.Tensor
-                ) -> torch.Tensor:
+    def forward(self, neuralInput: torch.Tensor, X_len: torch.Tensor, participant_id: torch.Tensor, 
+                dayIdx: torch.Tensor) -> torch.Tensor:
         
         
-        """
-        Parameters
+        """Parameters
         ----------
         neuralInput : torch.Tensor, shape (batch, time, neural_dim)
         X_len       : torch.Tensor, shape (batch,), lengths before padding
+        participant_id : torch.Tensor, shape (batch, ), index specifying the participant
         dayIdx      : torch.Tensor, shape (batch,), index specifying the session/day of each sample
         """
         
-        # neuralInput = torch.permute(neuralInput, (0, 2, 1))  # (B, C, T)
-        # neuralInput = self.gaussianSmoother(neuralInput)
-        # neuralInput = torch.permute(neuralInput, (0, 2, 1))  # (B, T, C)
+        neuralInput = torch.permute(neuralInput, (0, 2, 1))  # (B, C, T)
+        neuralInput = self.gaussianSmoother(neuralInput)
+        neuralInput = torch.permute(neuralInput, (0, 2, 1))  # (B, T, C)
         
         # --- SpecAugment‑style time masking (training only) ---
         if self.training and self.max_mask_pct > 0:

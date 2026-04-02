@@ -5,69 +5,67 @@ from ..base_model import BaseTimeMaskedModel
 
 class GRU_25(BaseTimeMaskedModel):
     '''
-    Defines the GRU decoder
-
+    Defines the GRU decoder for B2T 25'
     This class combines day-specific input layers, a GRU, and an output classification layer
+
+    Parameters
+    ----------
+    neural_dim : int
+        Number of neural input channels.
+    n_classes : int
+        Number of output classes (excluding the CTC blank).
+    hidden_dim : int
+        Hidden state dimensionality of the GRU.
+    layer_dim : int
+        Number of stacked GRU layers.
+    nDays : int
+        Number of distinct recording sessions / days (used for day‑specific affine transforms).
+    dropout : float
+        Dropout probability within the GRU.
+    input_dropout : float
+        Dropout probability applied to inputs after the day‑specific transform.
+    strideLen : int
+        Stride for the unfolding operation (temporal down‑sampling).
+    kernelLen : int
+        Kernel length for the unfolding operation.
+    bidirectional : bool
+        If ``True``, use a bidirectional GRU.
+    max_mask_pct : float
+        Maximum proportion of the sequence to mask during SpecAugment‑style masking.
+    num_masks : int
+        Number of temporal masks to apply per sample when training.    
     '''
-    def __init__(self,
-                 *,
-                 neural_dim,
-                 n_classes,
-                 hidden_dim,
-                 layer_dim, 
-                 nDays,
-                 dropout = 0.0,
-                 input_dropout = 0.0,
-                 strideLen = 0,
-                 kernelLen = 0,
-                 bidirectional = False, 
-                 max_mask_pct = 0, 
-                 num_masks = 0
-                 ):
+    def __init__(
+        self,
+        *,
+        neural_dim: int,
+        n_classes: int,
+        hidden_dim: int,
+        layer_dim: int, 
+        nDays: int,
+        dropout: float,
+        input_dropout: float,
+        strideLen: int,
+        kernelLen: int,
+        bidirectional: bool, 
+        max_mask_pct: float, 
+        num_masks: int,
+        samples_per_patch: int
+        ):
         
-        """GRU-based speech encoder.
         
-        Parameters
-        ----------
-        neural_dim : int
-            Number of neural input channels.
-        n_classes : int
-            Number of output classes (excluding the CTC blank).
-        hidden_dim : int
-            Hidden state dimensionality of the GRU.
-        layer_dim : int
-            Number of stacked GRU layers.
-        nDays : int
-            Number of distinct recording sessions / days (used for day‑specific affine transforms).
-        dropout : float
-            Dropout probability within the GRU.
-        input_dropout : float
-            Dropout probability applied to inputs after the day‑specific transform.
-        strideLen : int
-            Stride for the unfolding operation (temporal down‑sampling).
-        kernelLen : int
-            Kernel length for the unfolding operation.
-        bidirectional : bool
-            If ``True``, use a bidirectional GRU.
-        max_mask_pct : float
-            Maximum proportion of the sequence to mask during SpecAugment‑style masking.
-        num_masks : int
-            Number of temporal masks to apply per sample when training.
-        """
-        
-        super().__init__(max_mask_pct=max_mask_pct, num_masks=num_masks)
+        super().__init__(max_mask_pct=max_mask_pct, num_masks=num_masks, samples_per_patch=samples_per_patch)
         
         self.neural_dim = neural_dim
         self.hidden_dim = hidden_dim
         self.n_classes = n_classes
         self.layer_dim = layer_dim 
         self.nDays = nDays
-
         self.dropout = dropout
-        self.input_dropout = input_dropout
-        
+        self.input_dropout = input_dropout     
         self.kernelLen = kernelLen
         self.strideLen = strideLen
+        self.bidirectional = bidirectional
 
         # Parameters for the day-specific input layers
         self.day_layer_activation = nn.Softsign() # basically a shallower tanh 
@@ -94,7 +92,7 @@ class GRU_25(BaseTimeMaskedModel):
             num_layers = self.layer_dim,
             dropout = self.dropout, 
             batch_first = True, # The first dim of our input is the batch dim
-            bidirectional = bidirectional,
+            bidirectional = self.bidirectional,
         )
                 
         # Set recurrent units to have orthogonal param init and input layers to have xavier init
@@ -115,16 +113,19 @@ class GRU_25(BaseTimeMaskedModel):
         
     def forward(self, x, x_len, day_idx):
         
-        '''
-        x        (tensor)  - batch of examples (trials) of shape: (batch_size, time_series_length, neural_dim)
-        day_idx  (tensor)  - tensor which is a list of day indexs corresponding to the day of each example in the batch x. 
-        '''
+        """
+        Parameters
+        ----------
+        x       : torch.Tensor, shape (batch, time, neural_dim)
+        x_len   : torch.Tensor, shape (batch,), lengths before padding
+        dayIdx  : torch.Tensor, shape (batch,), index specifying the session/day of each sample
+        """
         
         # --- SpecAugment‑style time masking (training only) ---
         if self.training and self.max_mask_pct > 0:
             x, _ = self.apply_time_masking(x, x_len, mask_value=0)
         
-        # Apply day-specific layer to (hopefully) project neural data from the different days to the same latent space
+        # Apply a on-layer day-specific input layer to (hopefully) project neural data from the different days to the same latent space
         day_weights = torch.stack([self.day_weights[i] for i in day_idx], dim=0)
         day_biases = torch.cat([self.day_biases[i] for i in day_idx], dim=0).unsqueeze(1)
 

@@ -74,8 +74,8 @@ def trainModel(args, model):
         optimizer = torch.optim.Adam(
             param_groups,
             lr=args["learning_rate"],
-            betas=(0.9, 0.999),
-            eps=0.1,
+            betas=(args['beta1'], args['beta2']),
+            eps=args["eps"],
             weight_decay=args["l2_decay"],
         )
         

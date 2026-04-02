@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 from brainaudio.inference.eval_metrics import _cer_and_wer
 from brainaudio.inference.lm_funcs import normalize_shorthand, clean_string
+import torch.nn as nn
 
 def forward_ctc(
         encoder_out: torch.Tensor,
@@ -149,19 +150,34 @@ def get_param_groups_with_weight_decay(model, weight_decay):
     Returns:
         Parameter Dictionary that classifies dichotomizes decayed and non-decayed parameters
     """
-    decay = []
-    no_decay = []
-    
+    no_decay_by_module = set()
+    for module in model.modules():
+        if isinstance(module, (nn.LayerNorm, nn.Embedding, nn.GroupNorm)):
+            for param in module.parameters(recurse=False):
+                no_decay_by_module.add(id(param))
+
+    day_params, no_decay_params, decay_params = [], [], []
+
+
     for name, param in model.named_parameters():
         if not param.requires_grad:
             continue
-        # Exclude LayerNorm weights/biases and all biases from weight decay
-        if 'norm' in name.lower() or name.endswith('.bias'):
-            no_decay.append(param)
+
+        if 'day_' in name:              # day_weights.*, day_biases.*
+            day_params.append(param)
+        elif id(param) in no_decay_by_module or 'bias' in name:
+            # LayerNorm/Embedding params  OR  any bias (including gru.bias_ih_l*, out.bias)
+            no_decay_params.append(param)
         else:
-            decay.append(param)
-    
-    return [
-        {'params': decay, 'weight_decay': weight_decay},
-        {'params': no_decay, 'weight_decay': 0.0}
+            decay_params.append(param)
+
+    if day_params:
+        no_decay_params += day_params
+    groups = [
+        {'params': no_decay_params, 'weight_decay': 0.0},
+        {'params': decay_params, 'weight_decay': weight_decay},
     ]
+
+
+
+    return groups

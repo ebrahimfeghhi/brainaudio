@@ -5,6 +5,8 @@ participant_suffixes:
 - _25
 seeds:
 - 0
+- 1
+- 2
 device: cuda:0
 evaluate_wer: false
 evaluate_every_n_epochs: 1
@@ -54,6 +56,7 @@ model:
     strideLen: 4
     kernelLen: 14
     nDays: 45
+    samples_per_patch: 0
   transformer:
     name: Transformer
     patch_size:

@@ -1,26 +1,26 @@
 # File: generate_logits.py
 # Purpose: Run the model inference and save the resulting logits to a file.
-from brainaudio.inference.load_model_generate_logits import load_transformer_model, generate_and_save_logits
+from brainaudio.inference.load_model_generate_logits import load_transformer_model, load_gru_model, generate_and_save_logits
 import os
 from typing import Optional, Dict
 import csv
 import json
 
 # --- Configuration ---
-MODEL_NAME_TEMPLATE = "neurips_b2t_25_causal_transformer_v4_prob_1_seed_{seed}"
-SEEDS = [0,1,2,3,4,5,6,7,8,9]
+MODEL_NAME_TEMPLATE = "gru_b2t_24_baseline_seed_{seed}"
+SEEDS = [0,1,2]
+MODEL_TYPE = "gru"
+local_model_folder = "b2t_24" # folder the model is stored
+modelWeightsFiles = "modelWeights_PER_24" # "modelWeights_PER_24"
 
-local_model_folder = "b2t_25" # folder the model is stored
-modelWeightsFiles = "modelWeights_PER_25" # "modelWeights_PER_24"
+DEVICE = "cuda:0"
+PARTITION = 'test'
 
-DEVICE = "cuda:2"
-PARTITION = 'val'
-
-# Transformer 
-EVAL_CONFIGS = [{"chunk_size": 1, "context_sec": 20}, {"chunk_size": 1, "context_sec": 17.5}, {"chunk_size": 1, "context_sec": 15}, 
-       {"chunk_size": 1, "context_sec": 12.5}, {"chunk_size": 1, "context_sec": 10}, 
-       {"chunk_size": 1, "context_sec": 7.5}, {"chunk_size": 1, "context_sec": 5}] # Test Config
-# EVAL_CONFIGS = [{"chunk_size": None, "context_sec": None}]
+# Transformer Chunking Configs
+# EVAL_CONFIGS = [{"chunk_size": 1, "context_sec": 20}, {"chunk_size": 1, "context_sec": 17.5}, {"chunk_size": 1, "context_sec": 15}, 
+#        {"chunk_size": 1, "context_sec": 12.5}, {"chunk_size": 1, "context_sec": 10}, 
+#        {"chunk_size": 1, "context_sec": 7.5}, {"chunk_size": 1, "context_sec": 5}] # Test Config
+EVAL_CONFIGS = [{"chunk_size": None, "context_sec": None}]
 
 if modelWeightsFiles == "modelWeights_PER_25":
 
@@ -77,33 +77,58 @@ def main():
             os.makedirs(resolved_path, exist_ok=True)
             resolved_save_paths[idx] = resolved_path
 
-        eval_configs = EVAL_CONFIGS or [None]
-        for eval_cfg in eval_configs:
-            tag = _format_eval_tag(eval_cfg)
-            print(f"=== Running eval config: {tag} ===")
 
-            model, args = load_transformer_model(
-                LOAD_MODEL_FOLDER,
-                DEVICE,
-                modelWeightsFile=modelWeightsFiles,
-                eval_chunk_config=eval_cfg,
-            )
+        if MODEL_TYPE == "transformer":
+            eval_configs = EVAL_CONFIGS or [None]
+            for eval_cfg in eval_configs:
+                tag = _format_eval_tag(eval_cfg)
+                print(f"=== Running eval config: {tag} ===")
 
+                model, args = load_transformer_model(
+                    LOAD_MODEL_FOLDER,
+                    DEVICE,
+                    modelWeightsFile=modelWeightsFiles,
+                    eval_chunk_config=eval_cfg,
+                )
+
+                per_dict = generate_and_save_logits(
+                    model=model,
+                    config=args,
+                    partition=PARTITION,
+                    device=DEVICE,
+                    manifest_paths=MANIFEST_PATHS,
+                    save_paths=resolved_save_paths,
+                    participant_ids=PARTICIPANT_IDS,
+                    chunk_config=eval_cfg,
+                )
+
+                if per_dict is not None:
+                    for pid, per in per_dict.items():
+                        per_by_config.setdefault(tag, {})[str(seed)] = round(per, 6)
+                    all_seed_pers.append((tag, seed, pid, round(per, 6)))
+        elif MODEL_TYPE == "gru":
+            tag = ""
+            model, args = load_gru_model(
+                    LOAD_MODEL_FOLDER,
+                    DEVICE,
+                    local_model_folder[-2:],
+                    modelWeightsFile=modelWeightsFiles,
+                )
             per_dict = generate_and_save_logits(
-                model=model,
-                config=args,
-                partition=PARTITION,
-                device=DEVICE,
-                manifest_paths=MANIFEST_PATHS,
-                save_paths=resolved_save_paths,
-                participant_ids=PARTICIPANT_IDS,
-                chunk_config=eval_cfg,
-            )
+                    model=model,
+                    config=args,
+                    partition=PARTITION,
+                    device=DEVICE,
+                    manifest_paths=MANIFEST_PATHS,
+                    save_paths=resolved_save_paths,
+                    participant_ids=PARTICIPANT_IDS,
+                    chunk_config=None,
+                )
 
             if per_dict is not None:
                 for pid, per in per_dict.items():
                     per_by_config.setdefault(tag, {})[str(seed)] = round(per, 6)
-                    all_seed_pers.append((tag, seed, pid, round(per, 6)))
+                all_seed_pers.append((tag, seed, pid, round(per, 6)))
 
     # Save PER results: one JSON per model, nested by eval config then seed
     if per_by_config:

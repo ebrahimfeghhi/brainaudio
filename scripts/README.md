@@ -117,7 +117,7 @@ Checkpoints and metrics are saved to the path in the config and logged to Weight
 
 ### Step 3 — Generate Logits
 
-`generate_logits.py` loads trained encoder checkpoints and saves the raw CTC logits to `.npz` files, which are the input to the decoder.
+`generate_logits.py` loads trained Transformer encoder checkpoints and saves the raw CTC logits to `.npz` files, which are the input to the decoder.
 
 **Before running**, edit the constants at the top of `generate_logits.py`:
 

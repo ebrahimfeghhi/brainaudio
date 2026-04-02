@@ -1,15 +1,16 @@
 import yaml
 from brainaudio.models._archive.gru_b2t_25 import GRU_25
+from brainaudio.models._archive.gru_b2t_24 import GRU_24
 #from brainaudio.models.transformer_interctc import TransformerModel 
-#from brainaudio.models.transformer_chunking import TransformerModel
-from brainaudio.models.transformer_demichunking import TransformerModel
+from brainaudio.models.transformer_chunking import TransformerModel
+#from brainaudio.models.transformer_demichunking import TransformerModel
 #from brainaudio.models._archive.transformer import TransformerModel
 from brainaudio.training.trainer import trainModel
 
 
-config_path = "neurips_b2t_25_chunked_transformer.yaml"
+config_path = "gru_b2t_25_baseline.yaml"
 config_file = f"../src/brainaudio/training/utils/custom_configs/{config_path}"
-device = "cuda:4"
+device = "cuda:2"
 
 with open(config_file, 'r') as f:
     config = yaml.safe_load(f)
@@ -19,6 +20,9 @@ config["device"] = device
 model_type = config['modelType']
 
 model_args = config['model'][model_type]
+
+if model_type == "gru":
+    year = model_args["year"]
 
 model_name = config["modelName"]
 
@@ -46,15 +50,19 @@ for seed in config['seeds']:
         total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
         print(f"Total parameters are {total_params}")
 
-    if model_type == 'gru':
-        
+    if year == "2024" :
+        model = GRU_24(neural_dim=model_args['nInputFeatures'], n_classes=config['nClasses'], hidden_dim=model_args['nUnits'], 
+                    layer_dim=model_args['nLayers'], nDays=model_args['nDays'], dropout=config['dropout'], input_dropout=config['input_dropout'],
+                    strideLen=model_args['strideLen'], kernelLen=model_args['kernelLen'], bidirectional=model_args['bidirectional'], max_mask_pct=config['max_mask_pct'], 
+                    num_masks=config['num_masks'],samples_per_patch = model_args["samples_per_patch"])
+    elif year == "2025":
         model = GRU_25(neural_dim=model_args['nInputFeatures'], n_classes=config['nClasses'], hidden_dim=model_args['nUnits'], 
                     layer_dim=model_args['nLayers'], nDays=model_args['nDays'], dropout=config['dropout'], input_dropout=config['input_dropout'],
                     strideLen=model_args['strideLen'], kernelLen=model_args['kernelLen'], bidirectional=model_args['bidirectional'], max_mask_pct=config['max_mask_pct'], 
-                    num_masks=config['num_masks'])
+                    num_masks=config['num_masks'],samples_per_patch = model_args["samples_per_patch"])
+        
+
         
     model.to(config['device'])
 
     _ = trainModel(config, model)
-
-

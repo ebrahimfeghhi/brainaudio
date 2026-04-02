@@ -1,6 +1,6 @@
 
 
-- The paper of the Lightbeam decoding module can be found here: 
+- The paper of the Lightbeam decoding module can be found here: https://arxiv.org/abs/2603.14002
 
 
 ## General Installation Instructions

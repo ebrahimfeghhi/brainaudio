@@ -15,6 +15,8 @@ import yaml
 import re
 
 from brainaudio.models.transformer_chunking import TransformerModel
+from brainaudio.models._archive.gru_b2t_24 import GRU_24
+from brainaudio.models._archive.gru_b2t_25 import GRU_25
 from brainaudio.datasets.lazy_data_loading import getDatasetLoaders
 from brainaudio.training.utils.augmentations import gauss_smooth
 from brainaudio.inference.eval_metrics import compute_per
@@ -87,7 +89,81 @@ def load_transformer_model(
     model.eval()
     return model, config
             
-       
+
+def load_gru_model(
+    folder: str,
+    device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu"),
+    year: str = "24",
+    modelWeightsFile: Optional[str] = "modelWeights",
+):
+    """
+    Load a pre-trained GRU model from a folder.
+
+    config:
+        folder (str): Path to folder containing 'modelWeights'.
+        device (torch.device): Device to map the model onto.
+        year (str): Specify B2T 24' or B2T 25'.
+        modelWeightsFile (str|None): Filename of the model weights.
+
+    Returns:
+        torch.nn.Module: The loaded model in eval mode, and the config dictionary.
+        dict: The loaded config of the model.
+    """
+    config_path = os.path.join(folder, "args")
+    print(f"Loading default pickle config from: {config_path}")
+    with open(config_path, "rb") as handle:
+        config = pickle.load(handle)
+    # ----------------------
+        
+    # Load config                
+    modelType = config['modelType']
+    model_config = config['model'][modelType]
+    if 'return_final_layer' not in config:
+        config['return_final_layer'] = False
+
+    if year == "24":
+        model = GRU_24(
+            neural_dim=model_config['nInputFeatures'], 
+            n_classes=config['nClasses'], 
+            hidden_dim=model_config['nUnits'], 
+            layer_dim=model_config['nLayers'], 
+            nDays=model_config['nDays'], 
+            dropout=config['dropout'], 
+            input_dropout=config['input_dropout'],
+            strideLen=model_config['strideLen'], 
+            kernelLen=model_config['kernelLen'], 
+            bidirectional=model_config['bidirectional'], 
+            max_mask_pct=config['max_mask_pct'], 
+            num_masks=config['num_masks'],
+            samples_per_patch = 0
+        )
+    elif year == "25":
+        model = GRU_25(
+            neural_dim=model_config['nInputFeatures'], 
+            n_classes=config['nClasses'], 
+            hidden_dim=model_config['nUnits'], 
+            layer_dim=model_config['nLayers'], 
+            nDays=model_config['nDays'], 
+            dropout=config['dropout'], 
+            input_dropout=config['input_dropout'],
+            strideLen=model_config['strideLen'], 
+            kernelLen=model_config['kernelLen'], 
+            bidirectional=model_config['bidirectional'], 
+            max_mask_pct=config['max_mask_pct'], 
+            num_masks=config['num_masks'],
+            samples_per_patch = 0
+        )
+    else:
+        raise ValueError("Wrong format! Specify between B2T 24' and B2t 25'.")
+    # Load weights
+    ckpt_path = os.path.join(folder, modelWeightsFile)
+    state_dict = torch.load(ckpt_path, map_location=device)
+    model.load_state_dict(state_dict, strict=True)
+
+    model = model.to(device)
+    model.eval()
+    return model, config
+
 def generate_and_save_logits(model, config, partition, device, 
                              manifest_paths, save_paths, participant_ids,
                              chunk_config: Optional[Dict[str, Optional[int]]] = None):
@@ -159,7 +235,10 @@ def generate_and_save_logits(model, config, partition, device,
                                  smooth_kernel_std=config['gaussianSmoothWidth'])
                 
                 adjusted_lens = model.compute_length(X_len)
-                logits = model.forward(X, X_len, participant_id, dayIdxs)
+                if config["modelType"] == "transformer":
+                    logits = model.forward(X, X_len, participant_id, dayIdxs)
+                else:
+                    logits = model.forward(X, X_len, dayIdxs)
                 
                 for i in range(logits.shape[0]):            
                     
