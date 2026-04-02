@@ -62,7 +62,7 @@ def parse_args() -> argparse.Namespace:
                         help="Disable LLM shallow fusion (n-gram LM only)")
     parser.add_argument("--load-in-4bit", action="store_true",
                         help="Load model in 4-bit quantization")
-    parser.add_argument("--lora-adapter", type=str, default=config.PATHS["lora_adapter_3b"],
+    parser.add_argument("--lora-adapter", type=str, default=config.PATHS["lora_adapter_1b"],
                         help="LoRA adapter path (auto-selected if not specified)")
     parser.add_argument("--no-adapter", action="store_true",
                         help="Use base model without LoRA adapter")
@@ -134,6 +134,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--results-filename", type=str,
                         default=datetime.now().strftime("%m_%d_%H%M"),
                         help="Results filename prefix")
+    parser.add_argument("--year", type=str,
+                        default="b2t25", help="Specify year for output prediction format:" \
+                        "b2t25 - csv ; b2t24 - txt")
     parser.add_argument("--no-wandb", action="store_true",
                         help="Disable W&B logging (enabled by default)")
     parser.add_argument("--verbose", action="store_true", default=False,
@@ -306,15 +309,26 @@ def run_decode_pass(
     results_dir.mkdir(parents=True, exist_ok=True)
 
     safe_results_filename = results_filename.replace("/", "_")
-    csv_filename = f"{args.encoder_model_name}_{safe_results_filename}_{os.getpid()}.csv"
-    csv_path = results_dir / csv_filename
+    if args.year == "b2t25":
+        csv_filename = f"{args.encoder_model_name}_{safe_results_filename}_{os.getpid()}.csv"
+        csv_path = results_dir / csv_filename
 
-    results_df = pd.DataFrame({
-        "id": trial_indices,
-        "text": cleaned_sentences
-    })
-    results_df.to_csv(csv_path, index=False)
-    print(f"\nSaved predictions to {csv_path}")
+        results_df = pd.DataFrame({
+            "id": trial_indices,
+            "text": cleaned_sentences
+        })
+        results_df.to_csv(csv_path, index=False)
+        print(f"\nSaved predictions to {csv_path}")
+    elif args.year == "b2t24":
+        txt_filename = f"{args.encoder_model_name}_{safe_results_filename}_{os.getpid()}.txt"
+        txt_path = results_dir / txt_filename
+
+        with open(txt_path, "w") as f:
+            f.write("\n".join(cleaned_sentences))
+        print(f"\nSaved predictions to {txt_path}")
+
+    else:
+        raise ValueError("Please specify year between \"b2t24\" and \"b2t25\".")
 
     # Save metrics to JSON
     metrics = {

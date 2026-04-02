@@ -4,7 +4,7 @@ manifest_paths:
 participant_suffixes:
 - _25
 seeds:
-- 2
+- 0
 evaluate_wer: false
 evaluate_every_n_epochs: 1
 modelName: gru_b2t_25_baseline
@@ -20,8 +20,8 @@ milestones:
 - 300
 gamma: 0.1
 lr_scaling_factor: 0.02
-learning_rate_decay_steps: 950
-learning_rate_warmup_steps: 8
+learning_rate_decay_steps: 120000 # batch counting for 25
+learning_rate_warmup_steps: 1000
 batchSize: 64
 nClasses: 40
 load_pretrained_model: ''

@@ -116,7 +116,7 @@ def trainModel(args, model):
     
     for epoch in range(args['n_epochs']):
         
-        if no_improvement_count >= args["early_stopping_no_improvement"]: 
+        if args["early_stopping_enabled"] and no_improvement_count >= args["early_stopping_no_improvement"]: 
             wandb.log({"early_stopping_triggered": True, "early_stopping_reason": "no_improvement", "early_stopping_epoch": epoch})
             break
         
@@ -193,7 +193,7 @@ def trainModel(args, model):
                                                 foreach = True
                                                 )
                 optimizer.step()
-        scheduler.step()  
+            scheduler.step()  
                           
         avgTrainLoss = np.mean(train_loss)
         
