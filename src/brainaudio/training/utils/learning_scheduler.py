@@ -23,7 +23,7 @@ def create_learning_rate_scheduler(args, optim):
         Different lr lambda decaying for day params vs rest of the model
         
         current_step: current batch index
-        min_learning_rate_ratio: Learning rate shou
+        min_learning_rate_ratio: learning rate max / learning rate min
         '''
         
         # Warmup phase

@@ -142,10 +142,11 @@ def get_param_groups_with_weight_decay(model, weight_decay):
     """
     Separate parameters into groups with and without weight decay.
     LayerNorm parameters and biases are excluded from weight decay.
+    For B2T25' GRU day weights are also excluded from weight decay
 
     Args:
         model: torch.nn.Module 
-        weight_decay:
+        weight_decay: float
 
     Returns:
         Parameter Dictionary that classifies dichotomizes decayed and non-decayed parameters
@@ -166,7 +167,7 @@ def get_param_groups_with_weight_decay(model, weight_decay):
         if 'day_' in name:              # day_weights.*, day_biases.*
             day_params.append(param)
         elif id(param) in no_decay_by_module or 'bias' in name:
-            # LayerNorm/Embedding params  OR  any bias (including gru.bias_ih_l*, out.bias)
+            # LayerNorm/Embedding params  OR  any bias
             no_decay_params.append(param)
         else:
             decay_params.append(param)

@@ -165,5 +165,4 @@ class GRU_25(BaseTimeMaskedModel):
     
     def compute_length(self, X_len):
         
-        return ((X_len - self.kernelLen) / self.strideLen).to(torch.int32)
-    
+        return ((X_len - self.kernelLen) / self.strideLen + 1).to(torch.int32)

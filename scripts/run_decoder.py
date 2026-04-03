@@ -135,7 +135,7 @@ def parse_args() -> argparse.Namespace:
                         default=datetime.now().strftime("%m_%d_%H%M"),
                         help="Results filename prefix")
     parser.add_argument("--year", type=str,
-                        default="b2t25", help="Specify year for output prediction format:" \
+                        default=config.OUTPUT["year"], help="Specify year for output prediction format:" \
                         "b2t25 - csv ; b2t24 - txt")
     parser.add_argument("--no-wandb", action="store_true",
                         help="Disable W&B logging (enabled by default)")
@@ -309,23 +309,24 @@ def run_decode_pass(
     results_dir.mkdir(parents=True, exist_ok=True)
 
     safe_results_filename = results_filename.replace("/", "_")
+
     if args.year == "b2t25":
         csv_filename = f"{args.encoder_model_name}_{safe_results_filename}_{os.getpid()}.csv"
-        csv_path = results_dir / csv_filename
+        save_path = results_dir / csv_filename
 
         results_df = pd.DataFrame({
             "id": trial_indices,
             "text": cleaned_sentences
         })
-        results_df.to_csv(csv_path, index=False)
-        print(f"\nSaved predictions to {csv_path}")
+        results_df.to_csv(save_path, index=False)
+        print(f"\nSaved predictions to {save_path}")
     elif args.year == "b2t24":
         txt_filename = f"{args.encoder_model_name}_{safe_results_filename}_{os.getpid()}.txt"
-        txt_path = results_dir / txt_filename
+        save_path = results_dir / txt_filename
 
-        with open(txt_path, "w") as f:
+        with open(save_path, "w") as f:
             f.write("\n".join(cleaned_sentences))
-        print(f"\nSaved predictions to {txt_path}")
+        print(f"\nSaved predictions to {save_path}")
 
     else:
         raise ValueError("Please specify year between \"b2t24\" and \"b2t25\".")
@@ -368,14 +369,14 @@ def run_decode_pass(
     if mode != "test" and wer is not None:
         metrics["aggregate"]["wer"] = wer
 
-    metrics_path = csv_path.with_suffix('.json')
+    metrics_path = save_path.with_suffix('.json')
     with open(metrics_path, 'w') as f:
         json.dump(metrics, f, indent=2)
     print(f"Saved metrics to {metrics_path}")
 
     # Save top-K beams for all modes
     beams_data = {str(trial_idx): beams for trial_idx, beams in zip(trial_indices, all_beams)}
-    beams_path = csv_path.with_name(csv_path.stem + "_beams.json")
+    beams_path = save_path.with_name(save_path.stem + "_beams.json")
     with open(beams_path, 'w') as f:
         json.dump(beams_data, f)
     print(f"Saved top-{K} beams to {beams_path}")
