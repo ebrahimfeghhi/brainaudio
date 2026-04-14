@@ -12,9 +12,6 @@ GRU-based neural speech encoder. Inherits from `BaseTimeMaskedModel` for SpecAug
 neuralInput (B, T, C)
        │
        ▼
- GaussianSmoothing      — smooth along time axis
-       │
-       ▼
  [optional time masking] — SpecAugment during training
        │
        ▼
@@ -44,7 +41,7 @@ The `+1` in the output accounts for the CTC blank token.
 
 ### Gaussian Smoothing
 
-`GaussianSmoothing(neural_dim, kernel_size=20, sigma=2.0, dim=1)` is applied along the time axis before anything else. It low-pass filters the neural signal to reduce high-frequency noise prior to encoding.
+Currently commented out. When enabled, `GaussianSmoothing(neural_dim, kernel_size=20, sigma=2.0, dim=1)` would low-pass filter the neural signal along the time axis before any other processing.
 
 ---
 
@@ -99,10 +96,30 @@ nn.GRU(input_size = neural_dim × kernelLen,
         bidirectional = bidirectional)
 ```
 
-- Hidden-to-hidden weights (`weight_hh`) initialized with **orthogonal initialization** — helps preserve gradient norms over long sequences.
-- Input-to-hidden weights (`weight_ih`) initialized with **Xavier uniform**.
-- Hidden state `h0` is zeros and detached (no gradient flows through initial state).
-- Output shape: `(B, T', hidden_dim × 2)` if bidirectional, else `(B, T', hidden_dim)`.
+At each timestep `t`, the GRU computes:
+
+```
+z_t = σ(W_z x_t + U_z h_{t-1} + b_z)          # update gate
+r_t = σ(W_r x_t + U_r h_{t-1} + b_r)          # reset gate
+ñ_t = tanh(W_n x_t + r_t ⊙ (U_n h_{t-1}) + b_n)   # candidate hidden state
+h_t = (1 - z_t) ⊙ h_{t-1} + z_t ⊙ ñ_t        # new hidden state
+```
+
+where `x_t` is the input at timestep `t` (shape `C×kernelLen`), `h_{t-1}` is the previous hidden state, `σ` is sigmoid, and `⊙` is element-wise multiplication.
+
+**Gates:**
+- **Update gate** `z_t`: controls how much of the previous hidden state to carry forward vs. replace with new information. Values near 1 preserve the past; values near 0 let new input dominate.
+- **Reset gate** `r_t`: controls how much of the previous hidden state is used when computing the candidate. Values near 0 effectively reset memory, allowing the model to ignore irrelevant history.
+- **Candidate** `ñ_t`: a proposed new hidden state computed from the current input and a reset-gated version of the past hidden state.
+
+**Multi-layer:** with `layer_dim > 1`, the output `h_t` of layer `l` becomes the input `x_t` to layer `l+1`. There is no FFN, LayerNorm, or residual connection between layers — stacking is handled entirely inside `nn.GRU`. This differs from the Transformer, where each layer is an Attention + FFN pair with residuals and normalization. Dropout is applied between GRU layers (not on the final output).
+
+**Bidirectional:** if `bidirectional=True`, a second GRU processes the sequence in reverse. Its hidden states are concatenated with the forward pass at each timestep, doubling the output dimension to `hidden_dim × 2`.
+
+**Initialization:**
+- `weight_hh` (U matrices): **orthogonal** — preserves gradient norms through time, reducing vanishing/exploding gradients.
+- `weight_ih` (W matrices): **Xavier uniform** — scales variance relative to input/output size.
+- Hidden state `h0`: zeros, detached so no gradient flows back through the initial state.
 
 ---
 

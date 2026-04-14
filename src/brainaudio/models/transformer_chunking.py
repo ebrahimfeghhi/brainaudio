@@ -134,8 +134,8 @@ class TransformerModel(BaseTimeMaskedModel):
     
     def __init__(self, *, samples_per_patch, features_list, dim, depth, heads, mlp_dim_ratio,
                  dim_head, dropout, input_dropout,
-                 nClasses, max_mask_pct, num_masks, num_participants, 
-                 return_final_layer, chunked_attention=None):
+                 nClasses, max_mask_pct, num_masks, num_participants,
+                 return_final_layer, chunked_attention=None, nDays=None, day_softsign=False):
    
         super().__init__(max_mask_pct=max_mask_pct, num_masks=num_masks, samples_per_patch=samples_per_patch)
 
@@ -151,6 +151,16 @@ class TransformerModel(BaseTimeMaskedModel):
         self.nClasses = nClasses
         self.num_participants = num_participants
         self.return_final_layer = return_final_layer
+
+        # Day-specific affine transform (optional)
+        self.nDays = nDays
+        self.day_softsign = day_softsign
+        if nDays is not None:
+            feature_size = self.features_list[0]
+            self.dayWeights = nn.Parameter(torch.randn(nDays, feature_size, feature_size))
+            self.dayBias = nn.Parameter(torch.zeros(nDays, 1, feature_size))
+            for x in range(nDays):
+                self.dayWeights.data[x].copy_(torch.eye(feature_size))
 
         self._eval_config: Optional[ChunkConfig] = None
         if isinstance(chunked_attention, dict):
@@ -246,8 +256,15 @@ class TransformerModel(BaseTimeMaskedModel):
             Tensor: (B, num_patches, dim)
         """
         
+        if self.nDays is not None and day_idx is not None:
+            dayWeights = torch.index_select(self.dayWeights, 0, day_idx)
+            neuralInput = torch.einsum("btd,bdk->btk", neuralInput, dayWeights) + \
+                          torch.index_select(self.dayBias, 0, day_idx)
+            if self.day_softsign:
+                neuralInput = torch.nn.functional.softsign(neuralInput)
+
         neuralInput = pad_to_multiple(neuralInput, multiple=self.samples_per_patch)
-        
+
         neuralInput = neuralInput.unsqueeze(1)
             
         # add time masking
@@ -255,7 +272,6 @@ class TransformerModel(BaseTimeMaskedModel):
             patchify = self.patch_embedders[participant_idx][0]
             post_patchify = self.patch_embedders[participant_idx][1:]
             x = patchify(neuralInput)
-            breakpoint()
             x, _ = self.apply_time_masking(x, X_len, mask_value=0)    
             x = post_patchify(x)
 
@@ -265,7 +281,7 @@ class TransformerModel(BaseTimeMaskedModel):
         # apply input level dropout. 
         x = self.dropout_layer(x)
         
-        b, seq_len, _ = x.shape
+        _, seq_len, _ = x.shape
 
         chunk_config = self._sample_chunk_config()
 

@@ -14,10 +14,10 @@ seeds:
 - 7
 - 8
 - 9
-
+- 10
 evaluate_wer: false
 evaluate_every_n_epochs: 1
-modelName: neurips_b2t_24_dynchunked_transformer
+modelName: neurips_b2t_24_chunked_unidirectional_day_specific_softsign_transformer
 modelType: transformer
 optimizer: AdamW
 learning_rate: 0.001
@@ -81,17 +81,19 @@ model:
     mlp_dim_ratio: 4
     dim_head: 64
     depth: 5
+    nDays: 24
+    day_softsign: true
     chunked_attention:
-      chunkwise_prob: 0.8
+      chunkwise_prob: 1.0
       chunk_size_min: 1
-      chunk_size_max: 20
+      chunk_size_max: 1
       left_constrain_prob: 1.0
       context_sec_min: 5
       context_sec_max: 20
       timestep_duration_sec: 0.1
       eval:
-        chunk_size: 10
-        context_sec: null
+        chunk_size: 1
+        context_sec: 12.5
 wandb:
   project: nejm-brain-to-text
   entity: lionelhu926-ucla
