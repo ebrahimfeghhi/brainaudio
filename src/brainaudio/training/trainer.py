@@ -75,7 +75,7 @@ def trainModel(args, model):
             param_groups,
             lr=args["learning_rate"],
             betas=(args['beta1'], args['beta2']),
-            eps=args["eps"],
+            eps=args['eps'],
             weight_decay=args["l2_decay"],
         )
         
@@ -112,12 +112,11 @@ def trainModel(args, model):
                     beam_size=args["beam_size"], nbest=1, lm="/data2/brain2text/lm/lm_dec19_huge_4gram.kenlm", 
                     lm_weight=args["lm_weight"], word_score=args["word_score"]) if args["evaluate_wer"] else None
     
-    # Initialize counter for no improvement early stopping criterion
     no_improvement_count = 0
     
     for epoch in range(args['n_epochs']):
         
-        if args["early_stopping_enabled"] and no_improvement_count >= args["early_stopping_no_improvement"]: 
+        if no_improvement_count >= args["early_stopping_no_improvement"]: 
             wandb.log({"early_stopping_triggered": True, "early_stopping_reason": "no_improvement", "early_stopping_epoch": epoch})
             break
         
@@ -155,7 +154,6 @@ def trainModel(args, model):
                 y_len  = y_len.to(args["device"])
                 dayIdx = dayIdx.to(args["device"])
                 
-                # Data Transformation
                 with torch.autocast(device_type = args["device"].split(":")[0], enabled = args['use_amp'], dtype = torch.bfloat16):
                     
                     if args["whiteNoiseSD"] > 0:
@@ -173,7 +171,9 @@ def trainModel(args, model):
                         X = X[:, cut:, :]
                         X_len -= cut 
                         
-                    X = gauss_smooth(inputs=X, device=args['device'], smooth_kernel_size=args['smooth_kernel_size'], smooth_kernel_std=args['gaussianSmoothWidth'])
+                    X = gauss_smooth(inputs=X, device=args['device'], 
+                                     smooth_kernel_size=args['smooth_kernel_size'], 
+                                     smooth_kernel_std=args['gaussianSmoothWidth'])
                     
                     adjustedLens = model.compute_length(X_len)
                     if args["modelType"] == "gru":
@@ -182,7 +182,8 @@ def trainModel(args, model):
                         pred = model.forward(X, X_len, participant_id, dayIdx)
                     loss = forward_ctc(pred, adjustedLens, y, y_len)  
                     train_loss.append(loss.cpu().detach().numpy())    
-                loss.backward()                    
+                    
+                loss.backward()
                 
                 total_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=float('inf'))
                 grad_norm_store.append(total_norm.item())
