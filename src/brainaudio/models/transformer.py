@@ -147,16 +147,16 @@ class Transformer(nn.Module):
     
 
 class TransformerModel(BaseTimeMaskedModel):
-    
-    def __init__(self, *, samples_per_patch, features_list, dim, depth, heads, mlp_dim_ratio,
+
+    def __init__(self, *, samples_per_patch, num_features, dim, depth, heads, mlp_dim_ratio,
                  dim_head, dropout, input_dropout,
-                 nClasses, max_mask_pct, num_masks, num_participants, 
+                 nClasses, max_mask_pct, num_masks,
                  return_final_layer, bidirectional):
-   
+
         super().__init__(max_mask_pct=max_mask_pct, num_masks=num_masks)
 
         self.samples_per_patch = samples_per_patch
-        self.features_list = features_list
+        self.num_features = num_features
         self.dim = dim
         self.depth = depth
         self.heads = heads
@@ -165,27 +165,18 @@ class TransformerModel(BaseTimeMaskedModel):
         self.dropout = dropout
         self.input_dropout = input_dropout
         self.nClasses = nClasses
-        self.num_participants = num_participants
         self.return_final_layer = return_final_layer
         self.bidirectional = bidirectional
-        
-        # self.mask_token = nn.Parameter(torch.randn(self.patch_dim))  
-        self.patch_embedders = nn.ModuleList([])
-        
-        for pid in range(self.num_participants):
-        
-            feature_size = self.features_list[pid]
-                    
-            patch_dim = self.samples_per_patch*feature_size
-            
-            self.patch_embedders.append(
-            nn.Sequential(
-                Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', 
-                        p1=self.samples_per_patch, p2=feature_size),
-                nn.LayerNorm(patch_dim),
-                nn.Linear(patch_dim, self.dim),
-                nn.LayerNorm(self.dim)
-            ))
+
+        patch_dim = self.samples_per_patch * self.num_features
+
+        self.patch_embedder = nn.Sequential(
+            Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)',
+                    p1=self.samples_per_patch, p2=self.num_features),
+            nn.LayerNorm(patch_dim),
+            nn.Linear(patch_dim, self.dim),
+            nn.LayerNorm(self.dim)
+        )
             
             
         self.dropout_layer = nn.Dropout(self.input_dropout)
@@ -195,37 +186,35 @@ class TransformerModel(BaseTimeMaskedModel):
     
         self.projection = nn.Linear(self.dim, nClasses+1)
         
-    def forward(self, neuralInput, X_len, participant_idx=None, day_idx=None):
+    def forward(self, neuralInput, X_len, day_idx=None):
         """
         Args:
             neuralInput: Tensor of shape (B, T, F)
             X_len: Tensor of shape (B, )
-            participant_idx: integer ID, all data for a given batch must come from the same participant 
-            dayIdx: Not used for Transformer 
         Returns:
             Tensor: (B, num_patches, dim)
         """
-        
+
         neuralInput = pad_to_multiple(neuralInput, multiple=self.samples_per_patch)
-        
+
         neuralInput = neuralInput.unsqueeze(1)
-        
+
         # add time masking
         if self.training and self.max_mask_pct > 0:
-            patchify = self.patch_embedders[participant_idx][0]
-            post_patchify = self.patch_embedders[participant_idx][1:]
+            patchify = self.patch_embedder[0]
+            post_patchify = self.patch_embedder[1:]
 
             x = patchify(neuralInput)
-            x, _ = self.apply_time_masking(x, X_len, mask_value=0)    
+            x, _ = self.apply_time_masking(x, X_len, mask_value=0)
             x = post_patchify(x)
 
         else:
-            x = self.patch_embedders[participant_idx](neuralInput)
+            x = self.patch_embedder(neuralInput)
 
         # apply input level dropout. 
         x = self.dropout_layer(x)
         
-        b, seq_len, _ = x.shape
+        _, seq_len, _ = x.shape
 
         # Create temporal mask
         if self.bidirectional:

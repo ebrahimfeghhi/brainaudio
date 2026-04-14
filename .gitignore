@@ -67,3 +67,4 @@ wandb/
 *.fdb_latexmk
 *.toc
 _minted*
+.aider*

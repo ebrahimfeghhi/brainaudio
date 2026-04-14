@@ -254,8 +254,8 @@ class TransformerModel(BaseTimeMaskedModel):
         if self.training and self.max_mask_pct > 0:
             patchify = self.patch_embedders[participant_idx][0]
             post_patchify = self.patch_embedders[participant_idx][1:]
-
             x = patchify(neuralInput)
+            breakpoint()
             x, _ = self.apply_time_masking(x, X_len, mask_value=0)    
             x = post_patchify(x)
 

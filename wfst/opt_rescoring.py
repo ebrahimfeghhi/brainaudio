@@ -9,12 +9,13 @@ import torch
 import time
 
 # ---- Config ----
-dataset = "b2t_25"
+dataset = "b2t_24"
 compute_rtf = True
-device = "cuda:6"
+device = "cuda:3"
 
-seeds_list = list(range(10))
-partition_arr = ["train", "val", "test"]
+seeds_list = [1]
+#partition_arr = ["train", "val", "test"]
+partition_arr = ["test"]
 
 suffix = "24" if dataset == "b2t_24" else "25"
 pkl_suffix = ".pkl" if dataset == "b2t_24" else "_augmented.pkl"
@@ -25,7 +26,7 @@ model_paths, save_names, partitions = zip(*[
         partition,
     )
     for partition in partition_arr
-    for mode in ["unidir", "bidir"]
+    for mode in ["unidir"]
     for i in seeds_list
 ])
 
@@ -120,10 +121,13 @@ for mn, save_name, partition in zip(model_paths, save_names, partitions):
 
     if compute_rtf:
         rtf_list = [(w + o) / tl for w, o, tl in zip(wfst_decode_times_ms, opt_decode_times_ms, trial_lengths_ms)]
+        rtf_mean = np.mean(rtf_list)
+        rtf_std = np.std(rtf_list)
+        rtf_max = np.max(rtf_list)
         print(f"\n--- RTF (WFST + OPT) ---")
-        print(f"Mean RTF: {np.mean(rtf_list):.4f}")
-        print(f"Std RTF: {np.std(rtf_list):.4f}")
-        print(f"Max RTF: {np.max(rtf_list):.4f}")
+        print(f"Mean RTF: {rtf_mean:.4f}")
+        print(f"Std RTF: {rtf_std:.4f}")
+        print(f"Max RTF: {rtf_max:.4f}")
         vram_free_after = torch.cuda.mem_get_info(device)[0]
         vram_used = (vram_free_before - vram_free_after) / (1024**3)
         print(f"Peak vRAM ({device}): {vram_used:.2f} GB")
@@ -150,8 +154,13 @@ for mn, save_name, partition in zip(model_paths, save_names, partitions):
         print(f"Model: {save_name}")
         print(f"CER: {metrics[0]:.4f}, WER: {metrics[1]:.4f}")
 
-        with open(saved_dir + f"{save_name}_metrics.txt", "w") as f:
-            f.write(f"Model: {save_name}\n")
+    with open(saved_dir + f"{save_name}_metrics.txt", "w") as f:
+        f.write(f"Model: {save_name}\n")
+        if val:
             f.write(f"CER: {metrics[0]:.4f}\n")
             f.write(f"WER: {metrics[1]:.4f}\n")
-            f.write(f"Peak vRAM ({device}): {vram_used:.2f} GB\n")
+        f.write(f"Peak vRAM ({device}): {vram_used:.2f} GB\n")
+        if compute_rtf:
+            f.write(f"Mean RTF: {rtf_mean:.4f}\n")
+            f.write(f"Std RTF: {rtf_std:.4f}\n")
+            f.write(f"Max RTF: {rtf_max:.4f}\n")
