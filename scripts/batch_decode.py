@@ -2,13 +2,17 @@
 """
 Simple batch runner for run_decoder.py.
 
-Run a specific family on a specific device:
-    python scripts/batch_decode.py --family softsign --device cuda:0
-    python scripts/batch_decode.py --family linear   --device cuda:1
+Example:
+    python scripts/batch_decode.py \
+        --dataset b2t_24 \
+        --model-mode gru \
+        --logits-base /data2/brain2text/b2t_24/logits \
+        --model-template "bidirectional_gru_seed_{seed}" \
+        --seeds 0 1 2 3 4 \
+        --val \
+        --device cuda:0
 
 Any additional arguments are passed through to run_decoder.py.
-Example:
-    python scripts/batch_decode.py --family softsign --device cuda:0 --beam-size 1200
 """
 
 import argparse
@@ -18,53 +22,42 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-# =============================================================================
-# CONFIGURATION
-# =============================================================================
-
-LOGITS_BASE = "/home/ebrahim/data2/brain2text/b2t_25/logits"
-LOGITS_VAL_FILENAME = "logits_val_chunk:1_context:20.npz"
-
-MODEL_TEMPLATES = {
-    "softsign": "neurips_b2t_25_causal_transformer_day_specific_softsign_seed_{seed}",
-    "linear":   "neurips_b2t_25_causal_transformer_day_specific_seed_{seed}",
-}
-SEEDS = [0, 1, 2, 3, 4, 5, 6, 7, 8]
-WEIGHTS_SUFFIX = "PER_25"
-
-# =============================================================================
-
-
-def build_runs(family_filter=None):
-    val_paths, test_paths, train_paths, save_names = [], [], [], []
-    for family, template in MODEL_TEMPLATES.items():
-        if family_filter and family != family_filter:
-            continue
-        for seed in SEEDS:
-            model_name = template.format(seed=seed)
-            logits_dir = f"{LOGITS_BASE}/{model_name}_{WEIGHTS_SUFFIX}"
-            val_paths.append(f"{logits_dir}/{LOGITS_VAL_FILENAME}")
-            test_paths.append(None)
-            train_paths.append(None)
-            save_names.append(f"{model_name}_{WEIGHTS_SUFFIX}")
-    return val_paths, test_paths, train_paths, save_names
-
 
 def main():
     os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
 
     parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("--family", choices=["softsign", "linear"], default=None,
-                        help="Run only this model family. Runs all if omitted.")
+    parser.add_argument("--dataset", choices=["b2t_24", "b2t_25"], required=True,
+                        help="Dataset to use.")
+    parser.add_argument("--model-mode", choices=["gru", "transformer"], required=True,
+                        help="Model mode (sets results directory in decoder_config).")
+    parser.add_argument("--logits-base", type=str, required=True,
+                        help="Base directory containing per-model logits folders.")
+    parser.add_argument("--model-template", type=str, required=True,
+                        help="Logits folder name template with {seed} placeholder.")
+    parser.add_argument("--seeds", type=int, nargs="+", required=True,
+                        help="Seeds to run.")
+    parser.add_argument("--val", action="store_true",
+                        help="Run on val split.")
+    parser.add_argument("--test", action="store_true",
+                        help="Run on test split.")
+    parser.add_argument("--val-filename", type=str, default="logits_val.npz",
+                        help="Val logits filename (default: logits_val.npz).")
+    parser.add_argument("--test-filename", type=str, default="logits_test.npz",
+                        help="Test logits filename (default: logits_test.npz).")
     parser.add_argument("--device", type=str, default=None,
-                        help="Override decoder device (e.g. cuda:0, cuda:1).")
+                        help="Decoder device (e.g. cuda:0, cuda:1).")
     known, extra_args = parser.parse_known_args()
 
-    VAL_PATHS, TEST_PATHS, TRAIN_PATHS, SAVE_NAMES = build_runs(known.family)
+    if not known.val and not known.test:
+        print("Error: specify at least one of --val or --test")
+        sys.exit(1)
+
+    os.environ["B2T_DATASET"] = known.dataset
+    os.environ["B2T_MODEL_MODE"] = known.model_mode
 
     script_dir = Path(__file__).parent
     decoder_script = script_dir / "run_decoder.py"
-
     if not decoder_script.exists():
         print(f"Error: {decoder_script} not found")
         sys.exit(1)
@@ -73,39 +66,36 @@ def main():
         extra_args = ["--device", known.device] + list(extra_args)
 
     timestamp = datetime.now().strftime("%m_%d_%H%M")
-    label = f" (family={known.family})" if known.family else ""
-    print(f"Total runs: {len(SAVE_NAMES)}{label}")
+    splits = "+".join(s for s, f in [("val", known.val), ("test", known.test)] if f)
+    print(f"Total runs: {len(known.seeds)} (dataset={known.dataset}, mode={known.model_mode}, splits={splits})")
 
-    for val_path, test_path, train_path, save_name in zip(VAL_PATHS, TEST_PATHS, TRAIN_PATHS, SAVE_NAMES):
-        if val_path is None and test_path is None and train_path is None:
-            print(f"Skipping {save_name}: no val, test, or train path")
-            continue
+    for seed in known.seeds:
+        model_name = known.model_template.format(seed=seed)
+        logits_dir = Path(known.logits_base) / model_name
+        val_path  = logits_dir / known.val_filename  if known.val  else None
+        test_path = logits_dir / known.test_filename if known.test else None
 
-        results_filename = f"{save_name}_{timestamp}"
+        results_filename = timestamp
 
         print(f"\n{'='*60}")
-        print(f"Running: {save_name}")
+        print(f"Running: {model_name}")
         if val_path:
-            print(f"Val: {val_path}")
+            print(f"Val:  {val_path}")
         if test_path:
             print(f"Test: {test_path}")
-        if train_path:
-            print(f"Train: {train_path}")
         print(f"{'='*60}\n")
 
         cmd = [sys.executable, str(decoder_script)]
-        if train_path:
-            cmd.extend(["--logits-train-path", train_path])
         if val_path:
-            cmd.extend(["--logits-val-path", val_path])
+            cmd.extend(["--logits-val-path", str(val_path)])
         if test_path:
-            cmd.extend(["--logits-test-path", test_path])
+            cmd.extend(["--logits-test-path", str(test_path)])
         cmd.extend(["--results-filename", results_filename])
         cmd.extend(extra_args)
 
         result = subprocess.run(cmd)
         if result.returncode != 0:
-            print(f"Warning: {save_name} failed with return code {result.returncode}")
+            print(f"Warning: {model_name} failed with return code {result.returncode}")
 
 
 if __name__ == "__main__":

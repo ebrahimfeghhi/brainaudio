@@ -21,3 +21,5 @@ To be filled in.
 
 ![Day-Specific WER b2t_24](day_specific_wer_b2t_24.png)
 
+![GRU Day-Specific WER b2t_24](gru_wer_b2t_24.png)
+

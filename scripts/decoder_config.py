@@ -3,49 +3,57 @@ Default configuration for CTC beam search decoder.
 Edit this file to change default hyperparameters.
 """
 
+import os
+from pathlib import Path
+
 base_path = "/home/ebrahim/"
+
+# Auto-detect data2 root (differs across servers)
+_DATA2_CANDIDATES = ["/data2", "/home/ebrahim/data2"]
+_data2 = next((p for p in _DATA2_CANDIDATES if Path(p).exists()), _DATA2_CANDIDATES[-1])
+data2_b2t = f"{_data2}/brain2text"
 
 # =============================================================================
 # DATASET SELECTOR  ("b2t_24" or "b2t_25")
 # =============================================================================
-DATASET = "b2t_25"
+DATASET = os.environ.get("B2T_DATASET", "b2t_25")
 
 # =============================================================================
 # PER-DATASET CONFIGS
 # =============================================================================
-MODEL_MODE = "transformer"  # "gru" or "transformer"
+MODEL_MODE = os.environ.get("B2T_MODEL_MODE", "transformer")  # "gru" or "transformer"
 
 _B2T_24 = {
-    "transcripts_val": f"{base_path}/data2/brain2text/b2t_24/transcripts_val_cleaned.pkl",
+    "transcripts_val": f"{data2_b2t}/b2t_24/transcripts_val_cleaned.pkl",
     "beam_size": 1000,
     "beam_prune_threshold": 22.0,
     "alpha_ngram": 0.8,
     "acoustic_scale": 0.6,
     "lm_rescore_interval": 10,
     "results_dir": {
-        "gru":         f"{base_path}/results/gru_24",
+        "gru":         f"{base_path}/brainaudio/results/gru_24",
         "transformer": f"{base_path}/brainaudio/results/transformer_24",
     },
     "results_test_dir": {
-        "gru":         f"{base_path}/results/test_files/gru_24",
+        "gru":         f"{base_path}/brainaudio/results/test_files/gru_24",
         "transformer": f"{base_path}/brainaudio/results/test_files/transformer_24",
     },
     "year": "b2t24",
 }
 
 _B2T_25 = {
-    "transcripts_val": f"{base_path}/data2/brain2text/b2t_25/transcripts_val_cleaned.pkl",
+    "transcripts_val": f"{data2_b2t}/b2t_25/transcripts_val_cleaned.pkl",
     "beam_size": 900,
     "beam_prune_threshold": 18.0,
     "alpha_ngram": 1.0,
     "acoustic_scale": 0.4,
     "lm_rescore_interval": 15,
     "results_dir": {
-        "gru":         f"{base_path}/results/gru_25",
+        "gru":         f"{base_path}/brainaudio/results/gru_25",
         "transformer": f"{base_path}/brainaudio/results/transformer_25",
     },
     "results_test_dir": {
-        "gru":         f"{base_path}/results/test_files/gru_25",
+        "gru":         f"{base_path}/brainaudio/results/test_files/gru_25",
         "transformer": f"{base_path}/brainaudio/results/test_files/transformer_25",
     },
     "year": "b2t25",
@@ -57,11 +65,11 @@ _DS = {"b2t_24": _B2T_24, "b2t_25": _B2T_25}[DATASET]
 # PATHS
 # =============================================================================
 PATHS = {
-    "tokens": "/home/ebrahim/data2/brain2text/lm/units_pytorch.txt",
-    "lexicon": "/home/ebrahim/data2/brain2text/lm/vocab_lower_100k_pytorch_phoneme_with_variants.txt",
-    "word_lm": "/home/ebrahim/data2/brain2text/lm/lm_dec19_huge_4gram.kenlm",
+    "tokens": f"{data2_b2t}/lm/units_pytorch.txt",
+    "lexicon": f"{data2_b2t}/lm/vocab_lower_100k_pytorch_phoneme_with_variants.txt",
+    "word_lm": f"{data2_b2t}/lm/lm_dec19_huge_4gram.kenlm",
     "transcripts_val": _DS["transcripts_val"],
-    "lora_adapter_1b": "/home/ebrahim/brainaudio/finetune_llm/llama-3.2-1b-hf-finetuned-normalized",
+    "lora_adapter_1b": f"{data2_b2t}/finetuned_llms/llama-3.2-1b-hf-finetuned-normalized",
     "lora_adapter_3b": "/home/ebrahim/brainaudio/finetune_llm/llama-3.2-3b-hf-finetuned-normalized",
     "lora_adapter_270m": "/home/ebrahim/brainaudio/finetune_llm/gemma-3-270m-hf-finetuned-normalized",
     "lora_adapter_360m": "/home/ebrahim/brainaudio/finetune_llm/smollm-360m-hf-finetuned-normalized",
