@@ -15,8 +15,6 @@ import yaml
 import re
 
 from brainaudio.models.transformer_chunking import TransformerModel
-from brainaudio.models._archive.gru_b2t_24 import GRU_24
-from brainaudio.models._archive.gru_b2t_25 import GRU_25
 from brainaudio.datasets.lazy_data_loading import getDatasetLoaders
 from brainaudio.training.utils.augmentations import gauss_smooth
 from brainaudio.inference.eval_metrics import compute_per
@@ -78,6 +76,8 @@ def load_transformer_model(
         num_participants=len(model_config['features_list']),
         return_final_layer=config['return_final_layer'],
         chunked_attention=chunked_attention_cfg,
+        nDays=model_config.get('nDays', None),
+        day_softsign=model_config.get('day_softsign', False),
     )
 
     # Load weights
@@ -122,6 +122,7 @@ def load_gru_model(
         config['return_final_layer'] = False
 
     if year == "24":
+        from brainaudio.models._archive.gru_b2t_24 import GRU_24
         model = GRU_24(
             neural_dim=model_config['nInputFeatures'], 
             n_classes=config['nClasses'], 
@@ -138,6 +139,7 @@ def load_gru_model(
             samples_per_patch = 0
         )
     elif year == "25":
+        from brainaudio.models._archive.gru_b2t_25 import GRU_25
         model = GRU_25(
             neural_dim=model_config['nInputFeatures'], 
             n_classes=config['nClasses'], 
@@ -164,10 +166,10 @@ def load_gru_model(
     model.eval()
     return model, config
 
-def generate_and_save_logits(model, config, partition, device, 
-                             manifest_paths, save_paths, participant_ids,
+def generate_and_save_logits(model, config, partition, device,
+                             manifest_paths, save_path,
                              chunk_config: Optional[Dict[str, Optional[int]]] = None):
-    
+
     """
     Runs the model forward pass and saves the output logits to a file.
 
@@ -177,11 +179,12 @@ def generate_and_save_logits(model, config, partition, device,
         partition (str): The data partition to process ('train' or 'val').
         device (torch.device): The device to run the model on.
         manifest_paths (list): List of manifest.json paths per participant.
-        save_paths (list): List of paths to save the output files.
-        participant_ids (list): List of integer participant ids.
+        save_path (str): Directory path to save the output logits file.
         chunk_config (dict|None): Optional chunking overrides for evaluation.
     """
-    
+
+    participant_id = 0
+
     print(f"--- Starting: Generating logits for '{partition}' partition ---")
 
     def _format_chunk_tag(cfg: Optional[Dict[str, Optional[int]]]) -> Optional[str]:
@@ -199,73 +202,70 @@ def generate_and_save_logits(model, config, partition, device,
 
     trainLoaders, valLoaders, testLoaders = getDatasetLoaders(
         manifest_paths,
-        config["batchSize"], 
-        return_transcript=True, 
+        config["batchSize"],
+        return_transcript=True,
         shuffle_train=False
     )
-    
+
     if partition == "train":
-        dataLoaders = trainLoaders
+        dataLoader = trainLoaders[0]
     elif partition == "val":
-        dataLoaders = valLoaders
+        dataLoader = valLoaders[0]
     elif partition == "test":
-        dataLoaders = testLoaders
-    
-    per_dict = {} if partition == "val" else None
+        dataLoader = testLoaders[0]
+
+    logits_data = []
+    transcriptions = []
+    total_edit_distance = 0
+    total_seq_length = 0
+
+    per = None
     model.eval()
     with torch.no_grad():
-        for dataLoader, participant_id in zip(dataLoaders, participant_ids):
-            print(f"Processing participant {participant_id}...")
-            
-            logits_data = []
-            transcriptions = []
-            total_edit_distance = 0
-            total_seq_length = 0
-        
-            for batch in tqdm(dataLoader, desc=f"P{participant_id} Logits"):
-                
-                X, y, X_len, y_len, dayIdxs, transcripts = batch
+        for batch in tqdm(dataLoader, desc="Logits"):
 
-                X, y, X_len, y_len, dayIdxs = (
-                    X.to(device), y.to(device), X_len.to(device), 
-                    y_len.to(device), dayIdxs.to(device)
-                )
-                
-                X = gauss_smooth(X, device=device, smooth_kernel_size=config['smooth_kernel_size'], 
-                                 smooth_kernel_std=config['gaussianSmoothWidth'])
-                
-                adjusted_lens = model.compute_length(X_len)
-                if config["modelType"] == "transformer":
-                    logits = model.forward(X, X_len, participant_id, dayIdxs)
-                else:
-                    logits = model.forward(X, X_len, dayIdxs)
-                
-                for i in range(logits.shape[0]):            
-                    
-                    ali = adjusted_lens[i]
-                    yli = y_len[i]
-                    
-                    logits_data.append(logits[i, :ali].cpu().numpy())
-                    transcriptions.append(transcripts[i])
-                
-                    total_edit_distance, total_seq_length = compute_per(logits[i, :ali].cpu(), 
-                    y[i, :yli].cpu(), total_edit_distance, total_seq_length)
-            
-            if chunk_tag:
-                save_path = f"{save_paths[participant_id]}/logits_{partition}_{chunk_tag}.npz"
+            X, y, X_len, y_len, dayIdxs, transcripts = batch
+
+            X, y, X_len, y_len, dayIdxs = (
+                X.to(device), y.to(device), X_len.to(device),
+                y_len.to(device), dayIdxs.to(device)
+            )
+
+            X = gauss_smooth(X, device=device, smooth_kernel_size=config['smooth_kernel_size'],
+                             smooth_kernel_std=config['gaussianSmoothWidth'])
+
+            adjusted_lens = model.compute_length(X_len)
+            if config["modelType"] == "transformer":
+                logits = model.forward(X, X_len, participant_id, dayIdxs)
             else:
-                save_path = f"{save_paths[participant_id]}/logits_{partition}.npz"
-                
-            print(f"Saving logits for participant {participant_id} to {save_path}")
-            print(f"Length of logits: ", len(logits_data))
-            np.savez_compressed(save_path, *logits_data)
-            print(f"Error Rate for participant {participant_id}: {total_edit_distance/total_seq_length}")
-            if per_dict is not None:
-                per_dict[participant_id] = total_edit_distance/total_seq_length
-                
-            
+                logits = model.forward(X, X_len, dayIdxs)
+
+            for i in range(logits.shape[0]):
+
+                ali = adjusted_lens[i]
+                yli = y_len[i]
+
+                logits_data.append(logits[i, :ali].cpu().numpy())
+                transcriptions.append(transcripts[i])
+
+                total_edit_distance, total_seq_length = compute_per(logits[i, :ali].cpu(),
+                y[i, :yli].cpu(), total_edit_distance, total_seq_length)
+
+    if chunk_tag:
+        out_path = f"{save_path}/logits_{partition}_{chunk_tag}.npz"
+    else:
+        out_path = f"{save_path}/logits_{partition}.npz"
+
+    print(f"Saving logits to {out_path}")
+    print(f"Length of logits: ", len(logits_data))
+    np.savez_compressed(out_path, *logits_data)
+
+    if partition == "val":
+        per = total_edit_distance / total_seq_length
+        print(f"PER: {per}")
+
     print("--- Finished: Logit generation complete. ---")
-    return per_dict
+    return per
 
 def save_transcripts(manifest_paths, partition, save_paths):
     '''

@@ -2,44 +2,65 @@
 """
 Simple batch runner for run_decoder.py.
 
-Edit VAL_PATHS, TEST_PATHS, and SAVE_NAMES below, then run:
-    python scripts/run_batch.py [optional decoder args]
+Run a specific family on a specific device:
+    python scripts/batch_decode.py --family softsign --device cuda:0
+    python scripts/batch_decode.py --family linear   --device cuda:1
 
 Any additional arguments are passed through to run_decoder.py.
 Example:
-    python scripts/run_batch.py --beam-size 1200 --acoustic-scale 0.5
+    python scripts/batch_decode.py --family softsign --device cuda:0 --beam-size 1200
 """
 
+import argparse
+import os
 import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
 
 # =============================================================================
-# EDIT THESE LISTS (must be same length, use None to skip val or test)
+# CONFIGURATION
 # =============================================================================
 
-seed_list = [0]
-VAL_PATHS = [None]*1
+LOGITS_BASE = "/home/ebrahim/data2/brain2text/b2t_25/logits"
+LOGITS_VAL_FILENAME = "logits_val_chunk:1_context:20.npz"
 
-# [f"/data2/brain2text/b2t_25/logits/baseline_rnn_ucd_npl_seed_{i}/logits_val.npz" for i in seed_list]
+MODEL_TEMPLATES = {
+    "softsign": "neurips_b2t_25_causal_transformer_day_specific_softsign_seed_{seed}",
+    "linear":   "neurips_b2t_25_causal_transformer_day_specific_seed_{seed}",
+}
+SEEDS = [0, 1, 2, 3, 4, 5, 6, 7, 8]
+WEIGHTS_SUFFIX = "PER_25"
 
-TEST_PATHS = [f"/home/ebrahim/data2/brain2text/b2t_24/logits/bidirectional_gru_all/bidirectional_gru_seed_{i}/logits_test.npz"
-     for i in seed_list]
-
-
-TRAIN_PATHS = [None]*1
-
-SAVE_NAMES = [f"" for _ in range(len(seed_list))] # no_finetuning  ,  no_variants  , no_delayed_fusion  ,  llama_3b
 # =============================================================================
+
+
+def build_runs(family_filter=None):
+    val_paths, test_paths, train_paths, save_names = [], [], [], []
+    for family, template in MODEL_TEMPLATES.items():
+        if family_filter and family != family_filter:
+            continue
+        for seed in SEEDS:
+            model_name = template.format(seed=seed)
+            logits_dir = f"{LOGITS_BASE}/{model_name}_{WEIGHTS_SUFFIX}"
+            val_paths.append(f"{logits_dir}/{LOGITS_VAL_FILENAME}")
+            test_paths.append(None)
+            train_paths.append(None)
+            save_names.append(f"{model_name}_{WEIGHTS_SUFFIX}")
+    return val_paths, test_paths, train_paths, save_names
 
 
 def main():
-    assert len(VAL_PATHS) == len(SAVE_NAMES) == len(TEST_PATHS) == len(TRAIN_PATHS), (
-        f"VAL_PATHS ({len(VAL_PATHS)}), TEST_PATHS ({len(TEST_PATHS)}), "
-        f"TRAIN_PATHS ({len(TRAIN_PATHS)}), "
-        f"and SAVE_NAMES ({len(SAVE_NAMES)}) must have same length"
-    )
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
+
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--family", choices=["softsign", "linear"], default=None,
+                        help="Run only this model family. Runs all if omitted.")
+    parser.add_argument("--device", type=str, default=None,
+                        help="Override decoder device (e.g. cuda:0, cuda:1).")
+    known, extra_args = parser.parse_known_args()
+
+    VAL_PATHS, TEST_PATHS, TRAIN_PATHS, SAVE_NAMES = build_runs(known.family)
 
     script_dir = Path(__file__).parent
     decoder_script = script_dir / "run_decoder.py"
@@ -48,10 +69,12 @@ def main():
         print(f"Error: {decoder_script} not found")
         sys.exit(1)
 
-    # Extra args passed through to run_decoder.py
-    extra_args = sys.argv[1:]
+    if known.device:
+        extra_args = ["--device", known.device] + list(extra_args)
 
     timestamp = datetime.now().strftime("%m_%d_%H%M")
+    label = f" (family={known.family})" if known.family else ""
+    print(f"Total runs: {len(SAVE_NAMES)}{label}")
 
     for val_path, test_path, train_path, save_name in zip(VAL_PATHS, TEST_PATHS, TRAIN_PATHS, SAVE_NAMES):
         if val_path is None and test_path is None and train_path is None:
@@ -62,12 +85,12 @@ def main():
 
         print(f"\n{'='*60}")
         print(f"Running: {save_name}")
-        if train_path:
-            print(f"Train: {train_path}")
         if val_path:
             print(f"Val: {val_path}")
         if test_path:
             print(f"Test: {test_path}")
+        if train_path:
+            print(f"Train: {train_path}")
         print(f"{'='*60}\n")
 
         cmd = [sys.executable, str(decoder_script)]

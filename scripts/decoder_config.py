@@ -8,11 +8,13 @@ base_path = "/home/ebrahim/"
 # =============================================================================
 # DATASET SELECTOR  ("b2t_24" or "b2t_25")
 # =============================================================================
-DATASET = "b2t_24"
+DATASET = "b2t_25"
 
 # =============================================================================
 # PER-DATASET CONFIGS
 # =============================================================================
+MODEL_MODE = "transformer"  # "gru" or "transformer"
+
 _B2T_24 = {
     "transcripts_val": f"{base_path}/data2/brain2text/b2t_24/transcripts_val_cleaned.pkl",
     "beam_size": 1000,
@@ -20,8 +22,14 @@ _B2T_24 = {
     "alpha_ngram": 0.8,
     "acoustic_scale": 0.6,
     "lm_rescore_interval": 10,
-    "results_dir": "../results/gru_24",
-    "results_test_dir": "../results/test_files/gru_24",
+    "results_dir": {
+        "gru":         f"{base_path}/results/gru_24",
+        "transformer": f"{base_path}/brainaudio/results/transformer_24",
+    },
+    "results_test_dir": {
+        "gru":         f"{base_path}/results/test_files/gru_24",
+        "transformer": f"{base_path}/brainaudio/results/test_files/transformer_24",
+    },
     "year": "b2t24",
 }
 
@@ -32,8 +40,14 @@ _B2T_25 = {
     "alpha_ngram": 1.0,
     "acoustic_scale": 0.4,
     "lm_rescore_interval": 15,
-    "results_dir": "../results/gru_25",
-    "results_test_dir": "../results/test_files/gru_25",
+    "results_dir": {
+        "gru":         f"{base_path}/results/gru_25",
+        "transformer": f"{base_path}/brainaudio/results/transformer_25",
+    },
+    "results_test_dir": {
+        "gru":         f"{base_path}/results/test_files/gru_25",
+        "transformer": f"{base_path}/brainaudio/results/test_files/transformer_25",
+    },
     "year": "b2t25",
 }
 
@@ -53,8 +67,8 @@ PATHS = {
     "lora_adapter_360m": "/home/ebrahim/brainaudio/finetune_llm/smollm-360m-hf-finetuned-normalized",
     "lora_adapter_2b": "/home/ebrahim/brainaudio/finetune_llm/granite-3.3-2b-hf-finetuned-normalized",
     "lora_adapter_8b": "/home/ebrahim/brainaudio/finetune_llm/",
-    "results_dir": _DS["results_dir"],
-    "results_test_dir": _DS["results_test_dir"],
+    "results_dir": _DS["results_dir"][MODEL_MODE],
+    "results_test_dir": _DS["results_test_dir"][MODEL_MODE],
 }
 # =========================================================================
     # OUTPUT SETTINGS
