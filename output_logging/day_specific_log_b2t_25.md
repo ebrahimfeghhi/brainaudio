@@ -17,3 +17,20 @@ _Partition: val | Weights: modelWeights_PER_25 | Model: neurips_b2t_25_causal_tr
 | 8 | 0.052409 |
 | 9 | 0.049232 |
 | **mean** | **0.050895** |
+
+
+## Baseline GRU (B2T '25) — Val WER, Llama 3.2-1B
+_Partition: val_
+
+| Seed | WER |
+|------|-----|
+| 1 | 0.0641 |
+| 2 | 0.0632 |
+| 3 | 0.0635 |
+| 4 | 0.0626 |
+| 5 | 0.0638 |
+| 6 | 0.0630 |
+| 7 | — |
+| 8 | 0.0644 |
+| 9 | 0.0620 |
+| 10 | 0.0619 |
