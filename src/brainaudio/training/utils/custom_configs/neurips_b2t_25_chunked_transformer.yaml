@@ -9,15 +9,9 @@ seeds:
 - 2
 - 3
 - 4
-- 5
-- 6
-- 7
-- 8
-- 9
-- 10
 evaluate_wer: false
 evaluate_every_n_epochs: 1
-modelName: neurips_b2t_25_causal_transformer_day_specific_softsign
+modelName: neurips_b2t_25_causal_transformer_day_specific
 modelType: transformer
 optimizer: AdamW
 learning_rate: 0.002
@@ -57,7 +51,7 @@ lm_weight: 2.0
 word_score: 0.1
 beam_size: 30
 interctc:
-  enable_interctc: falsttmue
+  enable_interctc: false
   alpha: 0.25
   inter_ctc_per_layers: 3
 model:
@@ -82,18 +76,18 @@ model:
     dim_head: 64
     depth: 5
     nDays: 45
-    day_softsign: true
+    day_softsign: false
     chunked_attention:
-      chunkwise_prob: 0
+      chunkwise_prob: 1.0
       chunk_size_min: 1
-      chunk_size_max: .inf
-      left_constrain_prob: 0
+      chunk_size_max: 1
+      left_constrain_prob: 1.0
       context_sec_min: 5
       context_sec_max: 20
       timestep_duration_sec: 0.08
       eval:
-        chunk_size: null
-        context_sec: null
+        chunk_size: 1
+        context_sec: 20
 wandb:
   project: nejm-brain-to-text
   entity: lionelhu926-ucla

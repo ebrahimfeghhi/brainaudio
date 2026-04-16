@@ -76,11 +76,6 @@ class GRU_24(BaseTimeMaskedModel):
         for x in range(nDays):
             self.dayWeights.data[x].copy_(torch.eye(self.neural_dim))
 
-        for x in range(nDays):
-            setattr(self, f"inpLayer{x}", nn.Linear(self.neural_dim, self.neural_dim))
-            inp_layer: nn.Linear = getattr(self, f"inpLayer{x}")
-            inp_layer.weight.data.add_(torch.eye(self.neural_dim))
-
         self.inputDropoutLayer = nn.Dropout(p=self.input_dropout)
 
         # === GRU ===

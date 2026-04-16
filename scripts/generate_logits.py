@@ -5,14 +5,14 @@ import os
 from typing import Optional, Dict
 import csv
 import json
-#os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 # --- Configuration ---
 MODEL_NAME_TEMPLATES = [
     "neurips_b2t_25_causal_transformer_day_specific_softsign_seed_{seed}",
     "neurips_b2t_25_causal_transformer_day_specific_seed_{seed}",
 ]
-SEEDS = [0, 1, 2, 3, 4, 5, 6, 7, 8]
+SEEDS = [0]
 MODEL_TYPE = "transformer"
 local_model_folder = "b2t_25"  # folder the model is stored
 modelWeightsFilesList = ["modelWeights_PER_25"]
