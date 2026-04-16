@@ -1,7 +1,6 @@
 import torch
 from torch import nn
-from ..base_model import BaseTimeMaskedModel
-from ...training.utils.augmentations import GaussianSmoothing
+from .base_model import BaseTimeMaskedModel
 
 class GRU_24(BaseTimeMaskedModel):
     
@@ -50,10 +49,9 @@ class GRU_24(BaseTimeMaskedModel):
         bidirectional: bool,
         max_mask_pct: float,
         num_masks: int,
-        samples_per_patch: int
     ) -> None:
-        
-        super().__init__(max_mask_pct=max_mask_pct, num_masks=num_masks, samples_per_patch=samples_per_patch)
+
+        super().__init__(max_mask_pct=max_mask_pct, num_masks=num_masks, samples_per_patch=1)
 
         # Store constructor args
         self.layer_dim = layer_dim

@@ -1,10 +1,19 @@
-outputDir: /home/ebrahim/data2/brain2text/b2t_24/outputs/
+outputDir: /data2/brain2text/b2t_24/outputs/
 manifest_paths:
-- /home/ebrahim/data2/brain2text/b2t_24/trial_level_data_log/manifest.json
+- /data2/brain2text/b2t_24/trial_level_data/manifest.json
 participant_suffixes:
 - _24
 seeds:
+- 0
+- 1
+- 2
 - 3
+- 4
+- 5 
+- 6
+- 7
+- 8 
+- 9 
 evaluate_wer: false
 evaluate_every_n_epochs: 1
 modelName: gru_b2t_24_baseline
@@ -14,10 +23,10 @@ learning_rate: 0.02
 beta1: 0.9
 beta2: 0.999
 eps: 0.1
-learning_scheduler: null
-n_epochs: 73
+learning_scheduler: multistep
+n_epochs: 250
 milestones:
-- 300
+- 150
 gamma: 0.1
 lr_scaling_factor: 1.0
 learning_rate_decay_steps: 250
@@ -25,23 +34,23 @@ learning_rate_warmup_steps: 0
 batchSize: 64
 nClasses: 40
 load_pretrained_model: ''
-grad_norm_clip_value: 100
-early_stopping_enabled: true
+grad_norm_clip_value: -1
+early_stopping_enabled: false
 early_stopping_checkpoint: 500
 early_stopping_wer_threshold: 1
 early_stopping_per_threshold: 1
 early_stopping_no_improvement: 50
-num_masks: 0
-max_mask_pct: 0
-whiteNoiseSD: 0.8
-constantOffsetSD: 0.2
+num_masks: 20
+max_mask_pct: 0.075
+whiteNoiseSD: 0.2
+constantOffsetSD: 0.05
 gaussianSmoothWidth: 2.0
 smooth_kernel_size: 20
 random_cut: 0
 use_amp: true
 l2_decay: 1.0e-05
 input_dropout: 0.2
-dropout: 0.4
+dropout: 0.35
 acoustic_scale: 0.6
 lm_weight: 2.0
 word_score: 0.1
@@ -58,7 +67,6 @@ model:
     strideLen: 4
     kernelLen: 32
     nDays: 24
-    samples_per_patch: 0
   transformer:
     name: Transformer
     features_list:

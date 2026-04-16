@@ -58,7 +58,6 @@ model:
     strideLen: 4
     kernelLen: 14
     nDays: 45
-    samples_per_patch: 0
   transformer:
     name: Transformer
     features_list:

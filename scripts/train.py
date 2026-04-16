@@ -3,7 +3,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3,4,5,6,7"
 
 import yaml
 #from brainaudio.models._archive.gru_b2t_25 import GRU_25
-#from brainaudio.models._archive.gru_b2t_24 import GRU_24
+from brainaudio.models.gru_b2t_24 import GRU_24
 #from brainaudio.models.transformer_interctc import TransformerModel 
 from brainaudio.models.transformer_chunking import TransformerModel
 #from brainaudio.models.transformer_demichunking import TransformerModel
@@ -11,13 +11,26 @@ from brainaudio.models.transformer_chunking import TransformerModel
 from brainaudio.training.trainer import trainModel
 
 
-config_path = "neurips_b2t_25_chunked_transformer.yaml"
+config_path = "gru_b2t_24_baseline.yaml"
 config_file = f"../src/brainaudio/training/utils/custom_configs/{config_path}"
-device = "cuda:4"
+device = "cuda:0"
 
 with open(config_file, 'r') as f:
     config = yaml.safe_load(f)
-    
+
+def _resolve_path(p: str) -> str:
+    """Try the path as-is; if missing, try adding/removing /home/ebrahim prefix."""
+    if os.path.exists(p):
+        return p
+    if p.startswith("/home/ebrahim"):
+        alt = p.replace("/home/ebrahim", "", 1)
+    else:
+        alt = "/home/ebrahim" + p
+    return alt if os.path.exists(alt) else p
+
+config["outputDir"] = _resolve_path(config["outputDir"])
+config["manifest_paths"] = [_resolve_path(p) for p in config["manifest_paths"]]
+
 config["device"] = device
     
 model_type = config['modelType']
@@ -57,12 +70,12 @@ for seed in config['seeds']:
         model = GRU_24(neural_dim=model_args['nInputFeatures'], n_classes=config['nClasses'], hidden_dim=model_args['nUnits'],
                     layer_dim=model_args['nLayers'], nDays=model_args['nDays'], dropout=config['dropout'], input_dropout=config['input_dropout'],
                     strideLen=model_args['strideLen'], kernelLen=model_args['kernelLen'], bidirectional=model_args['bidirectional'], max_mask_pct=config['max_mask_pct'],
-                    num_masks=config['num_masks'],samples_per_patch = model_args["samples_per_patch"])
+                    num_masks=config['num_masks'])
     elif model_type == "gru" and year == "2025":
         model = GRU_25(neural_dim=model_args['nInputFeatures'], n_classes=config['nClasses'], hidden_dim=model_args['nUnits'],
                     layer_dim=model_args['nLayers'], nDays=model_args['nDays'], dropout=config['dropout'], input_dropout=config['input_dropout'],
                     strideLen=model_args['strideLen'], kernelLen=model_args['kernelLen'], bidirectional=model_args['bidirectional'], max_mask_pct=config['max_mask_pct'],
-                    num_masks=config['num_masks'],samples_per_patch = model_args["samples_per_patch"])
+                    num_masks=config['num_masks'])
         
 
         
