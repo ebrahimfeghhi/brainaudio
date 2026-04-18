@@ -1,4 +1,6 @@
-- The paper of the Lightbeam decoding module can be found here: https://arxiv.org/abs/2603.14002
+# BrainAudio
+
+**[LightBeam: An Accurate and Memory-Efficient CTC Decoder for Speech Neuroprostheses](https://arxiv.org/abs/2603.14002)**
 
 ---
 
@@ -141,7 +143,7 @@ Decoding uses the Lightbeam decoder (see paper link above), which runs CTC beam 
 
 ### Decoder config
 
-Hyperparameters are set in `scripts/decoder_config.py`. Tuned configs for both benchmarks are already saved — the correct one is selected automatically via the `--dataset` flag. The LLM used for shallow fusion can also be changed there.
+Hyperparameters are set in `scripts/decoder_config.py`. Tuned configs for both benchmarks are already saved — the correct one is selected automatically via the `--dataset` flag. The LLM used for shallow fusion can also be changed there. The token list and lexicon required for decoding are included in the `shallow_fusion/` directory.
 
 ### Finetuning the LLM
 
