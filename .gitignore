@@ -54,8 +54,7 @@ results/archive/
 results/test_files/archive/
 results/*.pkl
 
-# Unsloth compiled cache
-unsloth_compiled_cache/
+# Unsloth compiled cache\nunsloth_compiled_cache/\n\n# Local config dirs\n.github/\n.claude/
 
 # Weights & Biases
 wandb/
@@ -71,3 +70,7 @@ wandb/
 *.toc
 _minted*
 .aider*
+
+# Local config dirs
+.github/
+.claude/
