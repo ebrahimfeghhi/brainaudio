@@ -23,9 +23,8 @@ from datetime import datetime
 from pathlib import Path
 
 
-def main():
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
 
+def main():
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--dataset", choices=["b2t_24", "b2t_25"], required=True,
                         help="Dataset to use.")
@@ -48,6 +47,8 @@ def main():
     parser.add_argument("--device", type=str, default=None,
                         help="Decoder device (e.g. cuda:0, cuda:1).")
     known, extra_args = parser.parse_known_args()
+
+
 
     if not known.val and not known.test:
         print("Error: specify at least one of --val or --test")

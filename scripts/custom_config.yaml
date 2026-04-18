@@ -51,10 +51,6 @@ use_amp: true
 l2_decay: 1.0e-05
 input_dropout: 0.2
 dropout: 0.35
-acoustic_scale: 0.6
-lm_weight: 2.0
-word_score: 0.1
-beam_size: 30
 model:
   gru:
     name: GRU

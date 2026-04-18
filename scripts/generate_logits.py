@@ -1,29 +1,28 @@
 # File: generate_logits.py
-# Purpose: Run the model inference and save the resulting logits to a file.
+# Purpose: Run model inference and save logits for downstream decoding.
 from brainaudio.inference.load_model_generate_logits import load_transformer_model, generate_and_save_logits
 import os
 from typing import Optional, Dict
-import csv
 import json
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
-# --- Configuration ---
+# ---- Edit these fields before running ----
 MODEL_NAME_TEMPLATES = [
-    "neurips_b2t_25_causal_transformer_day_specific_softsign_seed_{seed}",
-    "neurips_b2t_25_causal_transformer_day_specific_seed_{seed}",
+    "neurips_b2t_25_causal_transformer_seed_{seed}",
 ]
-SEEDS = [0]
-MODEL_TYPE = "transformer"
-local_model_folder = "b2t_25"  # folder the model is stored
+SEEDS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+local_model_folder = "b2t_25"   # "b2t_24" or "b2t_25"
 modelWeightsFilesList = ["modelWeights_PER_25"]
-
+PARTITION = "val"               # "val" or "test"
 DEVICE = "cuda:0"
-PARTITION = 'val'
+# ------------------------------------------
 
-# Transformer Chunking Configs
-# EVAL_CONFIGS = [{"chunk_size": 1, "context_sec": 20}, {"chunk_size": 1, "context_sec": 17.5}, {"chunk_size": 1, "context_sec": 15},
-#        {"chunk_size": 1, "context_sec": 12.5}, {"chunk_size": 1, "context_sec": 10},
-#        {"chunk_size": 1, "context_sec": 7.5}, {"chunk_size": 1, "context_sec": 5}] # Test Config
+os.environ["CUDA_VISIBLE_DEVICES"] = DEVICE.split(":")[-1]
+
+MODEL_TYPE = "transformer"
+
+# Chunk size and context window for Transformer eval (not used for GRU).
+# B2T '24 best: chunk_size=1, context_sec=7.5
+# B2T '25 best: chunk_size=1, context_sec=20
 if local_model_folder == "b2t_24":
     EVAL_CONFIGS = [{"chunk_size": 1, "context_sec": 7.5}]
 elif local_model_folder == "b2t_25":
@@ -65,7 +64,7 @@ def write_md_log(all_seed_pers):
     # Group by model family
     from collections import defaultdict
     by_family = defaultdict(list)
-    for template, wfile, tag, seed, per in all_seed_pers:
+    for template, _, _, seed, per in all_seed_pers:
         family = template.replace("neurips_b2t_24_chunked_unidirectional_day_specific_", "").replace("_seed_{seed}", "")
         by_family[family].append((seed, per))
 

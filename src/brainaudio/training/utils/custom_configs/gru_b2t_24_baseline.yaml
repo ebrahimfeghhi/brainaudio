@@ -23,8 +23,8 @@ learning_rate: 0.02
 beta1: 0.9
 beta2: 0.999
 eps: 0.1
-learning_scheduler: multistep
-n_epochs: 250
+learning_scheduler: none
+n_epochs: 73
 milestones:
 - 150
 gamma: 0.1
@@ -40,21 +40,17 @@ early_stopping_checkpoint: 500
 early_stopping_wer_threshold: 1
 early_stopping_per_threshold: 1
 early_stopping_no_improvement: 50
-num_masks: 20
-max_mask_pct: 0.075
-whiteNoiseSD: 0.2
-constantOffsetSD: 0.05
+num_masks: 0
+max_mask_pct: 0.0
+whiteNoiseSD: 0.8
+constantOffsetSD: 0.2
 gaussianSmoothWidth: 2.0
 smooth_kernel_size: 20
 random_cut: 0
 use_amp: true
 l2_decay: 1.0e-05
-input_dropout: 0.2
-dropout: 0.35
-acoustic_scale: 0.6
-lm_weight: 2.0
-word_score: 0.1
-beam_size: 30
+input_dropout: 0.0
+dropout: 0.40
 model:
   gru:
     name: GRU
