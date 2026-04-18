@@ -143,7 +143,7 @@ Decoding uses the Lightbeam decoder (see paper link above), which runs CTC beam 
 
 ### Decoder config
 
-Hyperparameters are set in `scripts/decoder_config.py`. Tuned configs for both benchmarks are already saved — the correct one is selected automatically via the `--dataset` flag. The LLM used for shallow fusion can also be changed there. The token list and lexicon required for decoding are included in the `shallow_fusion/` directory.
+Hyperparameters are set in `scripts/decoder_config.py`. Tuned configs for both benchmarks are already saved — the correct one is selected automatically via the `--dataset` flag. The LLM used for shallow fusion can also be changed there. The token list and lexicon required for decoding are included in the `auxiliary_folders/shallow_fusion/` directory.
 
 ### Finetuning the LLM
 
