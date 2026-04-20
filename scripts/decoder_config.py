@@ -6,7 +6,7 @@ Edit this file to change default hyperparameters.
 import os
 from pathlib import Path
 
-base_path = "/home/lionelhu/"
+base_path = os.environ.get("B2T_BASE_PATH", "/home/lionelhu")
 
 # Auto-detect data2 root (differs across servers)
 _DATA2_CANDIDATES = ["/data2", "", "/home/lionelhu/data2"]

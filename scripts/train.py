@@ -1,7 +1,7 @@
 import os
 import yaml
 from brainaudio.models.gru_b2t_25 import GRU_25
-from brainaudio.models.gru_b2t_24 import GRU_24, GRU_24Shared
+from brainaudio.models.gru_b2t_24 import GRU_24
 from brainaudio.models.transformer_chunking import TransformerModel
 from brainaudio.training.trainer import trainModel
 
@@ -73,6 +73,7 @@ for seed in config['seeds']:
             bidirectional=model_args['bidirectional'],
             max_mask_pct=config['max_mask_pct'],
             num_masks=config['num_masks'],
+            shared_input=model_args.get('shared_input', False),
         )
 
     elif model_type == "gru" and year == "2025":
@@ -90,6 +91,7 @@ for seed in config['seeds']:
             max_mask_pct=config['max_mask_pct'],
             num_masks=config['num_masks'],
             samples_per_patch=model_args.get('samples_per_patch', 1),
+            shared_input=model_args.get('shared_input', False),
         )
 
     model.to(config['device'])

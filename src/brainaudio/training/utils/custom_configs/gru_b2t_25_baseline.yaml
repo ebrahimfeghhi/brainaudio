@@ -55,6 +55,7 @@ model:
     strideLen: 4
     kernelLen: 14
     nDays: 45
+    shared_input: false
   transformer:
     name: Transformer
     features_list:

@@ -30,6 +30,8 @@ def main():
                         help="Dataset to use.")
     parser.add_argument("--model-mode", choices=["gru", "transformer"], required=True,
                         help="Model mode (sets results directory in decoder_config).")
+    parser.add_argument("--base-path", type=str, required=True,
+                        help="Base path for results and adapter directories (e.g. /home/user).")
     parser.add_argument("--logits-base", type=str, required=True,
                         help="Base directory containing per-model logits folders.")
     parser.add_argument("--model-template", type=str, required=True,
@@ -56,6 +58,7 @@ def main():
 
     os.environ["B2T_DATASET"] = known.dataset
     os.environ["B2T_MODEL_MODE"] = known.model_mode
+    os.environ["B2T_BASE_PATH"] = known.base_path
 
     script_dir = Path(__file__).parent
     decoder_script = script_dir / "run_decoder.py"

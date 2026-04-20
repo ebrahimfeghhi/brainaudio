@@ -123,49 +123,37 @@ def load_gru_model(
 
     if year == "24":
         from brainaudio.models.gru_b2t_24 import GRU_24
-        from brainaudio.models.gru_b2t_24 import GRU_24Shared
-        # model = GRU_24(
-        #     neural_dim=model_config['nInputFeatures'], 
-        #     n_classes=config['nClasses'], 
-        #     hidden_dim=model_config['nUnits'], 
-        #     layer_dim=model_config['nLayers'], 
-        #     nDays=model_config['nDays'], 
-        #     dropout=config['dropout'], 
-        #     input_dropout=config['input_dropout'],
-        #     strideLen=model_config['strideLen'], 
-        #     kernelLen=model_config['kernelLen'], 
-        #     bidirectional=model_config['bidirectional'], 
-        #     max_mask_pct=config['max_mask_pct'], 
-        #     num_masks=config['num_masks'],
-        # )
-        model = GRU_24Shared(
-            neural_dim=model_config['nInputFeatures'], 
-            n_classes=config['nClasses'], 
-            hidden_dim=model_config['nUnits'], 
+        model = GRU_24(
+            neural_dim=model_config['nInputFeatures'],
+            n_classes=config['nClasses'],
+            hidden_dim=model_config['nUnits'],
             layer_dim=model_config['nLayers'],
-            n_days=model_config['nDays'], 
-            dropout=config['dropout'], 
-            strideLen=model_config['strideLen'], 
-            kernelLen=model_config['kernelLen'], 
-            bidirectional=model_config['bidirectional'], 
-            max_mask_pct=config['max_mask_pct'], 
+            nDays=model_config['nDays'],
+            dropout=config['dropout'],
+            input_dropout=config.get('input_dropout', 0.0),
+            strideLen=model_config['strideLen'],
+            kernelLen=model_config['kernelLen'],
+            bidirectional=model_config['bidirectional'],
+            max_mask_pct=config['max_mask_pct'],
             num_masks=config['num_masks'],
+            shared_input=model_config.get('shared_input', False),
         )
     elif year == "25":
-        from brainaudio.src.brainaudio.models.gru_b2t_25 import GRU_25
+        from brainaudio.models.gru_b2t_25 import GRU_25
         model = GRU_25(
-            neural_dim=model_config['nInputFeatures'], 
-            n_classes=config['nClasses'], 
-            hidden_dim=model_config['nUnits'], 
-            layer_dim=model_config['nLayers'], 
-            nDays=model_config['nDays'], 
-            dropout=config['dropout'], 
-            input_dropout=config['input_dropout'],
-            strideLen=model_config['strideLen'], 
-            kernelLen=model_config['kernelLen'], 
-            bidirectional=model_config['bidirectional'], 
-            max_mask_pct=config['max_mask_pct'], 
+            neural_dim=model_config['nInputFeatures'],
+            n_classes=config['nClasses'],
+            hidden_dim=model_config['nUnits'],
+            layer_dim=model_config['nLayers'],
+            nDays=model_config['nDays'],
+            dropout=config['dropout'],
+            input_dropout=config.get('input_dropout', 0.0),
+            strideLen=model_config['strideLen'],
+            kernelLen=model_config['kernelLen'],
+            bidirectional=model_config['bidirectional'],
+            max_mask_pct=config['max_mask_pct'],
             num_masks=config['num_masks'],
+            shared_input=model_config.get('shared_input', False),
         )
     else:
         raise ValueError("Wrong format! Specify between B2T 24' and B2t 25'.")

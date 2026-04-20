@@ -34,6 +34,7 @@ learning_rate_decay_steps: 951
 learning_rate_warmup_steps: 0
 batchSize: 64
 nClasses: 40
+normalize_ctc_len: true
 load_pretrained_model: ''
 grad_norm_clip_value: -1
 early_stopping_enabled: false

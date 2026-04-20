@@ -34,6 +34,8 @@ class GRU_25(BaseTimeMaskedModel):
         Number of temporal masks to apply per sample when training.
     samples_per_patch : int
         Temporal resolution of one patch, passed to the base class time masker.
+    shared_input : bool
+        If ``True``, all samples share a single input transform (day index is ignored).
     """
 
     def __init__(
@@ -52,6 +54,7 @@ class GRU_25(BaseTimeMaskedModel):
         max_mask_pct: float,
         num_masks: int,
         samples_per_patch: int = 1,
+        shared_input: bool = False,
     ):
         super().__init__(max_mask_pct=max_mask_pct, num_masks=num_masks, samples_per_patch=samples_per_patch)
 
@@ -65,14 +68,16 @@ class GRU_25(BaseTimeMaskedModel):
         self.kernelLen = kernelLen
         self.strideLen = strideLen
         self.bidirectional = bidirectional
+        self.shared_input = shared_input
 
         self.day_layer_activation = nn.Softsign()
 
+        n_day_weights = 1 if shared_input else nDays
         self.day_weights = nn.ParameterList(
-            [nn.Parameter(torch.eye(self.neural_dim)) for _ in range(self.nDays)]
+            [nn.Parameter(torch.eye(self.neural_dim)) for _ in range(n_day_weights)]
         )
         self.day_biases = nn.ParameterList(
-            [nn.Parameter(torch.zeros(1, self.neural_dim)) for _ in range(self.nDays)]
+            [nn.Parameter(torch.zeros(1, self.neural_dim)) for _ in range(n_day_weights)]
         )
 
         self.day_layer_dropout = nn.Dropout(input_dropout)
@@ -111,8 +116,9 @@ class GRU_25(BaseTimeMaskedModel):
         if self.training and self.max_mask_pct > 0:
             x, _ = self.apply_time_masking(x, x_len, mask_value=0)
 
-        day_weights = torch.stack([self.day_weights[i] for i in day_idx], dim=0)
-        day_biases = torch.cat([self.day_biases[i] for i in day_idx], dim=0).unsqueeze(1)
+        idx = torch.zeros_like(day_idx) if self.shared_input else day_idx
+        day_weights = torch.stack([self.day_weights[i] for i in idx], dim=0)
+        day_biases = torch.cat([self.day_biases[i] for i in idx], dim=0).unsqueeze(1)
 
         x = torch.einsum("btd,bdk->btk", x, day_weights) + day_biases
         x = self.day_layer_activation(x)
