@@ -6,11 +6,12 @@ Edit this file to change default hyperparameters.
 import os
 from pathlib import Path
 
-base_path = "/home/ebrahim/"
+base_path = "/home/lionelhu/"
 
 # Auto-detect data2 root (differs across servers)
-_DATA2_CANDIDATES = ["/data2", "/home/ebrahim/data2"]
-_data2 = next((p for p in _DATA2_CANDIDATES if Path(p).exists()), _DATA2_CANDIDATES[-1])
+_DATA2_CANDIDATES = ["/data2", "", "/home/lionelhu/data2"]
+_data2_matches = [p for p in _DATA2_CANDIDATES if Path(p).is_dir() and Path(f"{p}/brain2text").exists()]
+_data2 = _data2_matches[0]
 data2_b2t = f"{_data2}/brain2text"
 
 # =============================================================================
@@ -24,7 +25,7 @@ DATASET = os.environ.get("B2T_DATASET", "b2t_25")
 MODEL_MODE = os.environ.get("B2T_MODEL_MODE", "transformer")  # "gru" or "transformer"
 
 _B2T_24 = {
-    "transcripts_val": f"{data2_b2t}/b2t_24/transcripts_val_cleaned.pkl",
+    "transcripts_val": f"{data2_b2t}/b2t_24/data/transcripts_val_cleaned.pkl",
     "beam_size": 1000,
     "beam_prune_threshold": 22.0,
     "alpha_ngram": 0.8,
@@ -42,7 +43,7 @@ _B2T_24 = {
 }
 
 _B2T_25 = {
-    "transcripts_val": f"{data2_b2t}/b2t_25/transcripts_val_cleaned.pkl",
+    "transcripts_val": f"{data2_b2t}/b2t_25/data/transcripts_val_cleaned.pkl",
     "beam_size": 900,
     "beam_prune_threshold": 18.0,
     "alpha_ngram": 1.0,
@@ -70,7 +71,7 @@ PATHS = {
     "word_lm": f"{data2_b2t}/lm/lm_dec19_huge_4gram.kenlm",
     "transcripts_val": _DS["transcripts_val"],
     "lora_adapter_1b": f"{data2_b2t}/finetuned_llms/llama-3.2-1b-hf-finetuned-normalized",
-    "lora_adapter_3b": "/home/ebrahim/brainaudio/finetune_llm/llama-3.2-3b-hf-finetuned-normalized",
+    "lora_adapter_3b": f"{data2_b2t}/finetuned_llms/llama-3.2-3b-hf-finetuned-normalized",
     "lora_adapter_270m": "/home/ebrahim/brainaudio/finetune_llm/gemma-3-270m-hf-finetuned-normalized",
     "lora_adapter_360m": "/home/ebrahim/brainaudio/finetune_llm/smollm-360m-hf-finetuned-normalized",
     "lora_adapter_2b": "/home/ebrahim/brainaudio/finetune_llm/granite-3.3-2b-hf-finetuned-normalized",

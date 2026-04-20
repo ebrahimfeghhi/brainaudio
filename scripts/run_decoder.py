@@ -123,8 +123,8 @@ def parse_args() -> argparse.Namespace:
                         help="Path to KenLM file")
     parser.add_argument("--device", default=config.DEVICE["device"],
                         help="Torch device")
-    # parser.add_argument("--transcripts-val", type=str, default=config.PATHS["transcripts_val"],
-    #                     help="Path to ground truth sentence labels when val")
+    parser.add_argument("--transcripts-val", type=str, default=config.PATHS["transcripts_val"],
+                        help="Path to ground truth sentence labels when val")
     parser.add_argument("--hf-token", default=None,
                         help="HuggingFace token")
 

@@ -1,6 +1,7 @@
+import os
 import yaml
-from brainaudio.models.gru_b2t_24 import GRU_24
 from brainaudio.models.gru_b2t_25 import GRU_25
+from brainaudio.models.gru_b2t_24 import GRU_24, GRU_24Shared
 from brainaudio.models.transformer_chunking import TransformerModel
 from brainaudio.training.trainer import trainModel
 

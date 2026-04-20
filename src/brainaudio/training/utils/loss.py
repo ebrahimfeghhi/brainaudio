@@ -13,29 +13,41 @@ def forward_ctc(
         encoder_out_lens: torch.Tensor,
         targets: torch.Tensor,
         target_lengths: torch.Tensor,
+        length_normalize: bool = True,
     ) -> torch.Tensor:
-    
-        """Compute CTC loss.
-        Args:
-          encoder_out:
-            Encoder output, of shape (N, T, C).
-          encoder_out_lens:
-            Encoder output lengths, of shape (N,).
-          targets:
-            Target Tensor of shape (sum(target_lengths)). The targets are assumed
-            to be un-padded and concatenated within 1 dimension.
-        """
-        # Compute CTC log-prob
-        ctc_output = encoder_out.log_softmax(2) # (N, T, C)
 
-        ctc_loss = torch.nn.functional.ctc_loss(
-            log_probs=ctc_output.permute(1, 0, 2).cpu(),  # (T, N, C)
-            targets=targets.cpu(),
-            input_lengths=encoder_out_lens.cpu(),
-            target_lengths=target_lengths.cpu(),
-            reduction="mean",
+        """Compute CTC loss on the same device as ``encoder_out``.
+
+        Args:
+          encoder_out: (N, T, C) logits.
+          encoder_out_lens: (N,) lengths after any downsampling.
+          targets: padded or concatenated phoneme target ids.
+          target_lengths: (N,) unpadded target lengths.
+          length_normalize: if True, each per-sample loss is divided by its
+            target length before averaging over the batch (PyTorch's
+            ``reduction='mean'``). If False, per-sample losses are kept raw
+            and averaged over the batch (NEJM-style: longer targets contribute
+            more).
+        """
+        log_probs = encoder_out.log_softmax(2).permute(1, 0, 2)  # (T, N, C)
+
+        if length_normalize:
+            return torch.nn.functional.ctc_loss(
+                log_probs=log_probs,
+                targets=targets,
+                input_lengths=encoder_out_lens,
+                target_lengths=target_lengths,
+                reduction="mean",
+            )
+
+        per_sample = torch.nn.functional.ctc_loss(
+            log_probs=log_probs,
+            targets=targets,
+            input_lengths=encoder_out_lens,
+            target_lengths=target_lengths,
+            reduction="none",
         )
-        return ctc_loss
+        return per_sample.mean()
     
 
 

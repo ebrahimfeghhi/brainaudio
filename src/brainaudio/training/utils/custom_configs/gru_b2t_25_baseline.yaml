@@ -1,10 +1,10 @@
-outputDir: /home/ebrahim/data2/brain2text/b2t_25/outputs/
+outputDir: /home/lionelhu/data2/brain2text/b2t_25/outputs/
 manifest_paths:
-- /home/ebrahim/data2/brain2text/b2t_25/trial_level_data/manifest.json
+- /home/lionelhu/data2/brain2text/b2t_25/data/trial_level_data/manifest.json
 participant_suffixes:
 - _25
 seeds:
-- 0
+- 1
 evaluate_wer: false
 evaluate_every_n_epochs: 1
 modelName: gru_b2t_25_baseline
@@ -31,6 +31,7 @@ early_stopping_checkpoint: 950
 early_stopping_wer_threshold: 1
 early_stopping_per_threshold: 1
 early_stopping_no_improvement: 50
+normalize_ctc_len: false
 num_masks: 0
 max_mask_pct: 0
 whiteNoiseSD: 1.0

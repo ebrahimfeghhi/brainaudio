@@ -1,5 +1,7 @@
 import torch
 from torch import nn
+from torch.utils.checkpoint import checkpoint as grad_checkpoint
+import torch.nn.functional as F
 from .base_model import BaseTimeMaskedModel
 from ..training.utils.augmentations import GaussianSmoothing
 
@@ -186,12 +188,12 @@ class GRU_24Shared(BaseTimeMaskedModel):
     num_masks : int
         Number of temporal masks to apply per sample when training.
     """
-
     def __init__(
         self,
         *,
         neural_dim: int,
         n_classes: int,
+        n_days: int,
         hidden_dim: int,
         layer_dim: int,
         dropout: float,
@@ -209,6 +211,7 @@ class GRU_24Shared(BaseTimeMaskedModel):
         self.hidden_dim = hidden_dim
         self.neural_dim = neural_dim
         self.n_classes = n_classes
+        self.n_days = n_days
         self.dropout = dropout
         self.strideLen = strideLen
         self.kernelLen = kernelLen
@@ -216,10 +219,12 @@ class GRU_24Shared(BaseTimeMaskedModel):
 
         # === Input processing layers ===
         self.unfolder = nn.Unfold((self.kernelLen, 1), dilation=1, padding=0, stride=self.strideLen)
-        self.input_proj = nn.Linear(neural_dim, neural_dim)
-        nn.init.eye_(self.input_proj.weight)
-        nn.init.zeros_(self.input_proj.bias)
         self.inputLayerNonlinearity = nn.Softsign()
+        self.dayWeights = nn.Parameter(torch.randn(self.n_days, self.neural_dim, self.neural_dim))
+        self.dayBias = nn.Parameter(torch.zeros(self.n_days, 1, self.neural_dim))
+
+        for x in range(self.n_days):
+            self.dayWeights.data[x].copy_(torch.eye(self.neural_dim))
 
         # === GRU ===
         self.gru_decoder = nn.GRU(
@@ -263,9 +268,15 @@ class GRU_24Shared(BaseTimeMaskedModel):
         if self.training and self.max_mask_pct > 0:
             neuralInput, _ = self.apply_time_masking(neuralInput, X_len, mask_value=0)
             
-        
+
         # --- Input affine transform ---
-        transformedNeural = self.inputLayerNonlinearity(self.input_proj(neuralInput))
+        # In forwards
+        shared_idx = torch.zeros_like(dayIdx)
+        dayWeights = torch.index_select(self.dayWeights, 0, shared_idx)  # (B, C, C)
+        transformedNeural = torch.einsum("btd,bdk->btk", neuralInput, dayWeights) + torch.index_select(
+            self.dayBias, 0, shared_idx
+        )
+        transformedNeural = self.inputLayerNonlinearity(transformedNeural)
 
 
         # --- Temporal unfolding (stride / kernel) ---

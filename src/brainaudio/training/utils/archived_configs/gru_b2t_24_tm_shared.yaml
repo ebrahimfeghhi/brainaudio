@@ -1,6 +1,6 @@
-outputDir: /data2/brain2text/b2t_24/outputs/
+outputDir: /home/lionelhu/data2/brain2text/b2t_24/outputs/
 manifest_paths:
-- /data2/brain2text/b2t_24/trial_level_data/manifest.json
+- /home/lionelhu/data2/brain2text/b2t_24/data/trial_level_data/manifest.json
 participant_suffixes:
 - _24
 seeds:
@@ -14,6 +14,7 @@ seeds:
 - 7
 - 8
 - 9
+
 evaluate_wer: false
 evaluate_every_n_epochs: 1
 modelName: gru_b2t_24_tm_shared

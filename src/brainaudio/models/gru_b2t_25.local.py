@@ -1,7 +1,7 @@
 import torch 
 from torch import nn
 import torch.nn.functional as F
-from ..base_model import BaseTimeMaskedModel
+from .base_model import BaseTimeMaskedModel
 
 class GRU_25(BaseTimeMaskedModel):
     '''
@@ -50,11 +50,10 @@ class GRU_25(BaseTimeMaskedModel):
         bidirectional: bool, 
         max_mask_pct: float, 
         num_masks: int,
-        samples_per_patch: int
         ):
         
         
-        super().__init__(max_mask_pct=max_mask_pct, num_masks=num_masks, samples_per_patch=samples_per_patch)
+        super().__init__(max_mask_pct=max_mask_pct, num_masks=num_masks, samples_per_patch=1)
         
         self.neural_dim = neural_dim
         self.hidden_dim = hidden_dim
@@ -122,8 +121,8 @@ class GRU_25(BaseTimeMaskedModel):
         """
         
         # --- SpecAugment‑style time masking (training only) ---
-        if self.training and self.max_mask_pct > 0:
-            x, _ = self.apply_time_masking(x, x_len, mask_value=0)
+        # if self.training and self.max_mask_pct > 0:
+        #     x, _ = self.apply_time_masking(x, x_len, mask_value=0)
         
         # Apply a on-layer day-specific input layer to (hopefully) project neural data from the different days to the same latent space
         day_weights = torch.stack([self.day_weights[i] for i in day_idx], dim=0)
@@ -156,7 +155,7 @@ class GRU_25(BaseTimeMaskedModel):
         states = self.h0.expand(self.layer_dim, x.shape[0], self.hidden_dim).contiguous()
 
         # Pass input through RNN 
-        output, hidden_states = self.gru(x, states)
+        output, _ = self.gru(x, states)
 
         # Compute logits
         logits = self.out(output)

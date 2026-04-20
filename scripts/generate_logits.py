@@ -28,8 +28,27 @@ if local_model_folder == "b2t_24":
 elif local_model_folder == "b2t_25":
     EVAL_CONFIGS = [{"chunk_size": 1, "context_sec": 20}]
 
-MANIFEST_PATHS = [f"/home/ebrahim/data2/brain2text/{local_model_folder}/trial_level_data/manifest.json"]
-BASE_SAVE_PATH = f'/home/ebrahim/data2/brain2text/{local_model_folder}/logits/'
+
+if modelWeightsFiles == "modelWeights_PER_25":
+
+    MANIFEST_PATHS = [f"{BASE_DIR}/data2/brain2text/b2t_25/trial_level_data/manifest.json"]
+    SAVE_PATH = f"{BASE_DIR}/data2/brain2text/b2t_25/logits/"
+
+
+if modelWeightsFiles == "modelWeights_PER_24":
+
+    if "gru" in MODEL_NAME_TEMPLATE:
+        
+        print("LOADING NON LOGGED DATA")
+        MANIFEST_PATHS = [f"{BASE_DIR}/data2/brain2text/b2t_24/data/trial_level_data/manifest.json"]
+        SAVE_PATH = f"{BASE_DIR}/data2/brain2text/b2t_24/logits/"
+
+    else:
+
+        print("LOADING LOGGED DATA")
+        MANIFEST_PATHS = [f"{BASE_DIR}/data2/brain2text/b2t_24/data/trial_level_data_log/manifest.json"]
+        SAVE_PATH = f"{BASE_DIR}/data2/brain2text/b2t_24/logits/"
+
 
 
 def _format_eval_tag(cfg: Optional[Dict[str, Optional[int]]]) -> str:
@@ -90,40 +109,33 @@ def write_md_log(all_seed_pers):
 
 def main():
 
-    all_seed_pers = []  # (model_template, weights_file, tag, seed, per) for final summary
+    per_by_config = {}  # {eval_tag: {seed: per}}
+    all_seed_pers = []  # (tag, seed, pid, per) for final summary
 
-    for model_template in MODEL_NAME_TEMPLATES:
-        for modelWeightsFiles in modelWeightsFilesList:
-            # Derive a short suffix for the save directory (PER or PER_24)
-            weights_suffix = modelWeightsFiles.replace("modelWeights_", "")
+    for seed in SEEDS:
+        MODEL_NAME = MODEL_NAME_TEMPLATE.format(seed=seed)
+        LOAD_MODEL_FOLDER = f"{BASE_DIR}/data2/brain2text/{local_model_folder}/outputs/{MODEL_NAME}"
 
-            per_by_config = {}
+        print(f"\n{'='*60}")
+        print(f"Running seed {seed}: {MODEL_NAME}")
+        print(f"{'='*60}")
 
-            for seed in SEEDS:
-                MODEL_NAME = model_template.format(seed=seed)
-                LOAD_MODEL_FOLDER = f"/home/ebrahim/data2/brain2text/{local_model_folder}/outputs/{MODEL_NAME}"
+        resolved_save_path = f"{SAVE_PATH}{MODEL_NAME}"
+        os.makedirs(resolved_save_path, exist_ok=True)
 
-                print(f"\n{'='*60}")
-                print(f"Template: {model_template}")
-                print(f"Weights:  {modelWeightsFiles}")
-                print(f"Seed {seed}: {MODEL_NAME}")
-                print(f"{'='*60}")
 
-                # Save to a directory that encodes both model name and weights file
-                save_dir = f"{BASE_SAVE_PATH}{MODEL_NAME}_{weights_suffix}"
-                os.makedirs(save_dir, exist_ok=True)
-                if MODEL_TYPE == "transformer":
-                    eval_configs = EVAL_CONFIGS or [None]
-                    for eval_cfg in eval_configs:
-                        tag = _format_eval_tag(eval_cfg)
-                        print(f"=== Running eval config: {tag} ===")
+        if MODEL_TYPE == "transformer":
+            eval_configs = EVAL_CONFIGS or [None]
+            for eval_cfg in eval_configs:
+                tag = _format_eval_tag(eval_cfg)
+                print(f"=== Running eval config: {tag} ===")
 
-                        model, args = load_transformer_model(
-                            LOAD_MODEL_FOLDER,
-                            DEVICE,
-                            modelWeightsFile=modelWeightsFiles,
-                            eval_chunk_config=eval_cfg,
-                        )
+                model, args = load_transformer_model(
+                    LOAD_MODEL_FOLDER,
+                    DEVICE,
+                    modelWeightsFile=modelWeightsFiles,
+                    eval_chunk_config=eval_cfg,
+                )
 
                         per = generate_and_save_logits(
                             model=model,
@@ -172,14 +184,11 @@ def main():
                 print(f"\nPER results saved to: {per_out_path}")
 
     print("\n--- Logit generation complete. ---")
-    print("\n=== PER Summary Across All Models ===")
-    for template, wfile, tag, seed, per in all_seed_pers:
-        short_template = template.replace("neurips_b2t_24_chunked_unidirectional_day_specific_", "")
-        print(f"  model={short_template}  weights={wfile}  config={tag}  seed={seed}  PER={per}")
-    per_values = [per for *_, per in all_seed_pers]
+    print("\n=== PER Summary Across Seeds ===")
+    for tag, seed, per in all_seed_pers:
+        print(f"  config={tag}  seed={seed}  PER={per}")
+    per_values = [per for _, _, per in all_seed_pers]
     print(f"\nPER list: {per_values}")
-
-    write_md_log(all_seed_pers)
 
 if __name__ == "__main__":
     main()

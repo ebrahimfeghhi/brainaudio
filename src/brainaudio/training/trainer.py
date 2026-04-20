@@ -38,7 +38,7 @@ def trainModel(args, model):
     )
     
     # Watch the model
-    wandb.watch(model, log="all")  # Logs gradients, parameters, and gradients histograms
+    wandb.watch(model, log="all")  # log="all" uses full_backward_hook, accumulating grad_input/grad_output tensors per module over log_freq steps -> OOM with large models
 
     def get_participant_suffix(pid: int) -> str:
         """Return a suffix for saving/logging per-participant artifacts."""
@@ -180,7 +180,7 @@ def trainModel(args, model):
                         pred = model.forward(X, X_len, dayIdx)
                     elif args["modelType"] == "transformer":
                         pred = model.forward(X, X_len, participant_id, dayIdx)
-                    loss = forward_ctc(pred, adjustedLens, y, y_len)  
+                    loss = forward_ctc(pred, adjustedLens, y, y_len,args["normalize_ctc_len"])  
                     train_loss.append(loss.cpu().detach().numpy())    
                     
                 loss.backward()
@@ -195,7 +195,7 @@ def trainModel(args, model):
                                                 foreach = True
                                                 )
                 optimizer.step()
-        scheduler.step()  
+            scheduler.step()  
                           
         avgTrainLoss = np.mean(train_loss)
         
