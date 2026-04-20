@@ -37,6 +37,7 @@ finetune_llm/**/*.safetensors
 finetune_llm/gemma-3-270m-hf-finetuned-normalized/
 finetune_llm/granite-3.3-2b-hf-finetuned-normalized/
 finetune_llm/smollm-360m-hf-finetuned-normalized/
+auxiliary_folders/finetune_llm/**/*.safetensors
 
 # Transcript data files
 data/transcripts*.txt

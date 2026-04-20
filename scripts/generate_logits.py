@@ -1,6 +1,6 @@
 # File: generate_logits.py
 # Purpose: Run model inference and save logits for downstream decoding.
-from brainaudio.inference.load_model_generate_logits import load_transformer_model, generate_and_save_logits
+from brainaudio.inference.load_model_generate_logits import load_transformer_model, load_gru_model, generate_and_save_logits
 import os
 from typing import Optional, Dict
 import json
@@ -18,7 +18,7 @@ DEVICE = "cuda:0"
 
 os.environ["CUDA_VISIBLE_DEVICES"] = DEVICE.split(":")[-1]
 
-MODEL_TYPE = "transformer"
+MODEL_TYPE = "transformer"  # "transformer" or "gru"
 
 # Chunk size and context window for Transformer eval (not used for GRU).
 # B2T '24 best: chunk_size=1, context_sec=7.5
@@ -138,6 +138,29 @@ def main():
                         if per is not None:
                             per_by_config.setdefault(tag, {})[str(seed)] = round(per, 6)
                             all_seed_pers.append((model_template, modelWeightsFiles, tag, seed, round(per, 6)))
+
+                elif MODEL_TYPE == "gru":
+                    tag = "default"
+                    gru_year = local_model_folder.split("_")[-1]  # "b2t_24" -> "24"
+                    model, args = load_gru_model(
+                        LOAD_MODEL_FOLDER,
+                        DEVICE,
+                        year=gru_year,
+                        modelWeightsFile=modelWeightsFiles,
+                    )
+
+                    per = generate_and_save_logits(
+                        model=model,
+                        config=args,
+                        partition=PARTITION,
+                        device=DEVICE,
+                        manifest_paths=MANIFEST_PATHS,
+                        save_path=save_dir,
+                    )
+
+                    if per is not None:
+                        per_by_config.setdefault(tag, {})[str(seed)] = round(per, 6)
+                        all_seed_pers.append((model_template, modelWeightsFiles, tag, seed, round(per, 6)))
 
             # Save PER results per (model_template, weights_file)
             if per_by_config:
