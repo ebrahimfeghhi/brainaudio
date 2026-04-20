@@ -46,7 +46,6 @@ dropout: 0.4
 model:
   gru:
     name: GRU
-    year: '2025'
     nInputFeatures: 512
     nClasses: 40
     nUnits: 768

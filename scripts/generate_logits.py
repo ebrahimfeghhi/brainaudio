@@ -153,11 +153,9 @@ def main():
 
                 elif MODEL_TYPE == "gru":
                     tag = "default"
-                    gru_year = local_model_folder.split("_")[-1]  # "b2t_24" -> "24"
                     model, args = load_gru_model(
                         LOAD_MODEL_FOLDER,
                         DEVICE,
-                        year=gru_year,
                         modelWeightsFile=modelWeightsFiles,
                     )
 

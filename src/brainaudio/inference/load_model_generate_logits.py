@@ -93,7 +93,6 @@ def load_transformer_model(
 def load_gru_model(
     folder: str,
     device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu"),
-    year: str = "24",
     modelWeightsFile: Optional[str] = "modelWeights",
 ):
     """
@@ -102,7 +101,6 @@ def load_gru_model(
     config:
         folder (str): Path to folder containing 'modelWeights'.
         device (torch.device): Device to map the model onto.
-        year (str): Specify B2T 24' or B2T 25'.
         modelWeightsFile (str|None): Filename of the model weights.
 
     Returns:
@@ -113,50 +111,29 @@ def load_gru_model(
     print(f"Loading default pickle config from: {config_path}")
     with open(config_path, "rb") as handle:
         config = pickle.load(handle)
-    # ----------------------
-        
-    # Load config                
+
     modelType = config['modelType']
     model_config = config['model'][modelType]
     if 'return_final_layer' not in config:
         config['return_final_layer'] = False
 
-    if year == "24":
-        from brainaudio.models.gru_b2t_24 import GRU_24
-        model = GRU_24(
-            neural_dim=model_config['nInputFeatures'],
-            n_classes=config['nClasses'],
-            hidden_dim=model_config['nUnits'],
-            layer_dim=model_config['nLayers'],
-            nDays=model_config['nDays'],
-            dropout=config['dropout'],
-            input_dropout=config.get('input_dropout', 0.0),
-            strideLen=model_config['strideLen'],
-            kernelLen=model_config['kernelLen'],
-            bidirectional=model_config['bidirectional'],
-            max_mask_pct=config['max_mask_pct'],
-            num_masks=config['num_masks'],
-            shared_input=model_config.get('shared_input', False),
-        )
-    elif year == "25":
-        from brainaudio.models.gru_b2t_25 import GRU_25
-        model = GRU_25(
-            neural_dim=model_config['nInputFeatures'],
-            n_classes=config['nClasses'],
-            hidden_dim=model_config['nUnits'],
-            layer_dim=model_config['nLayers'],
-            nDays=model_config['nDays'],
-            dropout=config['dropout'],
-            input_dropout=config.get('input_dropout', 0.0),
-            strideLen=model_config['strideLen'],
-            kernelLen=model_config['kernelLen'],
-            bidirectional=model_config['bidirectional'],
-            max_mask_pct=config['max_mask_pct'],
-            num_masks=config['num_masks'],
-            shared_input=model_config.get('shared_input', False),
-        )
-    else:
-        raise ValueError("Wrong format! Specify between B2T 24' and B2t 25'.")
+    from brainaudio.models.gru import GRU
+    model = GRU(
+        neural_dim=model_config['nInputFeatures'],
+        n_classes=config['nClasses'],
+        hidden_dim=model_config['nUnits'],
+        layer_dim=model_config['nLayers'],
+        nDays=model_config['nDays'],
+        dropout=config['dropout'],
+        input_dropout=config.get('input_dropout', 0.0),
+        strideLen=model_config['strideLen'],
+        kernelLen=model_config['kernelLen'],
+        bidirectional=model_config['bidirectional'],
+        max_mask_pct=config['max_mask_pct'],
+        num_masks=config['num_masks'],
+        samples_per_patch=model_config.get('samples_per_patch', 1),
+        shared_input=model_config.get('shared_input', False),
+    )
     # Load weights
     ckpt_path = os.path.join(folder, modelWeightsFile)
     state_dict = torch.load(ckpt_path, map_location=device)

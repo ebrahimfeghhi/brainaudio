@@ -1,7 +1,6 @@
 import os
 import yaml
-from brainaudio.models.gru_b2t_25 import GRU_25
-from brainaudio.models.gru_b2t_24 import GRU_24
+from brainaudio.models.gru import GRU
 from brainaudio.models.transformer_chunking import TransformerModel
 from brainaudio.training.trainer import trainModel
 
@@ -18,9 +17,6 @@ config["device"] = device
 
 model_type = config['modelType']
 model_args = config['model'][model_type]
-
-if model_type == "gru":
-    year = model_args["year"]
 
 model_name = config["modelName"]
 
@@ -59,25 +55,8 @@ for seed in config['seeds']:
         total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
         print(f"Total parameters: {total_params}")
 
-    elif model_type == "gru" and year == "2024":
-        model = GRU_24(
-            neural_dim=model_args['nInputFeatures'],
-            n_classes=config['nClasses'],
-            hidden_dim=model_args['nUnits'],
-            layer_dim=model_args['nLayers'],
-            nDays=model_args['nDays'],
-            dropout=config['dropout'],
-            input_dropout=config['input_dropout'],
-            strideLen=model_args['strideLen'],
-            kernelLen=model_args['kernelLen'],
-            bidirectional=model_args['bidirectional'],
-            max_mask_pct=config['max_mask_pct'],
-            num_masks=config['num_masks'],
-            shared_input=model_args.get('shared_input', False),
-        )
-
-    elif model_type == "gru" and year == "2025":
-        model = GRU_25(
+    elif model_type == "gru":
+        model = GRU(
             neural_dim=model_args['nInputFeatures'],
             n_classes=config['nClasses'],
             hidden_dim=model_args['nUnits'],

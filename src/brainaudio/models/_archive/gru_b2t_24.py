@@ -81,7 +81,8 @@ class GRU_24(BaseTimeMaskedModel):
         for x in range(n_day_weights):
             self.dayWeights.data[x].copy_(torch.eye(self.neural_dim))
 
-        self.inputDropoutLayer = nn.Dropout(p=self.input_dropout)
+        if self.input_dropout > 0:
+            self.inputDropoutLayer = nn.Dropout(p=self.input_dropout)
 
         # === GRU ===
         self.gru_decoder = nn.GRU(
@@ -146,4 +147,4 @@ class GRU_24(BaseTimeMaskedModel):
         return seq_out
 
     def compute_length(self, X_len):
-        return ((X_len - self.kernelLen) / self.strideLen).to(torch.int32)
+        return ((X_len - self.kernelLen) / self.strideLen + 1).to(torch.int32)
