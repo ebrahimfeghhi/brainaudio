@@ -100,7 +100,7 @@ uv run auxiliary_folders/finetune_llm/finetune_gec.py
 
 ## Ongoing Work
 
-- **GRU '25 replication:** We are still verifying that our `GRU_25` implementation matches the NEJM codebase. Note that the models reported in the paper were trained using the NEJM codebase, not this one.
+- **Test-Time Adaptation**: We have not implemented DietCORP within this codebase, if you are interested in replicating the Feghhi at al., 2025 NeurIPs results code is available on the older codebase associated with that paper or you can reach out to us and we will work on integrating it within BrainAudio!
 
 ---
 
