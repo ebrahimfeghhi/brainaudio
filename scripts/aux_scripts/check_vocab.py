@@ -20,7 +20,7 @@ def extract_words(text):
     return words
 
 def main():
-    transcript_path = "/home/ebrahim/brainaudio/data/transcripts_all_25_val.txt"
+    transcript_path = "/home/ebrahim/brainaudio/auxiliary_folders/finetune_llm/transcripts_text/transcripts_all_25_val.txt"
     vocab_path = "/data2/brain2text/lm/vocab_lower_100k.txt"
 
     # Load vocabulary

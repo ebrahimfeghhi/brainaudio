@@ -157,7 +157,7 @@ class PerplexityCallback(TrainerCallback):
 
 def main():
     parser = argparse.ArgumentParser(description="Finetuning LLM...")
-    parser.add_argument("--transcript-files", type=str, nargs="+", default=["/home/ebrahim/brainaudio/data/transcripts_merged_normalized.txt"])
+    parser.add_argument("--transcript-files", type=str, nargs="+", default=["/home/ebrahim/brainaudio/auxiliary_folders/finetune_llm/transcripts_text/transcripts_merged_normalized.txt"])
     parser.add_argument("--output-dir", type=str, default=None)
     parser.add_argument("--model-name", type=str, default=None)
     parser.add_argument("--max-seq-length", type=int, default=512)

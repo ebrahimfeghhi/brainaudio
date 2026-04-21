@@ -113,7 +113,7 @@ def main():
     parser.add_argument(
         "--transcript-file",
         type=str,
-        default= "/home/ebrahim/brainaudio/data/transcripts_merged_normalized.txt", #"../data/transcripts_merged_normalized.txt",
+        default= "/home/ebrahim/brainaudio/auxiliary_folders/finetune_llm/transcripts_text/transcripts_merged_normalized.txt", #"../data/transcripts_merged_normalized.txt",
         help="Path to transcripts file",
     )
     parser.add_argument(
