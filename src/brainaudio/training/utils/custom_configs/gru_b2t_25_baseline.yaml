@@ -7,7 +7,7 @@ seeds:
 - 1
 evaluate_wer: false
 evaluate_every_n_epochs: 1
-modelName: gru_b2t_25_baseline
+modelName: gru_b2t_25_baseline_brainaudio
 modelType: gru
 optimizer: AdamW
 learning_rate: 0.005
@@ -15,6 +15,7 @@ beta1: 0.9
 beta2: 0.999
 eps: 0.1
 learning_scheduler: cosine
+scheduler_step: per_batch
 n_epochs: 950
 milestones:
 - 300

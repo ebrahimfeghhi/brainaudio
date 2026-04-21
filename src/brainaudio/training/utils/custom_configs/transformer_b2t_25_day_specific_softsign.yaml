@@ -1,49 +1,44 @@
-outputDir: /home/ebrahim/data2/brain2text/b2t_24/outputs/
+outputDir: /home/ebrahim/data2/brain2text/b2t_25/outputs/
 manifest_paths:
-- /home/ebrahim/data2/brain2text/b2t_24/trial_level_data_log/manifest.json
+- /home/ebrahim/data2/brain2text/b2t_25/trial_level_data/manifest.json
 participant_suffixes:
-- _24
+- _25
 seeds:
 - 0
 - 1
 - 2
 - 3
 - 4
-- 5
-- 6
-- 7
-- 8
-- 9
-- 10
 evaluate_wer: false
 evaluate_every_n_epochs: 1
-modelName: transformer_b2t_24_day_specific_softsign
+modelName: transformer_b2t_25_day_specific_softsign
 modelType: transformer
 optimizer: AdamW
-learning_rate: 0.001
+learning_rate: 0.002
 beta1: 0.9
 beta2: 0.999
 eps: 1.0e-08
 learning_scheduler: multistep
-n_epochs: 250
+scheduler_step: per_epoch
+n_epochs: 500
 milestones:
-- 150
+- 300
 gamma: 0.1
 lr_scaling_factor: 0.1
-learning_rate_decay_steps: 951
-learning_rate_warmup_steps: 0
+learning_rate_decay_steps: 500
+learning_rate_warmup_steps: 10
 batchSize: 64
 nClasses: 40
 normalize_ctc_len: true
 load_pretrained_model: ''
-grad_norm_clip_value: -1
+grad_norm_clip_value: 100
 early_stopping_enabled: false
 early_stopping_checkpoint: 951
 early_stopping_wer_threshold: 1
 early_stopping_per_threshold: 1
-early_stopping_no_improvement: 95
+early_stopping_no_improvement: 50
 num_masks: 20
-max_mask_pct: 0.075
+max_mask_pct: 0.05
 whiteNoiseSD: 0.2
 constantOffsetSD: 0.05
 gaussianSmoothWidth: 2.0
@@ -61,13 +56,13 @@ model:
   transformer:
     name: Transformer
     features_list:
-    - 256
-    samples_per_patch: 5
+    - 512
+    samples_per_patch: 4
     n_heads: 6
     mlp_dim_ratio: 4
     dim_head: 64
     depth: 5
-    nDays: 24
+    nDays: 25
     day_softsign: true
     chunked_attention:
       chunkwise_prob: 1.0
@@ -76,10 +71,10 @@ model:
       left_constrain_prob: 1.0
       context_sec_min: 5
       context_sec_max: 20
-      timestep_duration_sec: 0.1
+      timestep_duration_sec: 0.08
       eval:
         chunk_size: 1
-        context_sec: 12.5
+        context_sec: 20
 wandb:
   project: nejm-brain-to-text
   entity: lionelhu926-ucla

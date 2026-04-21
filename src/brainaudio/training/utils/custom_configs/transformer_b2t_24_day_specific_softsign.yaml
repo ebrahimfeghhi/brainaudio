@@ -17,7 +17,7 @@ seeds:
 - 10
 evaluate_wer: false
 evaluate_every_n_epochs: 1
-modelName: transformer_b2t_24_day_specific
+modelName: transformer_b2t_24_day_specific_softsign
 modelType: transformer
 optimizer: AdamW
 learning_rate: 0.001
@@ -25,6 +25,7 @@ beta1: 0.9
 beta2: 0.999
 eps: 1.0e-08
 learning_scheduler: multistep
+scheduler_step: per_epoch
 n_epochs: 250
 milestones:
 - 150
@@ -68,7 +69,7 @@ model:
     dim_head: 64
     depth: 5
     nDays: 24
-    day_softsign: false
+    day_softsign: true
     chunked_attention:
       chunkwise_prob: 1.0
       chunk_size_min: 1

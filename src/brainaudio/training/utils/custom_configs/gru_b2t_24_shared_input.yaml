@@ -24,6 +24,7 @@ beta1: 0.9
 beta2: 0.999
 eps: 0.1
 learning_scheduler: none
+scheduler_step: per_batch
 n_epochs: 73
 milestones:
 - 150

@@ -195,8 +195,12 @@ def trainModel(args, model):
                                                 foreach = True
                                                 )
                 optimizer.step()
-            scheduler.step()  
-                          
+            if args.get("scheduler_step", "per_batch") == "per_batch":
+                scheduler.step()
+
+        if args.get("scheduler_step", "per_batch") == "per_epoch":
+            scheduler.step()
+
         avgTrainLoss = np.mean(train_loss)
         
         loss_array = []

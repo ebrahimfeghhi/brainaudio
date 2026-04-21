@@ -24,6 +24,7 @@ beta1: 0.9
 beta2: 0.999
 eps: 0.1
 learning_scheduler: multistep
+scheduler_step: per_batch
 n_epochs: 250
 milestones:
 - 150
@@ -64,6 +65,7 @@ model:
     strideLen: 4
     kernelLen: 32
     nDays: 24
+    shared_input: false
   transformer:
     name: Transformer
     features_list:
@@ -73,6 +75,8 @@ model:
     mlp_dim_ratio: 4
     dim_head: 64
     depth: 5
+    nDays: null
+    day_softsign: false
     chunked_attention:
       chunkwise_prob: 0.5
       chunk_size_min: 1

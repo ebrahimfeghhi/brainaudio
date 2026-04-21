@@ -4,16 +4,20 @@ from brainaudio.models.gru import GRU
 from brainaudio.models.transformer_chunking import TransformerModel
 from brainaudio.training.trainer import trainModel
 
-# ---- Edit these two fields before running ----
-config_path = "gru_b2t_24_baseline.yaml"
+# ---- Edit these fields before running ----
+config_path = "gru_b2t_24_shared_input.yaml"
 device = "cuda:0"
-# ----------------------------------------------
+base_path = "/home/ebrahim"  # prepended to outputDir and manifest_paths; set to "" to use paths from config as-is
+# -------------------------------------------
 
-config_file = f"../src/brainaudio/training/utils/custom_configs/{config_path}"
+config_file = os.path.join(os.path.dirname(__file__), "..", "src", "brainaudio", "training", "utils", "custom_configs", config_path)
 with open(config_file, 'r') as f:
     config = yaml.safe_load(f)
 
 config["device"] = device
+if base_path:
+    config["outputDir"] = base_path + config["outputDir"]
+    config["manifest_paths"] = [base_path + p for p in config["manifest_paths"]]
 
 model_type = config['modelType']
 model_args = config['model'][model_type]

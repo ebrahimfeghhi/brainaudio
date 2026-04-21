@@ -49,9 +49,9 @@ def create_learning_rate_scheduler(args, optim):
             power = sum([1 for m in milestones if current_step >= m])
             return gamma ** power
         
-        if scheduler_type == 'None':
-            
-            return 1 
+        if scheduler_type.lower() == 'none':
+
+            return 1
             
         
     return LambdaLR(optim,  lambda step: learning_rate_lambda(step, min_learning_rate_ratio, learning_rate_decay_steps, learning_rate_warmup_steps), -1)
