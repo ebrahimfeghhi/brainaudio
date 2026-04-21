@@ -4,15 +4,16 @@ Edit this file to change default hyperparameters.
 """
 
 import os
-from pathlib import Path
 
-base_path = os.environ.get("B2T_BASE_PATH", "/home/lionelhu")
+base_path = os.environ.get("B2T_BASE_PATH")
+if not base_path:
+    raise RuntimeError("B2T_BASE_PATH environment variable must be set (e.g. /home/user)")
 
-# Auto-detect data2 root (differs across servers)
-_DATA2_CANDIDATES = ["/data2", "", "/home/lionelhu/data2"]
-_data2_matches = [p for p in _DATA2_CANDIDATES if Path(p).is_dir() and Path(f"{p}/brain2text").exists()]
-_data2 = _data2_matches[0]
-data2_b2t = f"{_data2}/brain2text"
+_brain2text_dir = os.environ.get("B2T_BRAIN2TEXT_DIR")
+if not _brain2text_dir:
+    raise RuntimeError("B2T_BRAIN2TEXT_DIR environment variable must be set (e.g. /home/user/data2)")
+
+data2_b2t = f"{_brain2text_dir}/brain2text"
 
 # =============================================================================
 # DATASET SELECTOR  ("b2t_24" or "b2t_25")
@@ -25,7 +26,7 @@ DATASET = os.environ.get("B2T_DATASET", "b2t_25")
 MODEL_MODE = os.environ.get("B2T_MODEL_MODE", "transformer")  # "gru" or "transformer"
 
 _B2T_24 = {
-    "transcripts_val": f"{data2_b2t}/b2t_24/data/transcripts_val_cleaned.pkl",
+    "transcripts_val": f"{data2_b2t}/b2t_24/transcripts_val_cleaned.pkl",
     "beam_size": 1000,
     "beam_prune_threshold": 22.0,
     "alpha_ngram": 0.8,
@@ -43,7 +44,7 @@ _B2T_24 = {
 }
 
 _B2T_25 = {
-    "transcripts_val": f"{data2_b2t}/b2t_25/data/transcripts_val_cleaned.pkl",
+    "transcripts_val": f"{data2_b2t}/b2t_25/transcripts_val_cleaned.pkl",
     "beam_size": 900,
     "beam_prune_threshold": 18.0,
     "alpha_ngram": 1.0,

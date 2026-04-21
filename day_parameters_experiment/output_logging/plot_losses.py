@@ -9,33 +9,44 @@ OUT_DIR    = os.path.join(os.path.dirname(__file__), "experiments")
 MODELS_24 = {
     "neurips_b2t_24_chunked_unidirectional_day_specific_transformer": {
         "label": "Day-Specific",
-        "color": "#2d7dd2",
+        "color": "#888888",
     },
     "neurips_b2t_24_chunked_unidirectional_transformer_5to20_sec": {
         "label": "Original",
-        "color": "#e87040",
+        "color": "#4C72B0",
     },
 }
 
 MODELS_25 = {
     "neurips_b2t_25_causal_transformer_day_specific": {
         "label": "Day-Specific",
-        "color": "#2d7dd2",
+        "color": "#888888",
     },
     "neurips_b2t_25_causal_transformer_v4_prob_1": {
         "label": "Original",
-        "color": "#e87040",
+        "color": "#4C72B0",
     },
 }
 
 MODELS_25_GRU = {
     "baseline_rnn_ucd_npl": {
         "label": "Original (day-specific)",
-        "color": "#e87040",
+        "color": "#888888",
     },
     "gru_b2t25_shared_input": {
         "label": "Shared input",
-        "color": "#2d7dd2",
+        "color": "#4C72B0",
+    },
+}
+
+MODELS_24_GRU = {
+    "gru_b2t_24_baseline_brainaudio": {
+        "label": "Original (day-specific)",
+        "color": "#888888",
+    },
+    "gru_b2t_24_shared_input_brainaudio": {
+        "label": "Shared input",
+        "color": "#4C72B0",
     },
 }
 
@@ -87,6 +98,8 @@ def make_grid(models_dict, title, out_filename, metrics=METRICS_TRANSFORMER, yli
     plt.close(fig)
     print(f"Saved {out_path}")
 
+make_grid(MODELS_24_GRU, "B2T '24 GRU — mean ± SEM per model", "gru_b2t_24_loss_curves.png",
+          metrics=METRICS_GRU)
 make_grid(MODELS_25_GRU, "B2T '25 GRU — mean ± SEM per model", "gru_b2t_25_loss_curves.png",
           metrics=METRICS_GRU)
 make_grid(MODELS_24, "B2T '24 Transformer — mean ± SEM per model", "neurips_b2t_24_loss_curves.png")

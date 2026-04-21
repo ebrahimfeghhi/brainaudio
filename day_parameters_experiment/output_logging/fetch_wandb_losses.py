@@ -28,7 +28,8 @@ METRICS_B2T25_GRU_V2 = {
 
 # seed_overrides: {seed: run_id} — fetched directly by ID instead of by name
 MODEL_NAMES = [
-    ("gru_b2t25_shared_input", METRICS_B2T25_GRU_V2, {}),
+    ("gru_b2t_24_shared_input_brainaudio", METRICS_DEFAULT, {}),
+    ("gru_b2t_24_baseline_brainaudio", METRICS_DEFAULT, {4: "cg89l480"}),
 ]
 
 out_dir = os.path.join(os.path.dirname(__file__), "losses")

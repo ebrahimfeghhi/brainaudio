@@ -100,7 +100,7 @@ draw_panel(axes[0, 0],
            [gru_24_original, gru_24_shared],
            ["Original GRU", "GRU Shared\nLinear Layer"],
            [None, p],
-           ["#55A868", "#4C72B0"],
+           ["#888888", "#4C72B0"],
            "GRU (B2T '24)")
 
 # Top-right: GRU B2T '25
@@ -109,27 +109,25 @@ draw_panel(axes[0, 1],
            [gru_25_original, gru_25_shared],
            ["Original GRU", "GRU Shared\nLinear Layer"],
            [None, p],
-           ["#55A868", "#4C72B0"],
+           ["#888888", "#4C72B0"],
            "GRU (B2T '25)")
 
 # Bottom-left: Transformer B2T '24
 p_ds = paired_ttest(tr_24_original, tr_24_day_specific)
-p_ss = paired_ttest(tr_24_original, tr_24_softsign)
 draw_panel(axes[1, 0],
-           [tr_24_original, tr_24_day_specific, tr_24_softsign],
-           ["Original", "Day Specific", "Day Specific\n+ Softsign"],
-           [None, p_ds, p_ss],
-           ["#4C72B0", "#DD8452", "#55A868"],
+           [tr_24_original, tr_24_day_specific],
+           ["Original", "Day Specific"],
+           [None, p_ds],
+           ["#4C72B0", "#888888"],
            "Transformer (B2T '24)")
 
 # Bottom-right: Transformer B2T '25
 p_ds = paired_ttest(tr_25_original, tr_25_day_specific)
-p_ss = paired_ttest(tr_25_original, tr_25_softsign)
 draw_panel(axes[1, 1],
-           [tr_25_original, tr_25_day_specific, tr_25_softsign],
-           ["Original", "Day Specific", "Day Specific\n+ Softsign"],
-           [None, p_ds, p_ss],
-           ["#4C72B0", "#DD8452", "#55A868"],
+           [tr_25_original, tr_25_day_specific],
+           ["Original", "Day Specific"],
+           [None, p_ds],
+           ["#4C72B0", "#888888"],
            "Transformer (B2T '25)")
 
 fig.suptitle("Impact of Day-Specific Linear Layer on Neural Speech Decoders",

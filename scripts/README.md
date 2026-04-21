@@ -7,9 +7,8 @@ This directory contains the end-to-end pipeline for training brain-to-text acous
 ```
 1. Format data        →  scripts/dataset/
 2. Train model        →  scripts/train.py
-3. Generate logits    →  scripts/generate_logits.py
-4. Finetune LLM       →  scripts/finetune_llm.py
-5. Run decoder        →  scripts/run_decoder.py
+3. Finetune LLM       →  scripts/finetune_llm.py
+4. Generate + Decode  →  scripts/batch_decode.py
 ```
 
 ---
@@ -22,9 +21,9 @@ scripts/
 ├── decoder_config.py             # Default hyperparameters and paths for the decoder (edit before first run)
 ├── custom_config.yaml            # Custom training config (edit before running train.py)
 ├── train.py                      # Train a CTC acoustic encoder (Transformer or GRU)
-├── generate_logits.py            # Run inference and save encoder logits to disk
-├── run_decoder.py                # Run the Lightbeam CTC beam search decoder
-├── batch_decode.py               # Run the decoder over multiple models/seeds in sequence
+├── generate_logits.py            # Run inference and save encoder logits to disk (called by batch_decode.py)
+├── run_decoder.py                # Run the Lightbeam CTC beam search decoder (called by batch_decode.py)
+├── batch_decode.py               # Generate logits and decode across multiple models/seeds
 ├── finetune_llm.py               # SFT fine-tune an LLM with LoRA on transcript data
 ├── save_transcript.py            # Save model predictions as transcript files
 ├── save_config.py                # Save a training configuration to YAML
@@ -96,31 +95,7 @@ Checkpoints and metrics are saved to the path in the config and logged to Weight
 
 ---
 
-### Step 3 — Generate Logits
-
-`generate_logits.py` loads trained encoder checkpoints (Transformer or GRU) and saves the raw CTC logits to `.npz` files, which are the input to the decoder.
-
-**Before running**, edit the constants at the top of `generate_logits.py`:
-
-```python
-MODEL_NAME_TEMPLATES = ["your_model_name_seed_{seed}"]
-SEEDS = [0, 1, 2]                  # Seeds to generate logits for
-local_model_folder = "b2t_25"      # "b2t_24" or "b2t_25"
-modelWeightsFilesList = ["modelWeights_PER_25"]
-PARTITION = "val"                  # "val" or "test"
-DEVICE = "cuda:0"
-MODEL_TYPE = "transformer"         # "transformer" or "gru"
-```
-
-```bash
-uv run scripts/generate_logits.py
-```
-
-Logits are saved as `logits_{partition}.npz` inside a subdirectory named after the model. PER (Phoneme Error Rate) results are saved to `results/per_results/`.
-
----
-
-### Step 4 — Finetune the LLM
+### Step 3 — Finetune the LLM
 
 `finetune_llm.py` SFT fine-tunes a causal LLM with LoRA on transcript data. The resulting adapter is used by the decoder for shallow fusion rescoring.
 
@@ -151,57 +126,58 @@ The best checkpoint (lowest validation perplexity) is saved to `--output-dir`. P
 
 ---
 
-### Step 5 — Run the Decoder
+### Step 4 — Generate Logits + Decode
 
-`run_decoder.py` takes saved logits and runs the Lightbeam CTC beam search decoder with an optional LLM shallow fusion stage.
+`batch_decode.py` is the main entry point for inference. It generates logits for each seed and immediately decodes them, looping over all seeds in sequence. Any additional arguments are passed through to `run_decoder.py`.
 
 ```bash
-# Decode validation set with default settings from decoder_config.py
-uv run scripts/run_decoder.py \
-    --logits-val-path /path/to/logits/my_model/logits_val.npz
+# Generate logits + decode (default — omit --logits-base)
+uv run scripts/batch_decode.py \
+    --dataset b2t_24 \
+    --model-mode gru \
+    --base-path /home/user \
+    --brain2text-dir /home/user/data2 \
+    --model-template "gru_b2t_24_baseline_brainaudio_seed_{seed}" \
+    --seeds 0 1 2 3 4 5 6 7 8 9 \
+    --val \
+    --device cuda:0
 
-# Decode without LLM (n-gram LM only, much faster)
-uv run scripts/run_decoder.py \
-    --logits-val-path /path/to/logits/my_model/logits_val.npz \
-    --disable-llm
+# Decode only (logits already exist — pass --logits-base to skip generation)
+uv run scripts/batch_decode.py \
+    --dataset b2t_24 \
+    --model-mode gru \
+    --base-path /home/user \
+    --brain2text-dir /home/user/data2 \
+    --logits-base /home/user/data2/brain2text/b2t_24/logits \
+    --model-template "gru_b2t_24_baseline_brainaudio_seed_{seed}" \
+    --seeds 0 1 2 3 4 5 6 7 8 9 \
+    --val \
+    --device cuda:0
 
-# Decode val + test in one run
-uv run scripts/run_decoder.py \
-    --logits-val-path /path/to/logits/my_model/logits_val.npz \
-    --logits-test-path /path/to/logits/my_model/logits_test.npz
-
-# Override key hyperparameters
-uv run scripts/run_decoder.py \
-    --logits-val-path /path/to/logits/my_model/logits_val.npz \
-    --beam-size 1200 \
-    --acoustic-scale 0.5 \
-    --alpha-ngram 1.0 \
-    --llm-weight 1.5
+# Override decoder hyperparameters for all runs
+uv run scripts/batch_decode.py \
+    --dataset b2t_25 \
+    --model-mode transformer \
+    --base-path /home/user \
+    --brain2text-dir /home/user/data2 \
+    --model-template "my_transformer_seed_{seed}" \
+    --seeds 0 1 2 \
+    --val --test \
+    --beam-size 1200 --disable-llm
 ```
 
-**Key flags:**
+**Flags:**
 
-| Flag | Default | Description |
+| Flag | Required | Description |
 |---|---|---|
-| `--logits-val-path` | — | Path to val logits `.npz` |
-| `--logits-test-path` | — | Path to test logits `.npz` |
-| `--logits-train-path` | — | Path to train logits `.npz` |
-| `--disable-llm` | off | Skip LLM shallow fusion; use n-gram LM only |
-| `--beam-size` | dataset-dependent | CTC beam width |
-| `--acoustic-scale` | dataset-dependent | Scale applied to log-probs after softmax |
-| `--alpha-ngram` | dataset-dependent | N-gram LM weight during beam search |
-| `--llm-weight` | 1.2 | LLM score weight during rescoring |
-| `--model` | `Llama-3.2-3B` | HuggingFace model ID for LLM fusion |
-| `--lora-adapter` | config default | Path to fine-tuned LoRA adapter |
-| `--no-adapter` | off | Use base LLM without a LoRA adapter |
-| `--load-in-4bit` | off | Load LLM in 4-bit quantization (reduces VRAM) |
-| `--random N` | — | Randomly sample N trials (seed=42) |
-| `--trial-indices 0 5 10` | — | Decode only specific trial indices |
-| `--device` | `cuda:0` | Torch device |
-| `--no-wandb` | off | Disable W&B logging |
-| `--verbose` | off | Print per-beam details for each trial |
-
-Run `uv run scripts/run_decoder.py --help` for the full list of options.
+| `--dataset` | yes | `"b2t_24"` or `"b2t_25"` |
+| `--model-mode` | yes | `"transformer"` or `"gru"` |
+| `--base-path` | yes | Base directory for results and adapter paths (e.g. `/home/user`) |
+| `--brain2text-dir` | yes | Directory containing `brain2text/` folder |
+| `--model-template` | yes | Model name template with `{seed}` placeholder |
+| `--seeds` | yes | Seeds to run |
+| `--logits-base` | no | If provided, skips logit generation and decodes from this path |
+| `--device` | no | Device for both logit generation and decoding (e.g. `cuda:0`) |
 
 **Outputs** (saved to `results_dir` from `decoder_config.py`):
 - `<model>_<timestamp>.csv` — predicted transcripts (`id`, `text`)
@@ -210,51 +186,9 @@ Run `uv run scripts/run_decoder.py --help` for the full list of options.
 
 ---
 
-### Step 5 (batch) — Batch Decode Multiple Models
-
-`batch_decode.py` loops over a list of logit paths and calls `run_decoder.py` for each. Any additional arguments are passed through to the decoder.
-
-All user-facing options are CLI flags:
-
-```bash
-# Run on val set across seeds 0–4
-uv run scripts/batch_decode.py \
-    --dataset b2t_25 \
-    --model-mode transformer \
-    --base-path /home/user \
-    --logits-base /data2/brain2text/b2t_25/logits \
-    --model-template "my_model_seed_{seed}" \
-    --seeds 0 1 2 3 4 \
-    --val
-
-# Override decoder hyperparameters for all runs
-uv run scripts/batch_decode.py \
-    --dataset b2t_25 \
-    --model-mode gru \
-    --base-path /home/user \
-    --logits-base /data2/brain2text/b2t_25/logits \
-    --model-template "my_gru_seed_{seed}" \
-    --seeds 0 1 2 \
-    --val --test \
-    --beam-size 1200 --disable-llm
-```
-
-**Required flags:**
-
-| Flag | Description |
-|---|---|
-| `--dataset` | `"b2t_24"` or `"b2t_25"` |
-| `--model-mode` | `"transformer"` or `"gru"` |
-| `--base-path` | Base directory for results and adapter paths (e.g. `/home/user`) |
-| `--logits-base` | Directory containing per-model logits folders |
-| `--model-template` | Folder name template with `{seed}` placeholder |
-| `--seeds` | Seeds to decode |
-
----
-
 ### Notes
 
-- **`train.py` and `generate_logits.py`** are configured by editing constants at the top of the file, not via command-line flags.
-- **`run_decoder.py`** and **`compare_predictions.py`** are fully CLI-driven — run with `--help` to see all options.
+- **`train.py`** is configured by editing constants at the top of the file, not via command-line flags.
+- **`generate_logits.py`** and **`run_decoder.py`** are called automatically by `batch_decode.py` but can also be run standalone — use `--help` for options.
 - **`decoder_config.py`** provides defaults for the decoder; any value can be overridden with a flag at runtime.
 - Experiment tracking uses [Weights & Biases](https://wandb.ai/). Pass `--no-wandb` to disable it.

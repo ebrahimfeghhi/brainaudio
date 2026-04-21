@@ -46,6 +46,7 @@ uv run scripts/dataset/lazyload_format.py
 
 ### 2. Train the Encoder
 
+
 Train a CTC acoustic encoder (Transformer or GRU) over multiple seeds. Edit `config_path` and `device` at the top of `scripts/train.py`, then:
 
 ```bash
@@ -54,15 +55,7 @@ uv run scripts/train.py
 
 Configs are in `src/brainaudio/training/utils/custom_configs/`. Configs for the four models used in the paper (baseline GRUs and Transformers for B2T '24 and '25) are provided.
 
-### 3. Generate Logits
-
-Load a trained encoder and save phoneme logits to disk. Edit the config block at the top of `scripts/generate_logits.py`, then:
-
-```bash
-uv run scripts/generate_logits.py
-```
-
-### 4. Finetune the LLM
+### 3. Finetune the LLM
 
 SFT fine-tune a causal LLM with LoRA on transcript data. The resulting adapter is used by the decoder for shallow fusion rescoring.
 
@@ -75,22 +68,23 @@ uv run scripts/finetune_llm.py \
 
 The transcript file should have one sentence per line with a `# VALIDATION` comment separating train and val splits.
 
-### 5. Run the Decoder
+### 4. Generate Logits + Decode
 
-Decode logits with the Lightbeam CTC beam search decoder across multiple seeds:
+Generate logits and decode with the Lightbeam CTC beam search decoder across multiple seeds in one call:
 
 ```bash
 uv run scripts/batch_decode.py \
     --dataset b2t_25 \
     --model-mode transformer \
     --base-path /home/user \
-    --logits-base /data2/brain2text/b2t_25/logits \
-    --model-template "neurips_b2t_25_causal_transformer_seed_{seed}_PER_25" \
+    --brain2text-dir /home/user/data2 \
+    --model-template "neurips_b2t_25_causal_transformer_seed_{seed}" \
     --seeds 0 1 2 3 4 \
-    --val
+    --val \
+    --device cuda:0
 ```
 
-Hyperparameters are in `scripts/decoder_config.py` — tuned defaults for both benchmarks are already set. The token list and lexicon required for decoding are in `auxiliary_folders/shallow_fusion/`.
+Logits are generated automatically before each decode. If logits already exist, pass `--logits-base` to skip generation. Hyperparameters are in `scripts/decoder_config.py` — tuned defaults for both benchmarks are already set. The token list and lexicon required for decoding are in `auxiliary_folders/shallow_fusion/`.
 
 > **Note:** Lightbeam requires the Huge 4-gram LM, not included in this repo. Download in ARPA format from [imagineville.org](https://imagineville.org/software/lm/dec19/) and update `word_lm` in `scripts/decoder_config.py`.
 

@@ -69,12 +69,12 @@ print(f"Original vs Day Specific + Softsign: p = {p_soft:.4f}  {'*' if p_soft < 
 # PLOT
 # =============================================================================
 
-conditions = ["Original", "Day Specific", "Day Specific\n+ Softsign"]
-all_wers   = [wer_original, wer_day_specific, wer_softsign]
+conditions = ["Original", "Day Specific"]
+all_wers   = [wer_original, wer_day_specific]
 means      = [np.nanmean(w) for w in all_wers]
-p_values   = [None, p_day, p_soft]
+p_values   = [None, p_day]
 
-colors = ["#4C72B0", "#DD8452", "#55A868"]
+colors = ["#4C72B0", "#888888"]
 x = np.arange(len(conditions))
 bar_width = 0.5
 

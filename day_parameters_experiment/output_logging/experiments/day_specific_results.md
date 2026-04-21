@@ -49,9 +49,9 @@ Issues with the current research plan.
 
 ![Figure 1 — Day-Specific WER Grid](day_specific_wer_grid.png)
 
-**Figure 2.** Training loss, validation loss, and validation PER for the B2T '25 GRU — Original (day-specific) vs. Shared input — across seeds (mean ± SEM).
+**Figure 2.** Training loss, validation loss, and validation PER for the B2T '24 GRU — Original (day-specific) vs. Shared input — across seeds (mean ± SEM).
 
-![Figure 2 — B2T '25 GRU Loss Curves](gru_b2t_25_loss_curves.png)
+![Figure 2 — B2T '24 GRU Loss Curves](gru_b2t_24_loss_curves.png)
 
 **Figure 3.** Training CTC loss, validation CTC loss, and validation PER for the B2T '24 Transformer — Original vs. Day-Specific — across seeds (mean ± SEM).
 
