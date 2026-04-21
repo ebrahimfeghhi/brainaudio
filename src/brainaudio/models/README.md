@@ -22,48 +22,30 @@ Applies fully-vectorized random time masking to a patched input tensor `(B, P, D
 
 ---
 
-## `gru_b2t_24.py` — `GRU_24`
+## `gru.py` — `GRU`
 
-GRU-based encoder introduced in Willett et al. 2023 for the B2T '24 benchmark.
+Unified GRU-based encoder for both B2T '24 and B2T '25.
 
-### `GRU_24` — Day-specific input layer
-
-The standard encoder. Neural activity first passes through a **per-day affine transform** (separate weight matrix and bias for each recording session), followed by a Softsign nonlinearity. The transformed signal is then temporally unfolded into overlapping patches and fed into a multi-layer GRU.
+Neural activity passes through a **per-day affine transform** (separate weight matrix and bias per recording session, stored as a `ParameterList`), followed by a Softsign nonlinearity. The transformed signal is temporally unfolded into overlapping patches and fed into a multi-layer GRU. The initial hidden state `h0` is a learnable parameter.
 
 **Constructor parameters**
 
 | Parameter | Description |
 |---|---|
-| `neural_dim` | Number of input neural channels (256 for B2T '24) |
+| `neural_dim` | Number of input neural channels |
 | `n_classes` | Number of phoneme classes (excluding CTC blank) |
 | `hidden_dim` | GRU hidden state size |
 | `layer_dim` | Number of stacked GRU layers |
 | `nDays` | Number of recording sessions (one affine transform per day) |
 | `dropout` | Dropout between GRU layers |
-| `input_dropout` | Dropout applied to inputs after the day-specific transform |
+| `input_dropout` | Dropout applied after the day-specific transform |
 | `strideLen` | Stride of the temporal unfolding window |
 | `kernelLen` | Kernel size of the temporal unfolding window |
 | `bidirectional` | If `True`, use a bidirectional GRU |
 | `max_mask_pct` | Time masking fraction (inherited) |
 | `num_masks` | Number of time masks (inherited) |
-
-**Forward:** `(neuralInput, X_len, dayIdx) → (B, T', n_classes+1)`
-
-Output length: `T' = (T - kernelLen) / strideLen`
-
----
-
-## `gru_b2t_25.py` — `GRU_25`
-
-GRU-based encoder for the B2T '25 benchmark. The architecture follows `GRU_24` but with two differences: day weights and biases are stored as a `ParameterList` (one matrix per day) rather than a single stacked tensor, and the initial hidden state `h0` is a learnable parameter rather than a fixed zero initialization.
-
-**Key differences from `GRU_24`**
-
-| | `GRU_24` | `GRU_25` |
-|---|---|---|
-| Day weights storage | Stacked `nn.Parameter` tensor | `nn.ParameterList` (one per day) |
-| Initial hidden state | Zero tensor | Learnable `h0` parameter |
-| `samples_per_patch` | Hardcoded to 1 | Configurable (default 1) |
+| `samples_per_patch` | Temporal resolution of one patch (default 1) |
+| `shared_input` | If `True`, all days share a single input transform |
 
 **Forward:** `(x, x_len, day_idx) → (B, T', n_classes+1)`
 
@@ -71,16 +53,18 @@ Output length: `T' = (T - kernelLen) / strideLen + 1`
 
 ---
 
-## `transformer.py` — `TransformerModel`
+## `transformer_chunking.py` — `TransformerModel` (chunked)
 
-ViT-style causal Transformer encoder. Neural activity is divided into non-overlapping 1D patches, embedded via a patch embedding module (LayerNorm → Linear → LayerNorm), and processed by a stack of self-attention + FFN layers with T5-style relative position bias.
+ViT-style causal Transformer encoder with **dynamic chunked left-context attention** for streaming / low-latency inference. During training, the chunk size and left-context window are sampled from configurable ranges each forward pass, simulating a range of latency budgets. At evaluation, a fixed chunk config can be used.
+
+Also supports an optional **day-specific affine transform** (controlled by `nDays` and `day_softsign`) and **multi-participant** training via per-participant patch embedders.
 
 **Constructor parameters**
 
 | Parameter | Description |
 |---|---|
+| `features_list` | List of input channel counts, one per participant |
 | `samples_per_patch` | Number of time steps per patch |
-| `num_features` | Number of input channels |
 | `dim` | Transformer embedding dimension |
 | `depth` | Number of Transformer layers |
 | `heads` | Number of attention heads |
@@ -91,27 +75,8 @@ ViT-style causal Transformer encoder. Neural activity is divided into non-overla
 | `nClasses` | Number of phoneme classes (excluding CTC blank) |
 | `max_mask_pct` | Time masking fraction (inherited) |
 | `num_masks` | Number of time masks (inherited) |
+| `num_participants` | Number of participants; one patch embedder per participant |
 | `return_final_layer` | If `True`, also return the final Transformer hidden states |
-| `bidirectional` | If `False`, a causal attention mask is applied (each patch attends only to itself and earlier patches) |
-
-**Forward:** `(neuralInput, X_len, day_idx=None) → (B, P, n_classes+1)`
-
-Output length: `P = ceil(T / samples_per_patch)`
-
----
-
-## `transformer_chunking.py` — `TransformerModel` (chunked)
-
-Extension of the Transformer encoder that adds **dynamic chunked left-context attention** for streaming / low-latency inference. During training, the chunk size and left-context window are sampled from configurable ranges each forward pass, simulating a range of latency budgets. At evaluation, a fixed chunk config can be used.
-
-Also supports an optional **day-specific affine transform** (controlled by `nDays` and `day_softsign`) and **multi-participant** training via per-participant patch embedders.
-
-**Additional constructor parameters** (on top of the base Transformer)
-
-| Parameter | Description |
-|---|---|
-| `num_participants` | Number of participants; one patch embedder is created per participant |
-| `features_list` | List of input channel counts, one per participant |
 | `nDays` | If set, adds a per-day affine transform before patch embedding |
 | `day_softsign` | If `True`, applies Softsign after the day-specific transform |
 | `chunked_attention` | Dict configuring the chunk sampler and eval chunk config (see below) |
@@ -122,10 +87,12 @@ Also supports an optional **day-specific affine transform** (controlled by `nDay
 |---|---|
 | `chunk_size_min` / `chunk_size_max` | Range of chunk sizes (in patches) sampled during training |
 | `context_sec_min` / `context_sec_max` | Range of left-context window sizes (in seconds) sampled during training |
-| `timestep_duration_sec` | Duration of one time step in seconds (used to convert context seconds to patches) |
+| `timestep_duration_sec` | Duration of one time step in seconds |
 | `left_constrain_prob` | Probability of applying a hard left-context constraint during training |
-| `chunkwise_prob` | Probability of using strict chunkwise (no left context) attention during training |
+| `chunkwise_prob` | Probability of using strict chunkwise attention during training |
 | `eval.chunk_size` | Fixed chunk size used at evaluation |
-| `eval.context_sec` | Fixed left-context window size (seconds) used at evaluation; `null` = full context |
+| `eval.context_sec` | Fixed left-context window (seconds) at evaluation; `null` = full context |
 
 **Forward:** `(neuralInput, X_len, participant_idx=None, day_idx=None) → (B, P, n_classes+1)`
+
+Output length: `P = ceil(T / samples_per_patch)`

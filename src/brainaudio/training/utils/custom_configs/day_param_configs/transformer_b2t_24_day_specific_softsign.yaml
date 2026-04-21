@@ -17,7 +17,7 @@ seeds:
 - 10
 evaluate_wer: false
 evaluate_every_n_epochs: 1
-modelName: neurips_b2t_24_chunked_unidirectional_day_specific_softsign_transformer
+modelName: transformer_b2t_24_day_specific_softsign
 modelType: transformer
 optimizer: AdamW
 learning_rate: 0.001
@@ -58,17 +58,6 @@ interctc:
   alpha: 0.25
   inter_ctc_per_layers: 3
 model:
-  gru:
-    name: GRU
-    year: '2024'
-    nInputFeatures: 256
-    nClasses: 40
-    nUnits: 1024
-    nLayers: 5
-    bidirectional: true
-    strideLen: 4
-    kernelLen: 4
-    nDays: 24
   transformer:
     name: Transformer
     features_list:
@@ -78,8 +67,8 @@ model:
     mlp_dim_ratio: 4
     dim_head: 64
     depth: 5
-    nDays: null
-    day_softsign: false
+    nDays: 24
+    day_softsign: true
     chunked_attention:
       chunkwise_prob: 1.0
       chunk_size_min: 1

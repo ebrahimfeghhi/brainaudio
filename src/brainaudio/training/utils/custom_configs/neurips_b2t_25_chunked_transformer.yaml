@@ -72,7 +72,7 @@ model:
     mlp_dim_ratio: 4
     dim_head: 64
     depth: 5
-    nDays: 45
+    nDays: null
     day_softsign: false
     chunked_attention:
       chunkwise_prob: 1.0
