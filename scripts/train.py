@@ -5,7 +5,7 @@ from brainaudio.models.transformer_chunking import TransformerModel
 from brainaudio.training.trainer import trainModel
 
 # ---- Edit these fields before running ----
-config_path = "gru_b2t_24_shared_input.yaml"
+config_path = "gru_b2t_25_baseline.yaml"
 device = "cuda:0"
 base_path = "/home/ebrahim"  # prepended to outputDir and manifest_paths; set to "" to use paths from config as-is
 # -------------------------------------------

@@ -1,10 +1,14 @@
-outputDir: /home/lionelhu/data2/brain2text/b2t_25/outputs/
+outputDir: /data2/brain2text/b2t_25/outputs/
 manifest_paths:
-- /home/lionelhu/data2/brain2text/b2t_25/data/trial_level_data/manifest.json
+- /data2/brain2text/b2t_25/trial_level_data/manifest.json
 participant_suffixes:
 - _25
 seeds:
-- 1
+- 0 
+- 1 
+- 2
+- 3 
+- 4
 evaluate_wer: false
 evaluate_every_n_epochs: 1
 modelName: gru_b2t_25_shared_input_brainaudio
