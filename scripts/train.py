@@ -1,11 +1,16 @@
+import argparse
 import os
 import yaml
 from brainaudio.models.gru import GRU
 from brainaudio.models.transformer_chunking import TransformerModel
 from brainaudio.training.trainer import trainModel
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--overwrite", action="store_true", help="Re-train even if model weights already exist")
+args_cli = parser.parse_args()
+
 # ---- Edit these fields before running ----
-config_path = "gru_b2t_25_baseline.yaml"
+config_path = "gru_b2t_24_shared_input_25_style.yaml"
 device = "cuda:0"
 base_path = "/home/ebrahim"  # prepended to outputDir and manifest_paths; set to "" to use paths from config as-is
 # -------------------------------------------
@@ -26,10 +31,15 @@ model_name = config["modelName"]
 
 for seed in config['seeds']:
 
-    print(f"Training with seed {seed}")
-
     config['seed'] = seed
     config["modelName"] = f"{model_name}_seed_{seed}"
+
+    seed_output_dir = config["outputDir"] + config["modelName"]
+    if not args_cli.overwrite and os.path.exists(os.path.join(seed_output_dir, "modelWeights_PER")):
+        print(f"Skipping seed {seed} — weights already exist at {seed_output_dir}")
+        continue
+
+    print(f"Training with seed {seed}")
 
     if model_type == 'transformer':
 

@@ -5,7 +5,6 @@ participant_suffixes:
 - _25
 seeds:
 - 0
-evaluate_wer: false
 evaluate_every_n_epochs: 1
 modelName: neurips_b2t_25_demichunked_transformer_bidir_unidir
 modelType: transformer
@@ -27,9 +26,6 @@ nClasses: 40
 load_pretrained_model: ''
 grad_norm_clip_value: 100
 early_stopping_enabled: true
-early_stopping_checkpoint: 500
-early_stopping_wer_threshold: 1
-early_stopping_per_threshold: 1
 early_stopping_no_improvement: 50
 num_masks: 20
 max_mask_pct: 0.05

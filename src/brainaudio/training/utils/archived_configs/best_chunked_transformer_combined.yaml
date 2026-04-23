@@ -7,7 +7,6 @@ participant_suffixes:
 - _24
 seeds:
 - 3
-evaluate_wer: false
 evaluate_every_n_epochs: 1
 modelName: best_chunked_transformer_combined
 modelType: transformer
@@ -29,9 +28,6 @@ nClasses: 40
 load_pretrained_model: ''
 grad_norm_clip_value: 10
 early_stopping_enabled: true
-early_stopping_checkpoint: 951
-early_stopping_wer_threshold: 1
-early_stopping_per_threshold: 1
 early_stopping_no_improvement: 95
 num_masks: 25
 max_mask_pct: 0.022

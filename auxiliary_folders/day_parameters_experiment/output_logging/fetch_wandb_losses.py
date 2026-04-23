@@ -4,7 +4,7 @@ import wandb
 
 ENTITY = "lionelhu926-ucla"
 PROJECT = "nejm-brain-to-text"
-SEEDS = list(range(10))
+SEEDS = list(range(5))
 
 # Standard metric names used by the Transformer/B2T-24 GRU trainer
 METRICS_DEFAULT = {
@@ -13,23 +13,12 @@ METRICS_DEFAULT = {
     "per_0":          "val_per",
 }
 
-# Metric names used by the B2T-25 GRU trainer
-METRICS_B2T25_GRU = {
-    "train/loss":   "train_loss",
-    "val/avg_loss": "val_loss",
-    "val/avg_PER":  "val_per",
-}
 
-METRICS_B2T25_GRU_V2 = {
-    "train/ctc_loss": "train_loss",
-    "val/ctc_loss":   "val_loss",
-    "val/per":        "val_per",
-}
 
 # seed_overrides: {seed: run_id} — fetched directly by ID instead of by name
 MODEL_NAMES = [
-    ("gru_b2t_24_shared_input_brainaudio", METRICS_DEFAULT, {}),
-    ("gru_b2t_24_baseline_brainaudio", METRICS_DEFAULT, {4: "cg89l480"}),
+    ("gru_b2t_25_baseline_brainaudio", METRICS_DEFAULT, {}),
+    ("gru_b2t_25_shared_input_brainaudio", METRICS_DEFAULT, {}),
 ]
 
 out_dir = os.path.join(os.path.dirname(__file__), "losses")

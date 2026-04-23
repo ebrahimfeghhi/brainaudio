@@ -12,29 +12,29 @@ from scipy import stats
 # =============================================================================
 
 wer_original = np.array([
-    0.141557,  # seed 0
-    0.138282,  # seed 1
-    0.142831,  # seed 2
-    0.145924,  # seed 3
-    0.140284,  # seed 4
-    0.141557,  # seed 5
-    0.142649,  # seed 6
-    0.141557,  # seed 7
-    0.141739,  # seed 8
+    0.140102,  # seed 0
+    0.141921,  # seed 1
+    0.140102,  # seed 2
+    0.137009,  # seed 3
+    0.139556,  # seed 4
+    0.142831,  # seed 5
+    0.148836,  # seed 6
+    0.134098,  # seed 7
+    0.143195,  # seed 8
     0.139010,  # seed 9
 ])
 
 wer_shared = np.array([
-    0.1743,  # seed 0
-    0.1801,  # seed 1
-    0.1772,  # seed 2
-    0.1788,  # seed 3
-    0.1743,  # seed 4
-    0.1764,  # seed 5
-    0.1786,  # seed 6
-    0.1728,  # seed 7
-    0.1710,  # seed 8
-    0.1719,  # seed 9
+    0.186317,  # seed 0
+    0.185044,  # seed 1
+    0.180131,  # seed 2
+    0.179585,  # seed 3
+    0.186681,  # seed 4
+    0.184680,  # seed 5
+    0.186317,  # seed 6
+    0.187773,  # seed 7
+    0.190684,  # seed 8
+    0.187409,  # seed 9
 ])
 
 # =============================================================================
@@ -59,7 +59,7 @@ all_wers    = [wer_original, wer_shared]
 means       = [np.nanmean(w) for w in all_wers]
 p_values    = [None, p_shared]
 
-colors = ["#55A868", "#4C72B0"]
+colors = ["#888888", "#4C72B0"]
 x = np.arange(len(conditions))
 bar_width = 0.5
 

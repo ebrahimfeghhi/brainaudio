@@ -2,7 +2,6 @@ outputDir: /data2/brain2text/b2t_combined/outputs/
 datasetPath:
 - /data2/brain2text/b2t_25/brain2text25_with_fa
 device: cuda:0
-evaluate_wer: true
 evaluate_every_n_epochs: 5
 modelName: tm_transformer_b2t25_unidir_unconstrained_v2
 modelType: transformer

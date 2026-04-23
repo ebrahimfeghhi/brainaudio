@@ -8,7 +8,6 @@ seeds:
 - 1
 - 2
 device: cuda:0
-evaluate_wer: false
 evaluate_every_n_epochs: 1
 modelName: baseline_gru_b2t_25
 modelType: 'gru'
@@ -31,9 +30,6 @@ seed: 10
 load_pretrained_model: ''
 grad_norm_clip_value: 10
 early_stopping_enabled: false
-early_stopping_checkpoint: 100
-early_stopping_per_threshold: 0.115
-early_stopping_wer_threshold: 0.16
 early_stopping_no_improvement: 15
 num_masks: 0
 max_mask_pct: 0

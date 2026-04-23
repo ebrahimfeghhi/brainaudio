@@ -8,7 +8,6 @@ seeds:
 - 1
 - 2
 - 3
-evaluate_wer: true
 evaluate_every_n_epochs: 5
 modelName: fully_chunked_25_trial_38
 modelType: transformer
@@ -30,8 +29,6 @@ nClasses: 40
 load_pretrained_model: ''
 grad_norm_clip_value: 10
 early_stopping_enabled: false
-early_stopping_checkpoint: 100
-early_stopping_wer_threshold: 0.16
 early_stopping_no_improvement: 15
 num_masks: 23
 max_mask_pct: 0.033

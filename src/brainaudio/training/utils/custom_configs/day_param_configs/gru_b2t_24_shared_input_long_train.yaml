@@ -1,0 +1,65 @@
+outputDir: /data2/brain2text/b2t_24/outputs/
+manifest_paths:
+- /data2/brain2text/b2t_24/trial_level_data/manifest.json
+participant_suffixes:
+- _24
+seeds:
+- 0
+- 1
+- 2
+- 3
+- 4
+- 5
+- 6
+- 7
+- 8
+- 9
+evaluate_every_n_epochs: 1
+modelName: gru_b2t_24_shared_input_long_train_brainaudio
+modelType: gru
+optimizer: Adam
+learning_rate: 0.02
+beta1: 0.9
+beta2: 0.999
+eps: 0.1
+learning_scheduler: none
+n_epochs: 400
+milestones:
+- 150
+gamma: 0.1
+lr_scaling_factor: 1.0
+learning_rate_decay_steps: 250
+learning_rate_warmup_steps: 0
+batchSize: 64
+nClasses: 40
+normalize_ctc_len: true
+load_pretrained_model: ''
+grad_norm_clip_value: -1
+early_stopping_enabled: true
+early_stopping_no_improvement: 50
+num_masks: 0
+max_mask_pct: 0.0
+whiteNoiseSD: 0.8
+constantOffsetSD: 0.2
+gaussianSmoothWidth: 2.0
+smooth_kernel_size: 20
+random_cut: 0
+use_amp: true
+l2_decay: 1.0e-05
+input_dropout: 0.0
+dropout: 0.40
+model:
+  gru:
+    name: GRU
+    nInputFeatures: 256
+    nClasses: 40
+    nUnits: 1024
+    nLayers: 5
+    bidirectional: true
+    strideLen: 4
+    kernelLen: 32
+    nDays: 24
+    shared_input: true
+wandb:
+  project: nejm-brain-to-text
+  entity: lionelhu926-ucla

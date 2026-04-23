@@ -2,7 +2,6 @@ outputDir: /data2/brain2text/b2t_24/outputs/
 datasetPath:
 - /data2/brain2text/b2t_24/brain2text24_log.pkl
 device: cuda:0
-evaluate_wer: False
 evaluate_every_n_epochs: 1
 modelName: tm_transformer_24
 modelType: transformer

@@ -88,3 +88,29 @@ _Partition: val | Weights: modelWeights_PER_25_
 | 8 | 0.096241 |
 | 9 | 0.093277 |
 | **mean** | **0.096093** |
+
+
+## GRU Baseline (B2T '25, seeds 0–4)
+_Generated: 2026-04-22 | Partition: val | Llama 3.2-1B_
+
+| Seed | WER |
+|------|-----|
+| 0 | 0.059185 |
+| 1 | 0.065749 |
+| 2 | 0.061196 |
+| 3 | 0.064690 |
+| 4 | 0.059926 |
+| **mean** | **0.062149** |
+
+
+## GRU Shared Input (B2T '25, seeds 0–4)
+_Generated: 2026-04-22 | Partition: val | Llama 3.2-1B_
+
+| Seed | WER |
+|------|-----|
+| 0 | 0.065537 |
+| 1 | 0.067761 |
+| 2 | 0.068925 |
+| 3 | 0.068396 |
+| 4 | 0.066702 |
+| **mean** | **0.067464** |

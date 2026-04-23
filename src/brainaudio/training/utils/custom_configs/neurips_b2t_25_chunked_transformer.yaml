@@ -9,7 +9,6 @@ seeds:
 - 2
 - 3
 - 4
-evaluate_wer: false
 evaluate_every_n_epochs: 1
 modelName: neurips_b2t_25_causal_transformer_day_specific
 modelType: transformer
@@ -33,9 +32,6 @@ normalize_ctc_len: true
 load_pretrained_model: ''
 grad_norm_clip_value: 100
 early_stopping_enabled: false
-early_stopping_checkpoint: 951
-early_stopping_wer_threshold: 1
-early_stopping_per_threshold: 1
 early_stopping_no_improvement: 50
 num_masks: 20
 max_mask_pct: 0.05

@@ -9,7 +9,6 @@ seeds:
 - 2
 - 3 
 - 4
-evaluate_wer: false
 evaluate_every_n_epochs: 1
 modelName: gru_b2t_25_shared_input_brainaudio
 modelType: gru
@@ -32,9 +31,6 @@ nClasses: 40
 load_pretrained_model: ''
 grad_norm_clip_value: 10
 early_stopping_enabled: false
-early_stopping_checkpoint: 950
-early_stopping_wer_threshold: 1
-early_stopping_per_threshold: 1
 early_stopping_no_improvement: 50
 normalize_ctc_len: false
 num_masks: 0

@@ -5,7 +5,6 @@ datasetPath:
 seeds:
 - 0
 device: cuda:0
-evaluate_wer: false
 evaluate_every_n_epochs: 5
 modelName: scratch
 modelType: transformer

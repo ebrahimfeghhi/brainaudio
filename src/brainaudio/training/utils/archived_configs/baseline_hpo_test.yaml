@@ -8,7 +8,6 @@ seeds:
 - 2
 - 3
 device: cuda:1
-evaluate_wer: true
 evaluate_every_n_epochs: 5
 modelName: baseline_hpo_test
 modelType: transformer
@@ -30,8 +29,6 @@ nClasses: 40
 load_pretrained_model: ''
 grad_norm_clip_value: 10
 early_stopping_enabled: true
-early_stopping_checkpoint: 100
-early_stopping_wer_threshold: 0.2
 early_stopping_no_improvement: 10
 num_masks: 20
 max_mask_pct: 0.05

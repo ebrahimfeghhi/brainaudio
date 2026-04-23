@@ -91,11 +91,9 @@ def trainModel(args, model):
         
     # --train--
     valLoss = []
-    valWER = []
     valPER = []
-    
+
     # Track best metrics by participant
-    best_wer_by_participant = {}
     best_per_by_participant = {}
     
     startTime = time.time()
@@ -108,9 +106,7 @@ def trainModel(args, model):
     language_model_path = "/data2/brain2text/lm/"
     units_txt_file_pytorch = f"{language_model_path}units_pytorch.txt"
     imagineville_vocab_phoneme = "/data2/brain2text/lm/vocab_lower_100k_pytorch_phoneme.txt"
-    decoder = ctc_decoder(tokens=units_txt_file_pytorch, lexicon=imagineville_vocab_phoneme, 
-                    beam_size=args["beam_size"], nbest=1, lm="/data2/brain2text/lm/lm_dec19_huge_4gram.kenlm", 
-                    lm_weight=args["lm_weight"], word_score=args["word_score"]) if args["evaluate_wer"] else None
+    decoder = None
     
     no_improvement_count = 0
     
@@ -204,7 +200,6 @@ def trainModel(args, model):
         avgTrainLoss = np.mean(train_loss)
         
         loss_array = []
-        wer_array = [] 
         per_array = []
         
         current_lr = optimizer.param_groups[0]['lr']
@@ -214,10 +209,8 @@ def trainModel(args, model):
             
             for participant_id, valLoader in enumerate(valLoaders):
                 
-                loss, wer, per = evaluate(valLoader, model, participant_id, forward_ctc, args, decoder)
+                loss, _, per = evaluate(valLoader, model, participant_id, forward_ctc, args, decoder)
                 loss_array.append(loss)
-                if wer is not None:
-                    wer_array.append(wer)
                 per_array.append(per)
             
             endTime = time.time()
@@ -228,27 +221,15 @@ def trainModel(args, model):
                         "grad_norm": np.mean(grad_norm_store), 
                         "time_per_epoch": (endTime - startTime) / 100
                         }
-            # Log both PER and WER when evaluated by WER
-            if args["evaluate_wer"]:
-                    for pid, (avgDayLoss, wer, per) in enumerate(zip(loss_array, wer_array, per_array)):
-                        log_dict[f"ctc_loss_{pid}"] = avgDayLoss
-                        log_dict[f"wer_{pid}"] = wer
-                        log_dict[f"per_{pid}"] = per
-            # Log only PER when evaluated by PER
-            else:
-                    for pid, (avgDayLoss, per) in enumerate(zip(loss_array, per_array)):
-                        log_dict[f"ctc_loss_{pid}"] = avgDayLoss
-                        log_dict[f"per_{pid}"] = per
+            for pid, (avgDayLoss, per) in enumerate(zip(loss_array, per_array)):
+                log_dict[f"ctc_loss_{pid}"] = avgDayLoss
+                log_dict[f"per_{pid}"] = per
 
                 
             wandb.log(log_dict)
             
             # Save best models for mean across participants
 
-            # Save by mean WER
-            if args["evaluate_wer"] and len(valWER) > 0 and np.mean(wer_array) < np.min(valWER):
-                torch.save(model.state_dict(), outputDir + "/modelWeights_WER")
-            
             # Save by mean PER
             if len(valPER) > 0 and np.mean(per_array) < np.min(valPER):
                 torch.save(model.state_dict(), outputDir + "/modelWeights_PER")
@@ -256,57 +237,29 @@ def trainModel(args, model):
             # Save best models per participant
             for pid in range(len(loss_array)):
                 suffix = get_participant_suffix(pid)
-                # Save individual model by WER
-                if args["evaluate_wer"]:
-                    if pid not in best_wer_by_participant or wer_array[pid] < best_wer_by_participant[pid]:
-                        best_wer_by_participant[pid] = wer_array[pid]
-                        torch.save(model.state_dict(), outputDir + f"/modelWeights_WER{suffix}")
-                
                 # Save individual model by PER
                 if pid not in best_per_by_participant or per_array[pid] < best_per_by_participant[pid]:
                     best_per_by_participant[pid] = per_array[pid]
                     torch.save(model.state_dict(), outputDir + f"/modelWeights_PER{suffix}")
                 
             valLoss.append(np.mean(loss_array))
-            if args["evaluate_wer"]:
-                valWER.append(np.mean(wer_array)) 
             valPER.append(np.mean(per_array))
-            
-        
-            if args["evaluate_wer"]: 
-                if np.mean(wer_array) > np.min(valWER):
-                    no_improvement_count += 1
-                else:
-                    no_improvement_count = 0
+
+            if np.mean(per_array) > np.min(valPER):
+                no_improvement_count += 1
             else:
-                if np.mean(per_array) > np.min(valPER):
-                    no_improvement_count += 1
-                else:
-                    no_improvement_count = 0
-                    
-                    
-            if args["early_stopping_enabled"] and epoch == args["early_stopping_checkpoint"]:
-                    # ! Stopping based upon b2t25' <HARD CODED>
-                    if args["evaluate_wer"] and wer_array[0] > args["early_stopping_wer_threshold"]:
-                        wandb.log({"early_stopping_triggered": True, "early_stopping_reason": "wer_threshold", "early_stopping_epoch": epoch})
-                        break
-                    elif per_array[0] > args["early_stopping_per_threshold"]:
-                        wandb.log({"early_stopping_triggered": True, "early_stopping_reason": "per_threshold", "early_stopping_epoch": epoch})
-                        break
+                no_improvement_count = 0
                 
     wandb.finish()
     
     # Log and print results
-    best_mean_wer = np.min(valWER) if valWER else None
     best_mean_per = np.min(valPER) if valPER else None
-    
+
     for pid in best_per_by_participant.keys():
         suffix = get_participant_suffix(pid)
-        wer_val = f"{best_wer_by_participant[pid]:.4f}" if pid in best_wer_by_participant else "N/A"
-        print(f"Participant {pid}{suffix} - Best WER: {wer_val}, Best PER: {best_per_by_participant[pid]:.4f}")
-    
-    wer_str = f"{best_mean_wer:.4f}" if best_mean_wer is not None else "N/A"
+        print(f"Participant {pid}{suffix} - Best PER: {best_per_by_participant[pid]:.4f}")
+
     per_str = f"{best_mean_per:.4f}" if best_mean_per is not None else "N/A"
-    print(f"Mean - Best WER: {wer_str}, Best PER: {per_str}")
-    
-    return best_mean_wer, best_mean_per, best_wer_by_participant, best_per_by_participant
+    print(f"Mean - Best PER: {per_str}")
+
+    return best_mean_per, best_per_by_participant

@@ -14,7 +14,6 @@ seeds:
 - 7
 - 8 
 - 9 
-evaluate_wer: false
 evaluate_every_n_epochs: 1
 modelName: gru_b2t_24_baseline_brainaudio
 modelType: gru
@@ -38,9 +37,6 @@ normalize_ctc_len: true
 load_pretrained_model: ''
 grad_norm_clip_value: -1
 early_stopping_enabled: false
-early_stopping_checkpoint: 500
-early_stopping_wer_threshold: 1
-early_stopping_per_threshold: 1
 early_stopping_no_improvement: 50
 num_masks: 0
 max_mask_pct: 0.0

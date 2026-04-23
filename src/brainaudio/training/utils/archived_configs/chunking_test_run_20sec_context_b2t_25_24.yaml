@@ -7,7 +7,6 @@ participant_suffixes:
 - _24
 seeds:
 - 0
-evaluate_wer: true
 evaluate_every_n_epochs: 5
 modelName: chunking_test_run_20sec_context_b2t_25_24_constrained_eval
 modelType: transformer
@@ -29,8 +28,6 @@ nClasses: 40
 load_pretrained_model: ''
 grad_norm_clip_value: 10
 early_stopping_enabled: false
-early_stopping_checkpoint: 100
-early_stopping_wer_threshold: 1
 early_stopping_no_improvement: 1000
 num_masks: 20
 max_mask_pct: 0.05

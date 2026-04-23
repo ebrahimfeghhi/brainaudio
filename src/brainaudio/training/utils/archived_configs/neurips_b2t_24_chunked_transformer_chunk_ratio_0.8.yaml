@@ -5,7 +5,6 @@ participant_suffixes:
 - _24
 seeds:
 - 0
-evaluate_wer: false
 evaluate_every_n_epochs: 1
 modelName: neurips_b2t_24_chunked_transformer_chunk_rato_0.8
 modelType: transformer
@@ -27,9 +26,6 @@ nClasses: 40
 load_pretrained_model: ''
 grad_norm_clip_value: -1
 early_stopping_enabled: false
-early_stopping_checkpoint: 951
-early_stopping_wer_threshold: 1
-early_stopping_per_threshold: 1
 early_stopping_no_improvement: 95
 num_masks: 20
 max_mask_pct: 0.075
