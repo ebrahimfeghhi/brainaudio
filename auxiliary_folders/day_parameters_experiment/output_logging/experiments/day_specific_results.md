@@ -16,6 +16,8 @@ Adding day-specific parameters **hurts** the Transformer and removing them **hur
 
 - **GRU with shared input layer** (Figure 1, top left / top right): replacing the day-specific input transform with a single shared layer significantly increases WER on both B2T '24 and B2T '25. Configs: [B2T '24](../../../src/brainaudio/training/utils/custom_configs/day_param_configs/gru_b2t_24_shared_input.yaml) | [B2T '25](../../../src/brainaudio/training/utils/custom_configs/day_param_configs/gru_b2t_25_shared_input.yaml).
 
+  > **Caveat (B2T '25):** Figure 3 shows that the shared-input GRU achieves *better* validation loss and validation PER than the day-specific GRU, suggesting it is not simply a worse model. The WER increase in Figure 1 may therefore reflect a decoding artifact: Lightbeam's hyperparameters were tuned on the day-specific GRU's output distribution, and the slight WER gap could disappear if the decoder were re-tuned for the shared-input model's distribution.
+
 - **Transformer with day-specific layer** (Figure 1, bottom left / bottom right): adding a day-specific affine transform to the Transformer significantly increases WER on both benchmarks. Adding a Softsign nonlinearity after the transform degrades performance further. Configs: [B2T '24](../../../src/brainaudio/training/utils/custom_configs/day_param_configs/transformer_b2t_24_day_specific.yaml) | [B2T '24 + Softsign](../../../src/brainaudio/training/utils/custom_configs/day_param_configs/transformer_b2t_24_day_specific_softsign.yaml) | [B2T '25](../../../src/brainaudio/training/utils/custom_configs/day_param_configs/transformer_b2t_25_day_specific.yaml) | [B2T '25 + Softsign](../../../src/brainaudio/training/utils/custom_configs/day_param_configs/transformer_b2t_25_day_specific_softsign.yaml).
 
 ## Research Question
@@ -53,7 +55,7 @@ Issues with the current research plan.
 
 ![Figure 2 — B2T '24 GRU Loss Curves](gru_b2t_24_loss_curves.png)
 
-**Figure 3.** Training loss, validation loss, and validation PER for the B2T '25 GRU — Original (day-specific) vs. Shared input — across seeds 0–4 (mean ± SEM).
+**Figure 3.** Training loss, validation loss, and validation PER for the B2T '25 GRU — Original (day-specific) vs. Shared input — across seeds 0–9 (mean ± SEM).
 
 ![Figure 3 — B2T '25 GRU Loss Curves](gru_b2t_25_loss_curves.png)
 

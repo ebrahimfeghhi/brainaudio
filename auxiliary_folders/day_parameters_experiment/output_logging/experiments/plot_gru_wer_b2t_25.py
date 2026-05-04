@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from scipy import stats
 
 # =============================================================================
-# DATA  (seeds 1–10 for each condition)
+# DATA  (seeds 0–9 for each condition)
 # =============================================================================
 
 wer_original = np.array([
@@ -17,6 +17,11 @@ wer_original = np.array([
     0.061196,  # seed 2
     0.064690,  # seed 3
     0.059926,  # seed 4
+    0.0635,    # seed 5
+    0.0635,    # seed 6
+    0.0609,    # seed 7
+    0.0624,    # seed 8
+    0.0623,    # seed 9
 ])
 
 wer_shared = np.array([
@@ -25,6 +30,11 @@ wer_shared = np.array([
     0.068925,  # seed 2
     0.068396,  # seed 3
     0.066702,  # seed 4
+    0.0696,    # seed 5
+    0.0676,    # seed 6
+    0.0653,    # seed 7
+    0.0688,    # seed 8
+    0.0689,    # seed 9
 ])
 
 # =============================================================================

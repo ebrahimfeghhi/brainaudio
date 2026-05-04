@@ -10,7 +10,7 @@ parser.add_argument("--overwrite", action="store_true", help="Re-train even if m
 args_cli = parser.parse_args()
 
 # ---- Edit these fields before running ----
-config_path = "gru_b2t_24_shared_input_25_style.yaml"
+config_path = "gru_b2t_24_baseline_with_time_masking.yaml"
 device = "cuda:0"
 base_path = "/home/ebrahim"  # prepended to outputDir and manifest_paths; set to "" to use paths from config as-is
 # -------------------------------------------

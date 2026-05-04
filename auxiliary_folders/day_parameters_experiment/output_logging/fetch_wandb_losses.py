@@ -4,7 +4,7 @@ import wandb
 
 ENTITY = "lionelhu926-ucla"
 PROJECT = "nejm-brain-to-text"
-SEEDS = list(range(5))
+SEEDS = list(range(10))
 
 # Standard metric names used by the Transformer/B2T-24 GRU trainer
 METRICS_DEFAULT = {
